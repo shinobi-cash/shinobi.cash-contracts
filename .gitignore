@@ -1,0 +1,109 @@
+# =====================================================
+# Node.js / NPM
+# =====================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# =====================================================
+# Environment Variables
+# =====================================================
+.env
+.env.local
+.env.*.local
+
+# =====================================================
+# Hardhat
+# =====================================================
+artifacts/
+cache/
+cache_hardhat/
+typechain/
+typechain-types/
+coverage/
+coverage.json
+.coverage_artifacts
+.coverage_cache
+.coverage_contracts
+
+# Hardhat Ignition deployments
+ignition/deployments/
+
+# =====================================================
+# Foundry
+# =====================================================
+out/
+cache_forge/
+broadcast/
+!broadcast/README.md
+crytic-export/
+
+# Foundry coverage
+lcov.info
+
+# =====================================================
+# Testing & Analysis
+# =====================================================
+# Echidna corpus files
+test/**/corpus/
+test/invariants/fuzz/echidna_coverage/
+
+# Test artifacts
+*.profraw
+
+# =====================================================
+# IDE & Editor Files
+# =====================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =====================================================
+# Operating System Files
+# =====================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =====================================================
+# Logs
+# =====================================================
+*.log
+logs/
+
+# =====================================================
+# Build & Distribution
+# =====================================================
+dist/
+build/
+lib-esm/
+lib-cjs/
+
+# =====================================================
+# Temporary Files
+# =====================================================
+tmp/
+temp/
+*.tmp
+*.temp
+
+# =====================================================
+# Documentation Build
+# =====================================================
+docs/build/
+site/
+
+# Keep gitkeep files
+!**/.gitkeep
+
+privacy-pool-secrets.json

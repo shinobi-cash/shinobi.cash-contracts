@@ -1,0 +1,11 @@
+privacy-pool-paymasters-contracts/=src/contracts
+@account-abstraction/=node_modules/@account-abstraction/
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
+@oz-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+@oz/=lib/openzeppelin-contracts/contracts/
+lean-imt/=node_modules/@zk-kit/lean-imt.sol/
+poseidon-solidity/=node_modules/poseidon-solidity/
+poseidon/=node_modules/poseidon-solidity/
+interfaces/=lib/privacy-pools-core/packages/contracts/src/interfaces/
+contracts/=lib/privacy-pools-core/packages/contracts/src/contracts/
+forge-std/=lib/forge-std/src/

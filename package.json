@@ -1,0 +1,13 @@
+{
+  "name": "hardhat-project",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "^1.2.0",
+    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
+    "@types/minimatch": "^6.0.0",
+    "@types/node": "^20.0.0",
+    "dotenv": "17.2.1",
+    "hardhat": "^2.26.2",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}
