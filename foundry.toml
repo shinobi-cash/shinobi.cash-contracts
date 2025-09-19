@@ -14,6 +14,7 @@ auto_detect_remappings = false
 # Network configurations
 [rpc_endpoints]
 base-sepolia = "https://sepolia.base.org"
+arbitrum-sepolia = "https://arb-sepolia.g.alchemy.com/v2/08BGvr5Hv2Qjc5av5G_neLxkt3d7Kf9z"
 localhost = "http://localhost:8545"
 
 # Etherscan v2 configuration - uses ETHERSCAN_API_KEY for all chains
@@ -21,3 +22,4 @@ etherscan_api_key = "${ETHERSCAN_API_KEY}"
 
 [etherscan]
 base-sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=84532" }
+arbitrum-sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=421614" }

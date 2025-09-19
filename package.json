@@ -1,5 +1,20 @@
 {
-  "name": "hardhat-project",
+  "name": "shinobi-cash-contracts",
+  "version": "1.0.0",
+  "description": "Shinobi Cash - Cross-chain Privacy Pool Contracts with Account Abstraction",
+  "main": "index.js",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "deploy:localhost": "forge script script/Deploy.s.sol --rpc-url localhost --broadcast",
+    "deploy:arbitrum-sepolia": "forge script script/Deploy.s.sol --rpc-url arbitrum-sepolia --broadcast --verify",
+    "create-deposit": "npx ts-node scripts/1-CreateDeposit-LocalHost.ts",
+    "approve-asp": "npx ts-node scripts/2-ApproveASP-LocalHost.ts",
+    "withdraw": "npx ts-node scripts/3-Withdraw-LocalHost.ts",
+    "view-state": "npx ts-node scripts/2-ApproveASP-LocalHost.ts --state",
+    "test:workflow": "npm run create-deposit 0.001 && npm run approve-asp && npm run withdraw 0",
+    "clean": "forge clean && rm -rf node_modules && rm -f shinobi-cash-secrets.json"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-foundry": "^1.2.0",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
@@ -9,5 +24,29 @@
     "hardhat": "^2.26.2",
     "ts-node": "^10.9.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "dependencies": {
+    "@account-abstraction/contracts": "0.7.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@zk-kit/lean-imt.sol": "^2.0.1",
+    "poseidon-solidity": "^0.0.5",
+    "@zk-kit/lean-imt": "2.2.2",
+    "maci-crypto": "^1.2.0",
+    "permissionless": "0.2.0",
+    "snarkjs": "^0.7.4",
+    "viem": "2.23.2"
+  },
+  "keywords": [
+    "privacy",
+    "blockchain",
+    "zero-knowledge",
+    "account-abstraction",
+    "cross-chain",
+    "ethereum",
+    "arbitrum",
+    "privacy-pools",
+    "zk-snarks"
+  ],
+  "author": "Karandeep Singh",
+  "license": "Apache-2.0"
 }

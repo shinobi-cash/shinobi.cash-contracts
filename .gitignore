@@ -107,3 +107,4 @@ site/
 !**/.gitkeep
 
 privacy-pool-secrets.json
+mock-aa-environment
