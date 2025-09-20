@@ -22,6 +22,13 @@ contract ExtendedInputSettler is InputSettlerEscrow, IExtendedOrder {
     using LibAddress for uint256;
 
     /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
+    
+    /// @notice Override Open event to emit bytes instead of StandardOrder (for solver compatibility)
+    event Open(bytes32 indexed orderId, bytes order);
+
+    /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
     
@@ -109,7 +116,8 @@ contract ExtendedInputSettler is InputSettlerEscrow, IExtendedOrder {
         // Store refund calldata hash
         orderRefundCalldata[orderId] = extendedOrder.refundCalldataHash;
 
-        emit Open(orderId, standardOrder);
+        // Emit the Open event with ABI-encoded bytes (solver expects this format)
+        emit Open(orderId, abi.encode(standardOrder));
         emit ExtendedOpen(orderId, extendedOrder.refundCalldataHash);
     }
 
