@@ -7,6 +7,7 @@ import {console} from "forge-std/console.sol";
 // Shinobi Cash contracts
 import {ShinobiCashEntrypoint} from "../src/contracts/ShinobiCashEntrypoint.sol";
 import {ShinobiCashPoolSimple} from "../src/contracts/implementations/ShinobiCashPoolSimple.sol";
+import {IShinobiCashPool} from "../src/contracts/interfaces/IShinobiCashPool.sol";
 import {CrossChainWithdrawalPaymaster} from "../src/paymaster/contracts/CrossChainWithdrawalPaymaster.sol";
 import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/contracts/SimpleShinobiCashPoolPaymaster.sol";
 import {CrossChainWithdrawalVerifier} from "../src/paymaster/contracts/CrossChainWithdrawalVerifier.sol";
@@ -113,9 +114,8 @@ contract Deploy is Script {
         console.log("7. Deploying Cross-Chain Withdrawal Paymaster...");
         address payable crossChainPaymaster = payable(address(new CrossChainWithdrawalPaymaster(
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
-            IShinobiCashCrossChainHandler(address(shinobiEntrypointContract)),
             IShinobiCashEntrypoint(address(shinobiEntrypointContract)),
-            IPrivacyPool(ethCashPool)
+            IShinobiCashPool(ethCashPool)
         )));
         console.log("   Cross-Chain Paymaster deployed:", crossChainPaymaster);
 

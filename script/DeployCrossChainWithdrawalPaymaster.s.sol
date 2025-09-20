@@ -8,6 +8,7 @@ import {IEntryPoint as IERC4337EntryPoint} from "@account-abstraction/contracts/
 import {IShinobiCashCrossChainHandler} from "../src/contracts/interfaces/IShinobiCashCrossChainHandler.sol";
 import {ICrossChainWithdrawalVerifier} from "../src/paymaster/interfaces/ICrossChainWithdrawalVerifier.sol";
 import {IShinobiCashEntrypoint} from "../src/contracts/interfaces/IShinobiCashEntrypoint.sol";
+import {IShinobiCashPool} from "../src/contracts/interfaces/IShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 
 /**
@@ -32,9 +33,8 @@ contract DeployCrossChainWithdrawalPaymaster is Script {
         // Deploy CrossChainWithdrawalPaymaster contract
         CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
-            IShinobiCashCrossChainHandler(shinobiEntrypoint),
             IShinobiCashEntrypoint(shinobiEntrypoint),
-            IPrivacyPool(vm.envAddress("PRIVACY_POOL_ADDRESS"))
+            IShinobiCashPool(vm.envAddress("PRIVACY_POOL_ADDRESS"))
         );
         
         vm.stopBroadcast();
