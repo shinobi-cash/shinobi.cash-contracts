@@ -8,13 +8,13 @@ import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.s
 import {_packValidationData} from "@account-abstraction/contracts/core/Helpers.sol";
 import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
-
-import {IShinobiCashCrossChainHandler} from "../../contracts/interfaces/IShinobiCashCrossChainHandler.sol";
-import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IShinobiCashEntrypoint} from "../../contracts/interfaces/IShinobiCashEntrypoint.sol";
+import {IShinobiCashCrossChainHandler} from "../../contracts/interfaces/IShinobiCashCrossChainHandler.sol";
+import {IShinobiCashPool} from "../../contracts/interfaces/IShinobiCashPool.sol";
 import {ICrossChainWithdrawalVerifier} from "../interfaces/ICrossChainWithdrawalVerifier.sol";
 import {CrossChainProofLib} from "../../contracts/lib/CrossChainProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
+import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 
 /**
  * @title CrossChainWithdrawalPaymaster  
@@ -35,13 +35,10 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     uint256 internal constant _VALIDATION_FAILED = 1;
 
     /// @notice Cross-Chain Handler contract (ShinobiCashEntrypoint)
-    IShinobiCashCrossChainHandler public immutable SHINOBI_CASH_ENTRYPOINT;
-
-    /// @notice Cross-Chain Entrypoint contract
-    IShinobiCashEntrypoint public immutable CROSS_CHAIN_ENTRYPOINT;
+    IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
 
     /// @notice Cross-Chain Privacy Pool contract
-    IPrivacyPool public immutable CROSS_CHAIN_PRIVACY_POOL;
+    IShinobiCashPool public immutable ETH_POOL;
 
     /// @notice Expected smart account address for deterministic account pattern
     address public expectedSmartAccount;
@@ -75,7 +72,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     error InsufficientPaymasterCost();
     error WrongFeeRecipient();
     error UnauthorizedCaller();
-    error InvalidHandler();
+    error InvalidProcessooor();
     error InvalidScope();
     error ZeroFeeNotAllowed();
     error ExpectedSmartAccountNotSet();
@@ -89,19 +86,16 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     /**
      * @notice Deploy Cross-Chain Withdrawal Paymaster
      * @param _entryPoint ERC-4337 EntryPoint contract
-     * @param _crossChainHandler Cross-Chain Handler contract (ShinobiCashEntrypoint)
      * @param _shinobiCashEntrypoint Shinobi Cash Entrypoint contract
-     * @param _crossChainPrivacyPool Cross-Chain Privacy Pool contract
+     * @param _ethShinobiCashPool ShinobiCash Pool contract
      */
     constructor(
         IEntryPoint _entryPoint,
-        IShinobiCashCrossChainHandler _crossChainHandler,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
-        IPrivacyPool _crossChainPrivacyPool
+        IShinobiCashPool _ethShinobiCashPool
     ) BasePaymaster(_entryPoint) {
-        SHINOBI_CASH_ENTRYPOINT = _crossChainHandler;
-        CROSS_CHAIN_ENTRYPOINT = _shinobiCashEntrypoint;
-        CROSS_CHAIN_PRIVACY_POOL = _crossChainPrivacyPool;
+        SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
+        ETH_POOL = _ethShinobiCashPool;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -124,7 +118,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
      */
     function setExpectedSmartAccount(address account) external onlyOwner {
         if (account == address(0)) {
-            revert InvalidHandler();
+            revert InvalidProcessooor();
         }
         
         address previousAccount = expectedSmartAccount;
@@ -133,6 +127,75 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         emit ExpectedSmartAccountUpdated(previousAccount, account);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                        EMBEDDED WITHDRAWAL VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Internal relay method that mirrors ShinobiCashEntrypoint.processCrossChainWithdrawal()
+     * @dev This method is called internally by the paymaster to validate withdrawal proofs
+     *      without actually executing the withdrawal. It performs the same validation as
+     *      the real Cross-Chain Handler but stores results in transient storage for economic checks.
+     *      
+     * @param withdrawal The cross-chain withdrawal parameters to validate
+     * @param proof The ZK cross-chain withdrawal proof
+     * @param scope The scope identifier for the privacy pool
+     */
+    function processCrossChainWithdrawal(
+        IPrivacyPool.Withdrawal calldata withdrawal,
+        CrossChainProofLib.CrossChainWithdrawProof calldata proof,
+        uint256 scope,
+        IShinobiCashCrossChainHandler.CrossChainIntentParams calldata /* intentParams */
+    ) external {
+        if (msg.sender != address(this)) {
+            revert UnauthorizedCaller();
+        }
+        
+        // Validate withdrawal targets the correct processooor (SHINOBI_CASH_ENTRYPOINT)
+        if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
+            revert InvalidProcessooor();
+        }
+        
+        // Decode and validate relay data structure
+        IShinobiCashCrossChainHandler.CrossChainRelayData memory relayData = abi.decode(
+            withdrawal.data,
+            (IShinobiCashCrossChainHandler.CrossChainRelayData)
+        );
+        
+        // Ensure this paymaster receives the relay fees
+        if (relayData.feeRecipient != address(this)) {
+            revert WrongFeeRecipient();
+        }
+        
+        // Validate scope matches our supported Cross-Chain Privacy Pool
+        if (scope != ETH_POOL.SCOPE()) {
+            revert InvalidScope();
+        }
+
+        // CRITICAL: Verify ZK proof to ensure withdrawal is valid
+        if (!_validateCrossChainWithdrawCall(withdrawal, proof)) {
+            revert CrossChainWithdrawalValidationFailed();
+        }
+
+        // Store decoded values in transient storage for economic validation
+        uint256 withdrawnValue = proof.withdrawnValue(); // withdrawnValue from 9-signal proof
+        uint256 relayFeeBPS = relayData.relayFeeBPS;
+        
+        // Extract recipient from encoded destination
+        address withdrawalRecipient = address(uint160(uint256(relayData.encodedDestination)));
+
+        // Store in transient storage (EIP-1153)
+        assembly {
+            tstore(0, withdrawnValue)
+            tstore(1, relayFeeBPS)
+            tstore(2, withdrawalRecipient)
+        }
+        
+        // Ensure non-zero fees to prevent free withdrawals
+        if (relayFeeBPS == 0) {
+            revert ZeroFeeNotAllowed();
+        }
+    }
     /*//////////////////////////////////////////////////////////////
                             POST-OP OPERATIONS
     //////////////////////////////////////////////////////////////*/
@@ -151,30 +214,19 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         uint256 actualUserOpFeePerGas
     ) internal override {
         // Decode context from validation phase
-        (bytes32 userOpHash, address withdrawalRecipient, uint256 expectedFeeAmount) = abi
+        (bytes32 userOpHash, address withdrawalRecipient, ) = abi
             .decode(context, (bytes32, address, uint256));
 
         // Calculate total actual cost including postOp overhead
         uint256 postOpCost = POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
         uint256 actualWithdrawalCost = actualGasCost + postOpCost;
-        uint256 refundAmount = expectedFeeAmount > actualWithdrawalCost
-            ? expectedFeeAmount - actualWithdrawalCost
-            : 0;
-
-        // If actual cost is less than expected, refund the difference to the user
-        if (refundAmount > 0) {
-            // Transfer refund to withdrawalRecipient
-            (bool success, ) = withdrawalRecipient.call{value: refundAmount}("");
-            success; // Suppress unused variable warning
-            // We don't revert on failure to avoid blocking the transaction
-        }
 
         // Emit withdrawal tracking event
         emit CrossChainWithdrawalSponsored(
             withdrawalRecipient,
             userOpHash,
             actualWithdrawalCost,
-            refundAmount
+            0
         );
     }
 
@@ -257,77 +309,6 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        EMBEDDED WITHDRAWAL VALIDATION
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Internal relay method that mirrors Cross-Chain Handler.processCrossChainWithdrawal()
-     * @dev This method is called internally by the paymaster to validate withdrawal proofs
-     *      without actually executing the withdrawal. It performs the same validation as
-     *      the real Cross-Chain Handler but stores results in transient storage for economic checks.
-     *      
-     * @param withdrawal The cross-chain withdrawal parameters to validate
-     * @param proof The ZK cross-chain withdrawal proof
-     * @param scope The scope identifier for the privacy pool
-     * @param intentParams Intent parameters for cross-chain validation
-     */
-    function processCrossChainWithdrawal(
-        IShinobiCashCrossChainHandler.CrossChainWithdrawal calldata withdrawal,
-        IShinobiCashCrossChainHandler.CrossChainWithdrawProof calldata proof,
-        uint256 scope,
-        IShinobiCashCrossChainHandler.CrossChainIntentParams calldata intentParams
-    ) external {
-        if (msg.sender != address(this)) {
-            revert UnauthorizedCaller();
-        }
-        
-        // Validate withdrawal targets the correct handler (Cross-Chain Handler)
-        if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
-            revert InvalidHandler();
-        }
-        
-        // Decode and validate relay data structure
-        IShinobiCashCrossChainHandler.CrossChainRelayData memory relayData = abi.decode(
-            withdrawal.data,
-            (IShinobiCashCrossChainHandler.CrossChainRelayData)
-        );
-        
-        // Ensure this paymaster receives the relay fees
-        if (relayData.feeRecipient != address(this)) {
-            revert WrongFeeRecipient();
-        }
-        
-        // Validate scope matches our supported Cross-Chain Privacy Pool
-        if (scope != CROSS_CHAIN_PRIVACY_POOL.SCOPE()) {
-            revert InvalidScope();
-        }
-
-        // CRITICAL: Verify ZK proof to ensure withdrawal is valid
-        if (!_validateCrossChainWithdrawCall(withdrawal, proof, scope)) {
-            revert CrossChainWithdrawalValidationFailed();
-        }
-
-        // Store decoded values in transient storage for economic validation
-        uint256 withdrawnValue = proof.pubSignals[3]; // withdrawnValue from 9-signal proof
-        uint256 relayFeeBPS = relayData.relayFeeBPS;
-        
-        // Extract recipient from encoded destination
-        address withdrawalRecipient = address(uint160(uint256(relayData.encodedDestination)));
-
-        // Store in transient storage (EIP-1153)
-        assembly {
-            tstore(0, withdrawnValue)
-            tstore(1, relayFeeBPS)
-            tstore(2, withdrawalRecipient)
-        }
-        
-        // Ensure non-zero fees to prevent free withdrawals
-        if (relayFeeBPS == 0) {
-            revert ZeroFeeNotAllowed();
-        }
-    }
-
-    /*//////////////////////////////////////////////////////////////
                         EMBEDDED WITHDRAWAL VALIDATION  
     //////////////////////////////////////////////////////////////*/
 
@@ -352,7 +333,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
             return false;
         }
         
-        // Should not send ETH with withdrawal calls
+         // Validate no ETH transfer
         if (value != 0) {
             return false;
         }
@@ -375,67 +356,56 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
      * @return true if proof is valid, false otherwise
      */
     function _validateCrossChainWithdrawCall(
-        IShinobiCashCrossChainHandler.CrossChainWithdrawal memory withdrawal,
-        IShinobiCashCrossChainHandler.CrossChainWithdrawProof memory proof,
-        uint256 scope
+        IPrivacyPool.Withdrawal memory withdrawal,
+        CrossChainProofLib.CrossChainWithdrawProof memory proof
     ) internal view returns (bool) {
         // 1. Validate withdrawal context matches proof
         uint256 expectedContext = uint256(
-            keccak256(abi.encode(withdrawal, CROSS_CHAIN_PRIVACY_POOL.SCOPE()))
+            keccak256(abi.encode(withdrawal, ETH_POOL.SCOPE()))
         ) % (Constants.SNARK_SCALAR_FIELD);
         
-        if (proof.pubSignals[8] != expectedContext) { // context is 9th signal (index 8)
+        if (proof.context() != expectedContext) { 
             return false;
         }
 
         // 2. Check the tree depth signals are less than the max tree depth
         if (
-            proof.pubSignals[5] > CROSS_CHAIN_PRIVACY_POOL.MAX_TREE_DEPTH() || // stateTreeDepth
-            proof.pubSignals[7] > CROSS_CHAIN_PRIVACY_POOL.MAX_TREE_DEPTH()    // ASPTreeDepth
+            proof.stateTreeDepth() > ETH_POOL.MAX_TREE_DEPTH() || // stateTreeDepth
+            proof.ASPTreeDepth() > ETH_POOL.MAX_TREE_DEPTH()    // ASPTreeDepth
         ) {
             return false;
         }
 
         // 3. Check state root is valid (same as _isKnownRoot in State.sol)
-        uint256 stateRoot = proof.pubSignals[4];
+        uint256 stateRoot = proof.stateRoot();
         if (!_isKnownRoot(stateRoot)) {
             return false;
         }
 
         // 4. Validate ASP root is latest (same as PrivacyPool validation)
-        uint256 aspRoot = proof.pubSignals[6];
-        if (aspRoot != CROSS_CHAIN_ENTRYPOINT.latestRoot()) {
+        uint256 aspRoot = proof.ASPRoot();
+        if (aspRoot != SHINOBI_CASH_ENTRYPOINT.latestRoot()) {
             return false;
         }
 
         // 5. Check nullifier hasn't been spent
-        uint256 nullifierHash = proof.pubSignals[1]; // existingNullifierHash
-        if (CROSS_CHAIN_PRIVACY_POOL.nullifierHashes(nullifierHash)) {
+        uint256 nullifierHash = proof.existingNullifierHash(); // existingNullifierHash
+        if (ETH_POOL.nullifierHashes(nullifierHash)) {
             return false;
         }
 
         // 6. Verify refund commitment is present (9th signal - cross-chain specific)
-        if (proof.pubSignals[2] == 0) { // refundCommitmentHash
+        if (proof.refundCommitmentHash() == 0) { // refundCommitmentHash
             return false;
         }
 
         // 7. Verify Groth16 proof with cross-chain withdrawal verifier
         if (
-            !ICrossChainWithdrawalVerifier(address(CROSS_CHAIN_PRIVACY_POOL.WITHDRAWAL_VERIFIER())).verifyProof(
-                [proof.pA[0], proof.pA[1]],
-                [[proof.pB[0][1], proof.pB[0][0]], [proof.pB[1][1], proof.pB[1][0]]],
-                [proof.pC[0], proof.pC[1]],
-                [
-                    proof.pubSignals[0], // newCommitmentHash
-                    proof.pubSignals[1], // existingNullifierHash
-                    proof.pubSignals[2], // refundCommitmentHash (9th signal)
-                    proof.pubSignals[3], // withdrawnValue
-                    proof.pubSignals[4], // stateRoot
-                    proof.pubSignals[5], // stateTreeDepth
-                    proof.pubSignals[6], // ASPRoot
-                    proof.pubSignals[7], // ASPTreeDepth
-                    proof.pubSignals[8]  // context
-                ]
+            !ICrossChainWithdrawalVerifier(ETH_POOL.crossChainVerifier()).verifyProof(
+                proof.pA,
+                proof.pB,
+                proof.pC,
+                proof.pubSignals
             )
         ) {
             return false;
@@ -447,6 +417,27 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     /*//////////////////////////////////////////////////////////////
                             UTILITY FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Check if a root is known/valid (mirrors State._isKnownRoot)
+     * @param _root The root to validate
+     * @return True if the root is in the last ROOT_HISTORY_SIZE roots
+     */
+    function _isKnownRoot(uint256 _root) internal view returns (bool) {
+        if (_root == 0) return false;
+
+        // Start from the most recent root (current index)
+        uint32 _index = ETH_POOL.currentRootIndex();
+        uint32 ROOT_HISTORY_SIZE = ETH_POOL.ROOT_HISTORY_SIZE();
+
+        // Check all possible roots in the history
+        for (uint32 _i = 0; _i < ROOT_HISTORY_SIZE; _i++) {
+            if (_root == ETH_POOL.roots(_index)) return true;
+            _index = (_index + ROOT_HISTORY_SIZE - 1) % ROOT_HISTORY_SIZE;
+        }
+
+        return false;
+    }
 
     /**
      * @notice Extract target, value and data from SimpleAccount.execute() calldata
@@ -476,14 +467,4 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         (target, value, data) = abi.decode(callData[4:], (address, uint256, bytes));
     }
 
-    /**
-     * @notice Check if a state root is known/valid
-     * @dev This should implement the same logic as the privacy pool's state management
-     * @param root The state root to check
-     * @return true if root is known, false otherwise
-     */
-    function _isKnownRoot(uint256 root) internal view returns (bool) {
-        // Simplified implementation - should check against actual state contract
-        return root != 0; // Basic sanity check
-    }
 }

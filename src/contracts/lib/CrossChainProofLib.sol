@@ -19,16 +19,16 @@ library CrossChainProofLib {
      * @param pA First elliptic curve point (π_A) of the Groth16 proof, encoded as two field elements
      * @param pB Second elliptic curve point (π_B) of the Groth16 proof, encoded as 2x2 matrix of field elements
      * @param pC Third elliptic curve point (π_C) of the Groth16 proof, encoded as two field elements
-     * @param pubSignals Array of public inputs and outputs (identical to standard + 1 extra):
-     *        - [0] newCommitmentHash: Hash of the new commitment being created
-     *        - [1] existingNullifierHash: Hash of the nullifier being spent
-     *        - [2] withdrawnValue: Amount being withdrawn
-     *        - [3] stateRoot: Current state root of the privacy pool
-     *        - [4] stateTreeDepth: Current depth of the state tree
-     *        - [5] ASPRoot: Current root of the Association Set Provider tree
-     *        - [6] ASPTreeDepth: Current depth of the ASP tree
-     *        - [7] context: Context value for the withdrawal operation
-     *        - [8] refundCommitmentHash: Hash of commitment for refund recovery (NEW)
+     * @param pubSignals Array of public inputs and outputs (actual circuit order):
+     *        - [0] newCommitmentHash: Hash of the new commitment being created (output)
+     *        - [1] existingNullifierHash: Hash of the nullifier being spent (output)
+     *        - [2] refundCommitmentHash: Hash of commitment for refund recovery (output)
+     *        - [3] withdrawnValue: Amount being withdrawn (input)
+     *        - [4] stateRoot: Current state root of the privacy pool (input)
+     *        - [5] stateTreeDepth: Current depth of the state tree (input)
+     *        - [6] ASPRoot: Current root of the Association Set Provider tree (input)
+     *        - [7] ASPTreeDepth: Current depth of the ASP tree (input)
+     *        - [8] context: Context value for the withdrawal operation (input)
      */
     struct CrossChainWithdrawProof {
         uint256[2] pA;
@@ -65,7 +65,7 @@ library CrossChainProofLib {
      * @return The amount being withdrawn from Privacy Pool
      */
     function withdrawnValue(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[2];
+        return _p.pubSignals[3];
     }
 
     /**
@@ -74,7 +74,7 @@ library CrossChainProofLib {
      * @return The root of the state tree at time of proof generation
      */
     function stateRoot(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[3];
+        return _p.pubSignals[4];
     }
 
     /**
@@ -83,7 +83,7 @@ library CrossChainProofLib {
      * @return The depth of the state tree at time of proof generation
      */
     function stateTreeDepth(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[4];
+        return _p.pubSignals[5];
     }
 
     /**
@@ -92,7 +92,7 @@ library CrossChainProofLib {
      * @return The latest root of the ASP tree at time of proof generation
      */
     function ASPRoot(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[5];
+        return _p.pubSignals[6];
     }
 
     /**
@@ -101,7 +101,7 @@ library CrossChainProofLib {
      * @return The depth of the ASP tree at time of proof generation
      */
     function ASPTreeDepth(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[6];
+        return _p.pubSignals[7];
     }
 
     /**
@@ -110,7 +110,7 @@ library CrossChainProofLib {
      * @return The context value binding the proof to specific withdrawal data
      */
     function context(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[7];
+        return _p.pubSignals[8];
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -119,11 +119,11 @@ library CrossChainProofLib {
 
     /**
      * @notice Retrieves the refund commitment hash from the proof's public signals
-     * @dev This is the 9th signal (index 8), unique to cross-chain withdrawals
+     * @dev This is the 3rd signal (index 2), unique to cross-chain withdrawals
      * @param _p The proof containing the public signals
      * @return The hash of the commitment for refund recovery in case of failed cross-chain execution
      */
     function refundCommitmentHash(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[8];
+        return _p.pubSignals[2];
     }
 }

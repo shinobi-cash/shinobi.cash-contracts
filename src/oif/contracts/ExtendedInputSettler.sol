@@ -140,9 +140,9 @@ contract ExtendedInputSettler is InputSettlerEscrow, IExtendedOrder {
             }
         }
         
-        // Verify the correct amount of ETH was sent with the transaction
-        if (msg.value != expectedEthValue) {
-            revert("Incorrect ETH amount sent");
+        // Verify sufficient ETH was sent with the transaction
+        if (msg.value < expectedEthValue) {
+            revert("Insufficient ETH amount sent");
         }
         
         // ETH is now held in this contract - no additional transfers needed

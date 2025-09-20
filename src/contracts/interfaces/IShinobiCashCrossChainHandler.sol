@@ -4,6 +4,8 @@
 pragma solidity 0.8.28;
 
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
+import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
+import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
   /**
    * @title ICrossChainHandler
    * @notice Interface for handling cross-chain privacy pool withdrawals
@@ -15,25 +17,9 @@ import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
                                   STRUCTS
       //////////////////////////////////////////////////////////////*/
       
-      /**
-       * @notice Enhanced withdrawal parameters for cross-chain operations
-       * @dev Extends standard withdrawal with cross-chain specific data
-       */
-      struct CrossChainWithdrawal {
-          address processooor;            // Contract to process the withdrawal
-          bytes data;                     // Encoded CrossChainRelayData
-      }
-
-      /**
-       * @notice Enhanced ZK proof with refund commitment support
-       * @dev Extends standard proof with additional public signal for refund commitment
-       */
-      struct CrossChainWithdrawProof {
-          uint256[2] pA;                  // Groth16 proof component A
-          uint256[2][2] pB;              // Groth16 proof component B
-          uint256[2] pC;                  // Groth16 proof component C
-          uint256[9] pubSignals;          // Extended public signals (9th = refundCommitmentHash)
-      }
+      // Use canonical types from existing libraries
+      // CrossChainWithdrawal is the same as IPrivacyPool.Withdrawal
+      // CrossChainWithdrawProof is the same as CrossChainProofLib.CrossChainWithdrawProof
 
       /**
        * @notice Enhanced relay data for cross-chain withdrawals
@@ -87,8 +73,8 @@ import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
        * @param intentParams User-provided intent parameters for validation
        */
       function processCrossChainWithdrawal(
-          CrossChainWithdrawal calldata withdrawal,
-          CrossChainWithdrawProof calldata proof,
+          IPrivacyPool.Withdrawal calldata withdrawal,
+          CrossChainProofLib.CrossChainWithdrawProof calldata proof,
           uint256 scope,
           CrossChainIntentParams calldata intentParams
       ) external;

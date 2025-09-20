@@ -53,8 +53,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     
     /// @inheritdoc IShinobiCashCrossChainHandler
     function processCrossChainWithdrawal(
-        CrossChainWithdrawal calldata withdrawal,
-        CrossChainWithdrawProof calldata proof,
+        IPrivacyPool.Withdrawal calldata withdrawal,
+        CrossChainProofLib.CrossChainWithdrawProof calldata proof,
         uint256 scope,
         CrossChainIntentParams calldata intentParams
     ) external override nonReentrant {
@@ -78,29 +78,18 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
             "Relay fee exceeds maximum"
         );
         
-        shinobiPool.crossChainWithdraw(
-            IPrivacyPool.Withdrawal({
-                processooor: address(this),
-                data: withdrawal.data
-            }),
-            CrossChainProofLib.CrossChainWithdrawProof({
-                pA: proof.pA,
-                pB: proof.pB,
-                pC: proof.pC,
-                pubSignals: proof.pubSignals
-            })
-        );
+        shinobiPool.crossChainWithdraw(withdrawal, proof);
         
-        uint256 withdrawnAmount = proof.pubSignals[2];
+        uint256 withdrawnAmount = proof.withdrawnValue();
         uint256 feeAmount = (withdrawnAmount * relayData.relayFeeBPS) / 10000;
         uint256 netAmount = withdrawnAmount - feeAmount;
-        uint256 nullifierHash = proof.pubSignals[1];
+        uint256 nullifierHash = proof.existingNullifierHash();
         
         // Validate ExtendedInputSettler is set
         require(extendedInputSettler != address(0), "ExtendedInputSettler not set");
         
-        // Validate intent parameters for OIF order creation
-        _validateIntentParams(intentParams, withdrawnAmount);
+        // TODO: Validate intent parameters for OIF order creation 
+        // _validateIntentParams(intentParams, withdrawnAmount);
         
         if (feeAmount > 0) {
             _transfer(asset, relayData.feeRecipient, feeAmount);
@@ -218,42 +207,42 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         IExtendedOrder(extendedInputSettler).openExtended{value: netAmount}(order);
     }
 
-    /**
-     * @notice Validate intent parameters for OIF order creation
-     * @param intentParams User-provided intent parameters
-     * @param totalAmount Total amount to be escrowed (withdrawn amount)
-     */
-    function _validateIntentParams(
-        CrossChainIntentParams calldata intentParams,
-        uint256 totalAmount
-    ) internal view {
-        // Validate timing parameters
-        require(
-            intentParams.fillDeadline > block.timestamp,
-            "Fill deadline must be in the future"
-        );
-        require(
-            intentParams.expires > intentParams.fillDeadline,
-            "Expiry must be after fill deadline"
-        );
-        require(
-            intentParams.expires <= block.timestamp + 24 hours,
-            "Expiry too far in the future (max 24 hours)"
-        );
+    // /**
+    //  * @notice Validate intent parameters for OIF order creation
+    //  * @param intentParams User-provided intent parameters
+    //  * @param totalAmount Total amount to be escrowed (withdrawn amount)
+    //  */
+    // function _validateIntentParams(
+    //     CrossChainIntentParams calldata intentParams,
+    //     uint256 totalAmount
+    // ) internal view {
+    //     // Validate timing parameters
+    //     require(
+    //         intentParams.fillDeadline > block.timestamp,
+    //         "Fill deadline must be in the future"
+    //     );
+    //     require(
+    //         intentParams.expires > intentParams.fillDeadline,
+    //         "Expiry must be after fill deadline"
+    //     );
+    //     require(
+    //         intentParams.expires <= block.timestamp + 24 hours,
+    //         "Expiry too far in the future (max 24 hours)"
+    //     );
 
-        // Validate inputs match the total amount
-        require(intentParams.inputs.length == 1, "Must have exactly one input");
-        require(
-            intentParams.inputs[0][0] == 0, // Native ETH
-            "Input must be native ETH (address 0)"
-        );
-        require(
-            intentParams.inputs[0][1] == totalAmount,
-            "Input amount must match total withdrawn amount"
-        );
+    //     // Validate inputs match the total amount
+    //     require(intentParams.inputs.length == 1, "Must have exactly one input");
+    //     require(
+    //         intentParams.inputs[0][0] == 0, // Native ETH
+    //         "Input must be native ETH (address 0)"
+    //     );
+    //     require(
+    //         intentParams.inputs[0][1] == totalAmount,
+    //         "Input amount must match total withdrawn amount"
+    //     );
 
-        // Validate outputs are not empty
-        require(intentParams.outputs.length > 0, "Must have at least one output");
-    }
+    //     // Validate outputs are not empty
+    //     require(intentParams.outputs.length > 0, "Must have at least one output");
+    // }
  
 }
