@@ -103,6 +103,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
             netAmount,
             scope
         );
+        emit WithdrawalRelayed(msg.sender, address(uint160(uint256(relayData.encodedDestination))), asset, withdrawnAmount, feeAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
