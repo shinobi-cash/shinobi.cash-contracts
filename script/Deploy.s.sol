@@ -11,7 +11,11 @@ import {IShinobiCashPool} from "../src/contracts/interfaces/IShinobiCashPool.sol
 import {CrossChainWithdrawalPaymaster} from "../src/paymaster/contracts/CrossChainWithdrawalPaymaster.sol";
 import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/contracts/SimpleShinobiCashPoolPaymaster.sol";
 import {CrossChainWithdrawalVerifier} from "../src/paymaster/contracts/CrossChainWithdrawalVerifier.sol";
-import {ExtendedInputSettler} from "../src/oif/contracts/ExtendedInputSettler.sol";
+import {WithdrawalInputSettler} from "../src/oif/contracts/WithdrawalInputSettler.sol";
+import {DepositInputSettler} from "../src/oif/contracts/DepositInputSettler.sol";
+import {WithdrawalOutputSettler} from "../src/oif/contracts/WithdrawalOutputSettler.sol";
+import {DepositOutputSettler} from "../src/oif/contracts/DepositOutputSettler.sol";
+import {ShinobiDepositEntrypoint} from "../src/contracts/ShinobiDepositEntrypoint.sol";
 
 // Privacy Pools Core contracts (from submodule)
 import {WithdrawalVerifier} from "contracts/verifiers/WithdrawalVerifier.sol";
@@ -91,19 +95,30 @@ contract Deploy is Script {
         );
         console.log("   ETH Pool registered with Shinobi Entrypoint");
 
-        // 5. Deploy Extended OIF Input Settler
-        console.log("5. Deploying Extended OIF Input Settler...");
-        address extendedInputSettler = address(new ExtendedInputSettler());
-        console.log("   Extended Input Settler:", extendedInputSettler);
+        // 5. Deploy OIF Settlers
+        console.log("5. Deploying OIF Settlers...");
+        address withdrawalInputSettler = address(new WithdrawalInputSettler());
+        address withdrawalOutputSettler = address(new WithdrawalOutputSettler());
+        address depositInputSettler = address(new DepositInputSettler());
+        address depositOutputSettler = address(new DepositOutputSettler());
+
+        console.log("   Withdrawal Input Settler:", withdrawalInputSettler);
+        console.log("   Withdrawal Output Settler:", withdrawalOutputSettler);
+        console.log("   Deposit Input Settler:", depositInputSettler);
+        console.log("   Deposit Output Settler:", depositOutputSettler);
 
         // 6. Configure cross-chain support
         console.log("6. Configuring cross-chain support...");
         ShinobiCashEntrypoint shinobiEntrypointContract = ShinobiCashEntrypoint(payable(shinobiEntrypoint));
-        
-        // Set Extended Input Settler
-        shinobiEntrypointContract.setExtendedInputSettler(extendedInputSettler);
-        console.log("   Extended Input Settler configured");
-        
+
+        // Set Withdrawal Input Settler
+        shinobiEntrypointContract.setWithdrawalInputSettler(withdrawalInputSettler);
+        console.log("   Withdrawal Input Settler configured");
+
+        // Set Deposit Output Settler
+        shinobiEntrypointContract.setDepositOutputSettler(depositOutputSettler);
+        console.log("   Deposit Output Settler configured");
+
         // Enable supported chains (example: Ethereum mainnet, Arbitrum, Polygon)
         shinobiEntrypointContract.updateChainSupport(1, true);    // Ethereum
         shinobiEntrypointContract.updateChainSupport(42161, true); // Arbitrum
@@ -140,7 +155,10 @@ contract Deploy is Script {
         require(simplePaymaster.code.length > 0, "Simple paymaster deployment failed");
         require(ethCashPool.code.length > 0, "Cash Pool deployment failed");
         require(shinobiEntrypoint.code.length > 0, "Entrypoint deployment failed");
-        require(extendedInputSettler.code.length > 0, "Extended Input Settler deployment failed");
+        require(withdrawalInputSettler.code.length > 0, "Withdrawal Input Settler deployment failed");
+        require(withdrawalOutputSettler.code.length > 0, "Withdrawal Output Settler deployment failed");
+        require(depositInputSettler.code.length > 0, "Deposit Input Settler deployment failed");
+        require(depositOutputSettler.code.length > 0, "Deposit Output Settler deployment failed");
         console.log("   All contracts deployed successfully");
 
         vm.stopBroadcast();
@@ -150,10 +168,13 @@ contract Deploy is Script {
         console.log("=== DEPLOYMENT COMPLETE ===");
         console.log("Copy these addresses to your integration scripts:");
         console.log("SHINOBI_ENTRYPOINT:", shinobiEntrypoint);
-        console.log("PRIVACY_POOL:", ethCashPool); 
+        console.log("PRIVACY_POOL:", ethCashPool);
         console.log("CROSS_CHAIN_PAYMASTER:", crossChainPaymaster);
         console.log("SIMPLE_PAYMASTER:", simplePaymaster);
-        console.log("EXTENDED_INPUT_SETTLER:", extendedInputSettler);
+        console.log("WITHDRAWAL_INPUT_SETTLER:", withdrawalInputSettler);
+        console.log("WITHDRAWAL_OUTPUT_SETTLER:", withdrawalOutputSettler);
+        console.log("DEPOSIT_INPUT_SETTLER:", depositInputSettler);
+        console.log("DEPOSIT_OUTPUT_SETTLER:", depositOutputSettler);
         console.log("WITHDRAWAL_VERIFIER:", withdrawalVerifier);
         console.log("COMMITMENT_VERIFIER:", commitmentVerifier);
         console.log("CROSS_CHAIN_VERIFIER:", crossChainVerifier);
