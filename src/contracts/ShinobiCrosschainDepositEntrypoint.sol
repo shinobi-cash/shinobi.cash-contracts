@@ -10,18 +10,18 @@ import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
 /**
- * @title ShinobiDepositEntrypoint
+ * @title ShinobiCrosschainDepositEntrypoint
  * @notice Lightweight entrypoint for cross-chain deposits on origin chains
  * @dev Deployed on origin chains (e.g., Arbitrum) where users have funds
- * @dev Provides simple deposit/refund interface and calls DepositInputSettler
+ * @dev Provides simple deposit/refund interface and calls ShinobiInputSettler
  */
-contract ShinobiDepositEntrypoint is ReentrancyGuard, Ownable {
+contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Address of the DepositInputSettler contract
-    address public depositInputSettler;
+    /// @notice Address of the ShinobiInputSettler contract
+    address public inputSettler;
 
     /// @notice Default configuration for cross-chain deposits
     uint32 public defaultFillDeadline = 1 hours;
@@ -39,7 +39,7 @@ contract ShinobiDepositEntrypoint is ReentrancyGuard, Ownable {
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    // No events needed - DepositInputSettler emits Open/Refunded events
+    // No events needed - ShinobiInputSettler emits Open/Refunded events
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -66,7 +66,7 @@ contract ShinobiDepositEntrypoint is ReentrancyGuard, Ownable {
      */
     function deposit(uint256 precommitment) external payable nonReentrant {
         if (msg.value == 0) revert InvalidAmount();
-        if (depositInputSettler == address(0)) revert InputSettlerNotSet();
+        if (inputSettler == address(0)) revert InputSettlerNotSet();
         if (destinationChainId == 0) revert ConfigurationNotSet();
 
         // Generate global unique nonce
@@ -118,9 +118,9 @@ contract ShinobiDepositEntrypoint is ReentrancyGuard, Ownable {
             refundCalldata: refundCalldata
         });
 
-        // Call DepositInputSettler to open intent and escrow funds
-        // DepositInputSettler will emit Open(orderId, intent) event
-        IShinobiInputSettler(depositInputSettler).open{value: msg.value}(intent);
+        // Call ShinobiInputSettler to open intent and escrow funds
+        // ShinobiInputSettler will emit Open(orderId, intent) event
+        IShinobiInputSettler(inputSettler).open{value: msg.value}(intent);
     }
 
     /**
@@ -130,12 +130,12 @@ contract ShinobiDepositEntrypoint is ReentrancyGuard, Ownable {
      * @param intent The original deposit intent
      */
     function refund(ShinobiIntent calldata intent) external nonReentrant {
-        if (depositInputSettler == address(0)) revert InputSettlerNotSet();
+        if (inputSettler == address(0)) revert InputSettlerNotSet();
 
-        // Call DepositInputSettler to process refund
+        // Call ShinobiInputSettler to process refund
         // Funds will be sent to intent.user regardless of caller
-        // DepositInputSettler will emit Refunded(orderId) event
-        IShinobiInputSettler(depositInputSettler).refund(intent);
+        // ShinobiInputSettler will emit Refunded(orderId) event
+        IShinobiInputSettler(inputSettler).refund(intent);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -143,12 +143,12 @@ contract ShinobiDepositEntrypoint is ReentrancyGuard, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Set the DepositInputSettler address
-     * @param _inputSettler Address of the DepositInputSettler contract
+     * @notice Set the ShinobiInputSettler address
+     * @param _inputSettler Address of the ShinobiInputSettler contract
      */
-    function setDepositInputSettler(address _inputSettler) external onlyOwner {
+    function setInputSettler(address _inputSettler) external onlyOwner {
         require(_inputSettler != address(0), "Invalid address");
-        depositInputSettler = _inputSettler;
+        inputSettler = _inputSettler;
     }
 
     /**
