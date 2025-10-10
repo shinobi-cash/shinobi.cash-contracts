@@ -33,8 +33,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     /// @notice Address of the ShinobiInputSettler for cross-chain withdrawals
     address public inputSettler;
 
-    /// @notice Address of the ShinobiOutputSettler for cross-chain deposits
-    address public depositOutputSettler;
+    /// @notice Address of the ShinobiOutputSettler for cross-chain operations
+    address public outputSettler;
 
     /// @notice Intent oracle address (for deposits - not used for withdrawals)
     address public intentOracle;
@@ -130,9 +130,9 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
 
     /// @notice Set the ShinobiOutputSettler address
     /// @param _outputSettler The address of the ShinobiOutputSettler contract
-    function setDepositOutputSettler(address _outputSettler) external onlyRole(_OWNER_ROLE) {
+    function setOutputSettler(address _outputSettler) external onlyRole(_OWNER_ROLE) {
         require(_outputSettler != address(0), "OutputSettler address cannot be zero");
-        depositOutputSettler = _outputSettler;
+        outputSettler = _outputSettler;
     }
 
     /// @notice Set the intent oracle address (used for deposits, not withdrawals)
@@ -189,7 +189,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     ) external payable nonReentrant {
         // CRITICAL: Only ShinobiOutputSettler can call this
         // This ensures the depositor was verified via intent proof
-        require(msg.sender == depositOutputSettler, "Only OutputSettler");
+        require(msg.sender == outputSettler, "Only OutputSettler");
 
         // Validate amount matches msg.value
         require(msg.value == amount, "Amount mismatch");
