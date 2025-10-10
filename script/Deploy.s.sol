@@ -12,8 +12,7 @@ import {CrossChainWithdrawalPaymaster} from "../src/paymaster/contracts/CrossCha
 import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/contracts/SimpleShinobiCashPoolPaymaster.sol";
 import {CrossChainWithdrawalVerifier} from "../src/paymaster/contracts/CrossChainWithdrawalVerifier.sol";
 import {ShinobiInputSettler} from "../src/oif/contracts/ShinobiInputSettler.sol";
-import {WithdrawalOutputSettler} from "../src/oif/contracts/WithdrawalOutputSettler.sol";
-import {DepositOutputSettler} from "../src/oif/contracts/DepositOutputSettler.sol";
+import {ShinobiOutputSettler} from "../src/oif/contracts/ShinobiOutputSettler.sol";
 import {ShinobiCrosschainDepositEntrypoint} from "../src/contracts/ShinobiCrosschainDepositEntrypoint.sol";
 
 // Privacy Pools Core contracts (from submodule)
@@ -97,12 +96,10 @@ contract Deploy is Script {
         // 5. Deploy OIF Settlers
         console.log("5. Deploying OIF Settlers...");
         address inputSettler = address(new ShinobiInputSettler());
-        address withdrawalOutputSettler = address(new WithdrawalOutputSettler());
-        address depositOutputSettler = address(new DepositOutputSettler());
+        address outputSettler = address(new ShinobiOutputSettler());
 
         console.log("   Shinobi Input Settler:", inputSettler);
-        console.log("   Withdrawal Output Settler:", withdrawalOutputSettler);
-        console.log("   Deposit Output Settler:", depositOutputSettler);
+        console.log("   Shinobi Output Settler:", outputSettler);
 
         // 6. Configure cross-chain support
         console.log("6. Configuring cross-chain support...");
@@ -113,7 +110,7 @@ contract Deploy is Script {
         console.log("   Shinobi Input Settler configured");
 
         // Set Deposit Output Settler
-        shinobiEntrypointContract.setDepositOutputSettler(depositOutputSettler);
+        shinobiEntrypointContract.setDepositOutputSettler(outputSettler);
         console.log("   Deposit Output Settler configured");
 
         // Enable supported chains (example: Ethereum mainnet, Arbitrum, Polygon)
@@ -153,8 +150,7 @@ contract Deploy is Script {
         require(ethCashPool.code.length > 0, "Cash Pool deployment failed");
         require(shinobiEntrypoint.code.length > 0, "Entrypoint deployment failed");
         require(inputSettler.code.length > 0, "Shinobi Input Settler deployment failed");
-        require(withdrawalOutputSettler.code.length > 0, "Withdrawal Output Settler deployment failed");
-        require(depositOutputSettler.code.length > 0, "Deposit Output Settler deployment failed");
+        require(outputSettler.code.length > 0, "Shinobi Output Settler deployment failed");
         console.log("   All contracts deployed successfully");
 
         vm.stopBroadcast();
@@ -168,8 +164,7 @@ contract Deploy is Script {
         console.log("CROSS_CHAIN_PAYMASTER:", crossChainPaymaster);
         console.log("SIMPLE_PAYMASTER:", simplePaymaster);
         console.log("INPUT_SETTLER:", inputSettler);
-        console.log("WITHDRAWAL_OUTPUT_SETTLER:", withdrawalOutputSettler);
-        console.log("DEPOSIT_OUTPUT_SETTLER:", depositOutputSettler);
+        console.log("OUTPUT_SETTLER:", outputSettler);
         console.log("WITHDRAWAL_VERIFIER:", withdrawalVerifier);
         console.log("COMMITMENT_VERIFIER:", commitmentVerifier);
         console.log("CROSS_CHAIN_VERIFIER:", crossChainVerifier);

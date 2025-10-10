@@ -67,13 +67,13 @@ contract DeployPoolAndConfigure is Script {
             console.log("No Shinobi Input Settler provided - skipping");
         }
 
-        // 5. Set Deposit Output Settler (if provided)
-        address depositOutputSettler = vm.envOr("DEPOSIT_OUTPUT_SETTLER_ADDRESS", address(0));
-        if (depositOutputSettler != address(0)) {
-            entrypoint.setDepositOutputSettler(depositOutputSettler);
-            console.log("Deposit Output Settler set:", depositOutputSettler);
+        // 5. Set Shinobi Output Settler (if provided)
+        address outputSettler = vm.envOr("OUTPUT_SETTLER_ADDRESS", address(0));
+        if (outputSettler != address(0)) {
+            entrypoint.setDepositOutputSettler(outputSettler);
+            console.log("Shinobi Output Settler set:", outputSettler);
         } else {
-            console.log("No Deposit Output Settler provided - skipping");
+            console.log("No Shinobi Output Settler provided - skipping");
         }
 
         vm.stopBroadcast();
