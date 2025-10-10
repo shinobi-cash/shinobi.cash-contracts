@@ -70,7 +70,7 @@ contract DeployPoolAndConfigure is Script {
         // 5. Set Shinobi Output Settler (if provided)
         address outputSettler = vm.envOr("OUTPUT_SETTLER_ADDRESS", address(0));
         if (outputSettler != address(0)) {
-            entrypoint.setDepositOutputSettler(outputSettler);
+            entrypoint.setOutputSettler(outputSettler);
             console.log("Shinobi Output Settler set:", outputSettler);
         } else {
             console.log("No Shinobi Output Settler provided - skipping");

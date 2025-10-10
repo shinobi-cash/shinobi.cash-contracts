@@ -109,9 +109,9 @@ contract Deploy is Script {
         shinobiEntrypointContract.setInputSettler(inputSettler);
         console.log("   Shinobi Input Settler configured");
 
-        // Set Deposit Output Settler
-        shinobiEntrypointContract.setDepositOutputSettler(outputSettler);
-        console.log("   Deposit Output Settler configured");
+        // Set Shinobi Output Settler
+        shinobiEntrypointContract.setOutputSettler(outputSettler);
+        console.log("   Shinobi Output Settler configured");
 
         // Enable supported chains (example: Ethereum mainnet, Arbitrum, Polygon)
         shinobiEntrypointContract.updateChainSupport(1, true);    // Ethereum
