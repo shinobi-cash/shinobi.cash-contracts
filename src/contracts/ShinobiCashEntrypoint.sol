@@ -30,8 +30,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     mapping(uint256 chainId => bool isSupported) public supportedChains;
 
 
-    /// @notice Address of the WithdrawalInputSettler for cross-chain withdrawals
-    address public withdrawalInputSettler;
+    /// @notice Address of the ShinobiInputSettler for cross-chain withdrawals
+    address public inputSettler;
 
     /// @notice Address of the DepositOutputSettler for cross-chain deposits
     address public depositOutputSettler;
@@ -91,8 +91,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         uint256 netAmount = withdrawnAmount - feeAmount;
         uint256 nullifierHash = proof.existingNullifierHash();
         
-        // Validate WithdrawalInputSettler is set
-        require(withdrawalInputSettler != address(0), "WithdrawalInputSettler not set");
+        // Validate ShinobiInputSettler is set
+        require(inputSettler != address(0), "InputSettler not set");
 
         if (feeAmount > 0) {
             _transfer(asset, relayData.feeRecipient, feeAmount);
@@ -121,11 +121,11 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         emit ChainSupportUpdated(chainId, supported);
     }
 
-    /// @notice Set the WithdrawalInputSettler address
-    /// @param _inputSettler The address of the WithdrawalInputSettler contract
-    function setWithdrawalInputSettler(address _inputSettler) external onlyRole(_OWNER_ROLE) {
+    /// @notice Set the ShinobiInputSettler address
+    /// @param _inputSettler The address of the ShinobiInputSettler contract
+    function setInputSettler(address _inputSettler) external onlyRole(_OWNER_ROLE) {
         require(_inputSettler != address(0), "InputSettler address cannot be zero");
-        withdrawalInputSettler = _inputSettler;
+        inputSettler = _inputSettler;
     }
 
     /// @notice Set the DepositOutputSettler address
@@ -154,8 +154,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         uint256 _amount,
         uint256 _scope
     ) external payable  {
-        // Only WithdrawalInputSettler can call this function
-        require(msg.sender == withdrawalInputSettler, "Only InputSettler can call handleRefund");
+        // Only ShinobiInputSettler can call this function
+        require(msg.sender == inputSettler, "Only InputSettler can call handleRefund");
         require(msg.value == _amount, "ETH amount mismatch");
         
         // Get the privacy pool for this scope
@@ -261,8 +261,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
             refundCalldata: refundCalldata              // Custom refund logic
         });
 
-        // Submit intent to WithdrawalInputSettler
-        IShinobiInputSettler(withdrawalInputSettler).open{value: netAmount}(intent);
+        // Submit intent to ShinobiInputSettler
+        IShinobiInputSettler(inputSettler).open{value: netAmount}(intent);
     }
  
 }
