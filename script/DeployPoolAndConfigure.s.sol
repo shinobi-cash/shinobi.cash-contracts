@@ -58,13 +58,13 @@ contract DeployPoolAndConfigure is Script {
         entrypoint.updateChainSupport(84532, true); // Base Sepolia
         console.log("Base Sepolia (84532) support enabled");
 
-        // 4. Set Withdrawal Input Settler (if provided)
-        address withdrawalInputSettler = vm.envOr("WITHDRAWAL_INPUT_SETTLER_ADDRESS", address(0));
-        if (withdrawalInputSettler != address(0)) {
-            entrypoint.setWithdrawalInputSettler(withdrawalInputSettler);
-            console.log("Withdrawal Input Settler set:", withdrawalInputSettler);
+        // 4. Set Shinobi Input Settler (if provided)
+        address inputSettler = vm.envOr("INPUT_SETTLER_ADDRESS", address(0));
+        if (inputSettler != address(0)) {
+            entrypoint.setInputSettler(inputSettler);
+            console.log("Shinobi Input Settler set:", inputSettler);
         } else {
-            console.log("No Withdrawal Input Settler provided - skipping");
+            console.log("No Shinobi Input Settler provided - skipping");
         }
 
         // 5. Set Deposit Output Settler (if provided)
