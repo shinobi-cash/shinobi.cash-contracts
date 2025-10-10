@@ -37,8 +37,8 @@ import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
        */
       struct CrossChainIntentParams {
           uint32 fillDeadline;        // When the intent must be filled
-          uint32 expires;             // When the intent expires  
-          address inputOracle;        // Input oracle (usually address(0) for privacy pools)
+          uint32 expires;             // When the intent expires
+          address fillOracle;         // Fill oracle for validating fills (destination → origin)
           uint256[2][] inputs;        // Input tokens [address, amount]
           MandateOutput[] outputs;    // Output mandates for destination chain
       }
