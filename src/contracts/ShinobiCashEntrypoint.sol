@@ -33,7 +33,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     /// @notice Address of the ShinobiInputSettler for cross-chain withdrawals
     address public inputSettler;
 
-    /// @notice Address of the DepositOutputSettler for cross-chain deposits
+    /// @notice Address of the ShinobiOutputSettler for cross-chain deposits
     address public depositOutputSettler;
 
     /// @notice Intent oracle address (for deposits - not used for withdrawals)
@@ -98,7 +98,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
             _transfer(asset, relayData.feeRecipient, feeAmount);
         }
 
-        // Create and submit ShinobiIntent to WithdrawalInputSettler
+        // Create and submit ShinobiIntent to ShinobiInputSettler
         _createAndSubmitOIFOrder(
             intentParams,
             bytes32(nullifierHash),
@@ -128,8 +128,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         inputSettler = _inputSettler;
     }
 
-    /// @notice Set the DepositOutputSettler address
-    /// @param _outputSettler The address of the DepositOutputSettler contract
+    /// @notice Set the ShinobiOutputSettler address
+    /// @param _outputSettler The address of the ShinobiOutputSettler contract
     function setDepositOutputSettler(address _outputSettler) external onlyRole(_OWNER_ROLE) {
         require(_outputSettler != address(0), "OutputSettler address cannot be zero");
         depositOutputSettler = _outputSettler;
@@ -143,7 +143,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
 
     /**
      * @notice Handle refund for failed cross-chain withdrawal
-     * @dev Can only be called by the WithdrawalInputSettler
+     * @dev Can only be called by the ShinobiInputSettler
      * @dev Forwards ETH to privacy pool for refund commitment creation
      * @param _refundCommitmentHash The commitment hash for refund (from 9th signal of original proof)
      * @param _amount The amount being refunded (escrowed amount from OIF)
@@ -176,7 +176,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
 
     /**
      * @notice Handle cross-chain deposit with verified depositor address
-     * @dev Called by DepositOutputSettler after intent proof validation
+     * @dev Called by ShinobiOutputSettler after intent proof validation
      * @dev CRITICAL: depositor parameter comes from VERIFIED intent.user via intent proof
      * @param depositor The verified depositor address from origin chain
      * @param amount The deposit amount
@@ -187,9 +187,9 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         uint256 amount,
         uint256 precommitment
     ) external payable nonReentrant {
-        // CRITICAL: Only DepositOutputSettler can call this
+        // CRITICAL: Only ShinobiOutputSettler can call this
         // This ensures the depositor was verified via intent proof
-        require(msg.sender == depositOutputSettler, "Only DepositOutputSettler");
+        require(msg.sender == depositOutputSettler, "Only OutputSettler");
 
         // Validate amount matches msg.value
         require(msg.value == amount, "Amount mismatch");
@@ -222,7 +222,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     //////////////////////////////////////////////////////////////*/
 
  /**
-     * @notice Create ShinobiIntent and submit to WithdrawalInputSettler
+     * @notice Create ShinobiIntent and submit to ShinobiInputSettler
      * @param intentParams User-provided validated intent parameters
      * @param nullifierHash The nullifier hash from privacy pool withdrawal
      * @param refundCommitmentHash The commitment hash for refund recovery
