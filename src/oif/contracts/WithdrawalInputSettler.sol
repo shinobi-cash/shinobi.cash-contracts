@@ -33,6 +33,9 @@ contract WithdrawalInputSettler is IShinobiInputSettler {
     /// @notice Mapping from order ID to order status
     mapping(bytes32 => OrderStatus) public orderStatus;
 
+    /// @notice Address of the ShinobiCashEntrypoint (only caller allowed)
+    address public entrypoint;
+
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -43,6 +46,7 @@ contract WithdrawalInputSettler is IShinobiInputSettler {
     error TimestampPassed();
     error TimestampNotPassed();
     error RefundExecutionFailed();
+    error UnauthorizedCaller();
     error ReentrancyDetected();
     error InvalidAsset();
 
@@ -52,10 +56,14 @@ contract WithdrawalInputSettler is IShinobiInputSettler {
 
     /**
      * @notice Open a withdrawal intent and escrow withdrawn funds
-     * @dev Called by ShinobiCashEntrypoint after user withdraws from pool
-     * @param intent The withdrawal intent
+     * @dev CRITICAL: Can only be called by ShinobiCashEntrypoint
+     * @dev The entrypoint constructs the intent after privacy pool withdrawal
+     * @param intent The withdrawal intent from the entrypoint
      */
     function open(ShinobiIntent calldata intent) external payable override {
+        // CRITICAL: Only entrypoint can call this
+        if (msg.sender != entrypoint) revert UnauthorizedCaller();
+
         // Validate intent structure
         _validateIntent(intent);
 
@@ -256,6 +264,22 @@ contract WithdrawalInputSettler is IShinobiInputSettler {
 
     function orderIdentifier(ShinobiIntent memory intent) public pure override returns (bytes32) {
         return intent.orderIdentifier();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        CONFIGURATION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Set the ShinobiCashEntrypoint address
+     * @dev Can only be called once during deployment setup
+     * @dev NOTE: In production, add access control or pass in constructor
+     * @param _entrypoint Address of the ShinobiCashEntrypoint
+     */
+    function setEntrypoint(address _entrypoint) external {
+        require(entrypoint == address(0), "Entrypoint already set");
+        require(_entrypoint != address(0), "Invalid address");
+        entrypoint = _entrypoint;
     }
 
     /*//////////////////////////////////////////////////////////////
