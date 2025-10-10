@@ -123,16 +123,13 @@ contract DepositInputSettler is IShinobiInputSettler {
 
     /**
      * @notice Refund expired deposit intent
-     * @dev CRITICAL: Can only be called by ShinobiDepositEntrypoint
-     * @dev If refundCalldata is empty, transfers ETH to depositor
-     * @dev If refundCalldata is present, executes custom refund logic
+     * @dev Can be called by anyone after intent expiry
+     * @dev Funds are always sent to intent.user, not the caller
      * @param intent The original deposit intent
      */
     function refund(
         ShinobiIntent calldata intent
     ) external override {
-        // CRITICAL: Only entrypoint can call this
-        if (msg.sender != entrypoint) revert UnauthorizedCaller();
         bytes32 orderId = orderIdentifier(intent);
 
         // Check order is in deposited state
