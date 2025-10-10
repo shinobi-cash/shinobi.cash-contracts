@@ -85,7 +85,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
 
         // CRITICAL: Construct output.call with VERIFIED depositor (msg.sender)
         bytes memory outputCall = abi.encodeWithSignature(
-            "crossChainDeposit(address,uint256,uint256)",
+            "processCrossChainDeposit(address,uint256,uint256)",
             msg.sender,  // VERIFIED depositor
             msg.value,
             precommitment

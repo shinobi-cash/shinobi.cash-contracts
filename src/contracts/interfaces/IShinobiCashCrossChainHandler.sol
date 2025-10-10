@@ -80,14 +80,14 @@ import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
       ) external;
 
       /**
-       * @notice Handle cross-chain deposit with verified depositor address
+       * @notice Process a cross-chain deposit with verified depositor address
        * @dev Called by ShinobiOutputSettler after intent proof validation
        * @dev CRITICAL: depositor parameter comes from VERIFIED intent.user via intent proof
        * @param depositor The verified depositor address from origin chain
        * @param amount The deposit amount
        * @param precommitment The precommitment for the deposit
        */
-      function crossChainDeposit(
+      function processCrossChainDeposit(
           address depositor,
           uint256 amount,
           uint256 precommitment
