@@ -59,9 +59,9 @@ contract DeployPaymasters is Script {
 
         // Fund paymasters for gas sponsorship
         console.log("3. Funding Paymasters...");
-        CrossChainWithdrawalPaymaster(crossChainPaymaster).deposit{value: 0.1 ether}();
-        SimpleShinobiCashPoolPaymaster(simplePaymaster).deposit{value: 0.1 ether}();
-        console.log("   Paymasters funded with 0.1 ETH each");
+        CrossChainWithdrawalPaymaster(crossChainPaymaster).deposit{value: 0.01 ether}();
+        SimpleShinobiCashPoolPaymaster(simplePaymaster).deposit{value: 0.01 ether}();
+        console.log("   Paymasters funded with 0.01 ETH each");
 
         vm.stopBroadcast();
 

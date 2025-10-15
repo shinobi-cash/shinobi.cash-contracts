@@ -18,8 +18,11 @@ contract SetupInputSettler is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         // Get addresses from previous deployments
-        address inputSettlerAddr = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
-        address entrypoint = vm.envAddress("SHINOBI_CASH_DEPOSITE_ENTRYPOINT_BASE_SEPOLIA");
+        address inputSettlerAddr = vm.envAddress("INPUT_SETTLER_ARBITRUM_SEPOLIA");
+        address entrypoint = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
+        // // Get addresses from previous deployments
+        // address inputSettlerAddr = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
+        // address entrypoint = vm.envAddress("SHINOBI_CASH_DEPOSITE_ENTRYPOINT_BASE_SEPOLIA");
 
         vm.startBroadcast(deployerPrivateKey);
 
