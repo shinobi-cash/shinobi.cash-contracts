@@ -8,10 +8,12 @@ import {ShinobiIntent} from "../types/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../lib/ShinobiIntentLib.sol";
 import {IInputOracle} from "oif-contracts/interfaces/IInputOracle.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
+import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 
 /**
  * @title ShinobiInputSettler
- * @notice Unified input settler for both cross-chain withdrawals and deposits
+ * @notice Unified input settler following standard OIF security model
+ * @dev Uses SolveParams for solver tracking and validation (same as InputSettlerEscrow)
  * @dev Handles intent creation on origin chain (where funds originate)
  * @dev For withdrawals: origin = pool chain (Ethereum)
  * @dev For deposits: origin = user's chain (e.g., Arbitrum)
@@ -53,6 +55,10 @@ contract ShinobiInputSettler is IShinobiInputSettler {
     error UnauthorizedCaller();
     error ReentrancyDetected();
     error InvalidAsset();
+    error NotOrderOwner();
+    error FilledTooLate(uint32 expected, uint32 actual);
+    error InvalidSolveParamsLength();
+    error MultipleSolversNotSupported();
 
     /*//////////////////////////////////////////////////////////////
                             CORE FUNCTIONS
@@ -90,15 +96,18 @@ contract ShinobiInputSettler is IShinobiInputSettler {
     }
 
     /**
-     * @notice Finalize intent after solver fills on destination
-     * @dev Validates fill proofs and releases escrowed ETH to solver
+     * @notice Finalize intent after solver fills on destination (STANDARD OIF PATTERN)
+     * @dev Validates solver identity and fill proofs via oracle, then releases escrowed ETH
+     * @dev Uses same security model as InputSettlerEscrow with SolveParams
      * @param intent The original intent
-     * @param fillProofs Array of fill proofs from destination chain
+     * @param solveParams Array of solve parameters (one per output)
+     * @param destination Where to send the funds (typically solver's address)
      */
     function finalise(
         ShinobiIntent calldata intent,
-        bytes[] calldata fillProofs
-    ) external override {
+        IShinobiInputSettler.SolveParams[] calldata solveParams,
+        bytes32 destination
+    ) external {
         bytes32 orderId = orderIdentifier(intent);
 
         // Check order is in deposited state
@@ -107,23 +116,33 @@ contract ShinobiInputSettler is IShinobiInputSettler {
         // Validate fill deadline hasn't passed
         if (block.timestamp > intent.fillDeadline) revert TimestampPassed();
 
-        // Validate fill proofs via fillOracle
-        _validateFillProofs(intent, fillProofs);
+        // SECURITY: Get the solver from solveParams (validated by oracle)
+        bytes32 solver = solveParams[0].solver;
+
+        // SECURITY: Validate all outputs filled by same solver
+        // Shinobi currently supports single solver for all outputs
+        for (uint256 i = 1; i < solveParams.length; i++) {
+            if (solveParams[i].solver != solver) revert MultipleSolversNotSupported();
+        }
+
+        // SECURITY: Verify caller is the actual solver who filled the order
+        _orderOwnerIsCaller(solver);
+
+        // Validate fills via oracle (binds solver address to fills cryptographically)
+        _validateFills(intent, orderId, solveParams);
 
         // Mark as claimed
         orderStatus[orderId] = OrderStatus.Claimed;
 
-        // Extract solver address from first fill proof
-        bytes32 solver = _extractSolverFromProof(fillProofs[0]);
-
-        // Release escrowed ETH to solver
-        uint256 amount = intent.inputs[0][1];
-        address solverAddress = address(uint160(uint256(solver)));
-        (bool success, ) = solverAddress.call{value: amount}("");
+        // Release escrowed ETH to destination (handles multiple inputs correctly)
+        uint256 amount = _calculateTotalAmount(intent.inputs);
+        address destinationAddress = _bytes32ToAddress(destination);
+        (bool success, ) = destinationAddress.call{value: amount}("");
         require(success, "ETH transfer failed");
 
-        emit Finalised(orderId, solver, solver);
+        emit Finalised(orderId, solver, destination);
     }
+
 
     /**
      * @notice Refund expired intent
@@ -220,41 +239,92 @@ contract ShinobiInputSettler is IShinobiInputSettler {
         if (intent.outputs.length == 0) revert InvalidAmount();
     }
 
-    function _validateFillProofs(
+    /**
+     * @notice Validates that caller is the order owner/solver (STANDARD OIF)
+     * @dev Only reads rightmost 20 bytes to verify the owner
+     * @param orderOwner The solver address (left-padded to bytes32)
+     */
+    function _orderOwnerIsCaller(bytes32 orderOwner) internal view {
+        if (_bytes32ToAddress(orderOwner) != msg.sender) revert NotOrderOwner();
+    }
+
+    /**
+     * @notice Validates fills via oracle (STANDARD OIF PATTERN)
+     * @dev Builds proof series that binds solver+orderId+timestamp to each output
+     * @dev Oracle attestation proves the specific solver filled the specific output
+     * @param intent The intent being finalized
+     * @param orderId The computed order identifier
+     * @param solveParams Array of solve parameters (one per output)
+     */
+    function _validateFills(
         ShinobiIntent calldata intent,
-        bytes[] calldata fillProofs
+        bytes32 orderId,
+        IShinobiInputSettler.SolveParams[] calldata solveParams
     ) internal view {
-        // Validate we have proofs for all outputs
-        require(fillProofs.length == intent.outputs.length, "Invalid proof count");
+        uint256 numOutputs = intent.outputs.length;
 
-        // Build proof series for oracle validation
-        bytes memory proofSeries = new bytes(128 * intent.outputs.length);
+        // Validate we have solve params for all outputs
+        if (solveParams.length != numOutputs) revert InvalidSolveParamsLength();
 
-        for (uint256 i = 0; i < intent.outputs.length; i++) {
-            // Each proof should be: remoteChainId, remoteOracle, application, dataHash
-            bytes32 remoteChainId = bytes32(intent.outputs[i].chainId);
-            bytes32 remoteOracle = intent.outputs[i].oracle;
-            bytes32 application = intent.outputs[i].settler;
-            bytes32 dataHash = keccak256(fillProofs[i]);
+        // Build proof series for oracle validation (standard OIF format)
+        bytes memory proofSeries = new bytes(128 * numOutputs);
 
-            // Pack into proof series
+        for (uint256 i = 0; i < numOutputs; i++) {
+            uint32 outputFilledAt = solveParams[i].timestamp;
+
+            // Validate output was filled before deadline
+            if (intent.fillDeadline < outputFilledAt) {
+                revert FilledTooLate(intent.fillDeadline, outputFilledAt);
+            }
+
+            // Build payload hash: keccak256(solver | orderId | timestamp | output)
+            // This binds the solver address to this specific fill
+            MandateOutput memory output = MandateOutput({
+                chainId: intent.outputs[i].chainId,
+                oracle: intent.outputs[i].oracle,
+                settler: intent.outputs[i].settler,
+                token: intent.outputs[i].token,
+                amount: intent.outputs[i].amount,
+                recipient: intent.outputs[i].recipient,
+                call: intent.outputs[i].call,
+                context: intent.outputs[i].context
+            });
+
+            bytes32 payloadHash = keccak256(
+                MandateOutputEncodingLib.encodeFillDescriptionMemory(
+                    solveParams[i].solver,
+                    orderId,
+                    outputFilledAt,
+                    output
+                )
+            );
+
+            // Pack into proof series: chainId | oracle | settler | payloadHash
+            bytes32 remoteChainId = bytes32(output.chainId);
+            bytes32 remoteOracle = output.oracle;
+            bytes32 remoteSettler = output.settler;
+
             assembly {
                 let offset := add(proofSeries, add(32, mul(i, 128)))
                 mstore(offset, remoteChainId)
                 mstore(add(offset, 32), remoteOracle)
-                mstore(add(offset, 64), application)
-                mstore(add(offset, 96), dataHash)
+                mstore(add(offset, 64), remoteSettler)
+                mstore(add(offset, 96), payloadHash)
             }
         }
 
-        // Validate via fill oracle
+        // Validate via fill oracle - proves the specific solver filled each output
         IInputOracle(intent.fillOracle).efficientRequireProven(proofSeries);
     }
 
-    function _extractSolverFromProof(bytes calldata proof) internal pure returns (bytes32 solver) {
-        // Fill proof format: solver(32) | orderId(32) | timestamp(4) | ...
+    /**
+     * @notice Convert bytes32 to address (standard OIF helper)
+     * @param b The bytes32 value (left-padded address)
+     * @return addr The address (rightmost 20 bytes)
+     */
+    function _bytes32ToAddress(bytes32 b) internal pure returns (address addr) {
         assembly {
-            solver := calldataload(proof.offset)
+            addr := b
         }
     }
 

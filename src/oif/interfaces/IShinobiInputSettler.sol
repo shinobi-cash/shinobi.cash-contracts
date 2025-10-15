@@ -39,12 +39,26 @@ interface IShinobiInputSettler {
     function open(ShinobiIntent calldata intent) external payable;
 
     /**
-     * @notice Finalize an intent by validating fill proofs and releasing funds to solver
-     * @dev Validates fill proofs via fillOracle before releasing escrowed funds
-     * @param intent The original intent
-     * @param fillProofs Array of fill proof data for oracle validation
+     * @notice Solve parameters for tracking fills (standard OIF pattern)
      */
-    function finalise(ShinobiIntent calldata intent, bytes[] calldata fillProofs) external;
+    struct SolveParams {
+        uint32 timestamp;      // When the output was filled
+        bytes32 solver;        // Who filled the output (left-padded address)
+    }
+
+    /**
+     * @notice Finalize an intent using standard OIF pattern with SolveParams
+     * @dev Validates solver identity and fill proofs via oracle, then releases escrowed funds
+     * @dev Uses same security model as InputSettlerEscrow with SolveParams
+     * @param intent The original intent
+     * @param solveParams Array of solve parameters (one per output)
+     * @param destination Where to send the funds (typically solver's address)
+     */
+    function finalise(
+        ShinobiIntent calldata intent,
+        SolveParams[] calldata solveParams,
+        bytes32 destination
+    ) external;
 
     /**
      * @notice Refund an expired intent
