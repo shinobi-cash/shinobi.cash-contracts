@@ -347,7 +347,6 @@ contract ShinobiInputSettler is IShinobiInputSettler {
      * @param _entrypoint Address of the entrypoint contract
      */
     function setEntrypoint(address _entrypoint) external {
-        require(entrypoint == address(0), "Entrypoint already set");
         require(_entrypoint != address(0), "Invalid address");
         entrypoint = _entrypoint;
     }

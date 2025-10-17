@@ -30,6 +30,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     address public intentOracle;
     uint256 public destinationChainId;
     address public destinationEntrypoint;
+    address public destinationOutputSettler;
     address public destinationOracle;
 
     /// @notice Global nonce for generating unique order IDs
@@ -95,11 +96,11 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         MandateOutput[] memory outputs = new MandateOutput[](1);
         outputs[0] = MandateOutput({
             oracle: bytes32(uint256(uint160(destinationOracle))),
-            settler: bytes32(uint256(uint160(destinationEntrypoint))),
+            settler: bytes32(uint256(uint160(destinationOutputSettler))),  // Output Settler, not Entrypoint
             chainId: destinationChainId,
             token: bytes32(0), // Native ETH
             amount: msg.value,
-            recipient: bytes32(uint256(uint160(destinationEntrypoint))),
+            recipient: bytes32(uint256(uint160(destinationEntrypoint))),  // Entrypoint receives the callback
             call: outputCall,
             context: ""
         });
@@ -187,19 +188,23 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      * @notice Set destination chain configuration
      * @param _chainId Destination chain ID (where pool is deployed)
      * @param _entrypoint Destination ShinobiCashEntrypoint address
+     * @param _outputSettler Destination ShinobiOutputSettler address
      * @param _oracle Destination oracle address
      */
     function setDestinationConfig(
         uint256 _chainId,
         address _entrypoint,
+        address _outputSettler,
         address _oracle
     ) external onlyOwner {
         require(_chainId != 0, "Invalid chain ID");
         require(_entrypoint != address(0), "Invalid entrypoint");
+        require(_outputSettler != address(0), "Invalid output settler");
         require(_oracle != address(0), "Invalid oracle");
 
         destinationChainId = _chainId;
         destinationEntrypoint = _entrypoint;
+        destinationOutputSettler = _outputSettler;
         destinationOracle = _oracle;
     }
 }
