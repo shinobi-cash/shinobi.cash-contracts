@@ -58,13 +58,22 @@ contract DeployPoolAndConfigure is Script {
         entrypoint.updateChainSupport(84532, true); // Base Sepolia
         console.log("Base Sepolia (84532) support enabled");
 
-        // 4. Set Extended Input Settler (if provided)
-        address extendedInputSettler = vm.envOr("EXTENDED_INPUT_SETTLER_ADDRESS", address(0));
-        if (extendedInputSettler != address(0)) {
-            entrypoint.setExtendedInputSettler(extendedInputSettler);
-            console.log("Extended Input Settler set:", extendedInputSettler);
+        // 4. Set Shinobi Input Settler (if provided)
+        address inputSettler = vm.envOr("INPUT_SETTLER_ADDRESS", address(0));
+        if (inputSettler != address(0)) {
+            entrypoint.setInputSettler(inputSettler);
+            console.log("Shinobi Input Settler set:", inputSettler);
         } else {
-            console.log("No Extended Input Settler provided - skipping");
+            console.log("No Shinobi Input Settler provided - skipping");
+        }
+
+        // 5. Set Shinobi Output Settler (if provided)
+        address outputSettler = vm.envOr("OUTPUT_SETTLER_ADDRESS", address(0));
+        if (outputSettler != address(0)) {
+            entrypoint.setOutputSettler(outputSettler);
+            console.log("Shinobi Output Settler set:", outputSettler);
+        } else {
+            console.log("No Shinobi Output Settler provided - skipping");
         }
 
         vm.stopBroadcast();

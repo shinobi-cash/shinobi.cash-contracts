@@ -7,9 +7,9 @@ import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
   /**
-   * @title ICrossChainHandler
-   * @notice Interface for handling cross-chain privacy pool withdrawals
-   * @dev Defines the contract capability to process withdrawals across different chains
+   * @title IShinobiCashCrossChainHandler
+   * @notice Interface for handling cross-chain privacy pool operations (deposits and withdrawals)
+   * @dev Defines the contract capability to process cross-chain deposits and withdrawals
    */
   interface IShinobiCashCrossChainHandler {
       
@@ -37,8 +37,8 @@ import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
        */
       struct CrossChainIntentParams {
           uint32 fillDeadline;        // When the intent must be filled
-          uint32 expires;             // When the intent expires  
-          address inputOracle;        // Input oracle (usually address(0) for privacy pools)
+          uint32 expires;             // When the intent expires
+          address fillOracle;         // Fill oracle for validating fills (destination → origin)
           uint256[2][] inputs;        // Input tokens [address, amount]
           MandateOutput[] outputs;    // Output mandates for destination chain
       }
@@ -80,8 +80,22 @@ import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
       ) external;
 
       /**
+       * @notice Process a cross-chain deposit with verified depositor address
+       * @dev Called by ShinobiOutputSettler after intent proof validation
+       * @dev CRITICAL: depositor parameter comes from VERIFIED intent.user via intent proof
+       * @param depositor The verified depositor address from origin chain
+       * @param amount The deposit amount
+       * @param precommitment The precommitment for the deposit
+       */
+      function processCrossChainDeposit(
+          address depositor,
+          uint256 amount,
+          uint256 precommitment
+      ) external payable;
+
+      /**
        * @notice Check if a destination chain is supported
-       * @dev Verifies that cross-chain withdrawals to the specified chain are enabled
+       * @dev Verifies that cross-chain operations to the specified chain are enabled
        * @param chainId The chain ID to check
        * @return true if supported, false otherwise
        */

@@ -11,7 +11,9 @@ import {IShinobiCashPool} from "../src/contracts/interfaces/IShinobiCashPool.sol
 import {CrossChainWithdrawalPaymaster} from "../src/paymaster/contracts/CrossChainWithdrawalPaymaster.sol";
 import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/contracts/SimpleShinobiCashPoolPaymaster.sol";
 import {CrossChainWithdrawalVerifier} from "../src/paymaster/contracts/CrossChainWithdrawalVerifier.sol";
-import {ExtendedInputSettler} from "../src/oif/contracts/ExtendedInputSettler.sol";
+import {ShinobiInputSettler} from "../src/oif/contracts/ShinobiInputSettler.sol";
+import {ShinobiOutputSettler} from "../src/oif/contracts/ShinobiOutputSettler.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../src/contracts/ShinobiCrosschainDepositEntrypoint.sol";
 
 // Privacy Pools Core contracts (from submodule)
 import {WithdrawalVerifier} from "contracts/verifiers/WithdrawalVerifier.sol";
@@ -91,19 +93,26 @@ contract Deploy is Script {
         );
         console.log("   ETH Pool registered with Shinobi Entrypoint");
 
-        // 5. Deploy Extended OIF Input Settler
-        console.log("5. Deploying Extended OIF Input Settler...");
-        address extendedInputSettler = address(new ExtendedInputSettler());
-        console.log("   Extended Input Settler:", extendedInputSettler);
+        // 5. Deploy OIF Settlers
+        console.log("5. Deploying OIF Settlers...");
+        address inputSettler = address(new ShinobiInputSettler());
+        address outputSettler = address(new ShinobiOutputSettler());
+
+        console.log("   Shinobi Input Settler:", inputSettler);
+        console.log("   Shinobi Output Settler:", outputSettler);
 
         // 6. Configure cross-chain support
         console.log("6. Configuring cross-chain support...");
         ShinobiCashEntrypoint shinobiEntrypointContract = ShinobiCashEntrypoint(payable(shinobiEntrypoint));
-        
-        // Set Extended Input Settler
-        shinobiEntrypointContract.setExtendedInputSettler(extendedInputSettler);
-        console.log("   Extended Input Settler configured");
-        
+
+        // Set Shinobi Input Settler
+        shinobiEntrypointContract.setInputSettler(inputSettler);
+        console.log("   Shinobi Input Settler configured");
+
+        // Set Shinobi Output Settler
+        shinobiEntrypointContract.setOutputSettler(outputSettler);
+        console.log("   Shinobi Output Settler configured");
+
         // Enable supported chains (example: Ethereum mainnet, Arbitrum, Polygon)
         shinobiEntrypointContract.updateChainSupport(1, true);    // Ethereum
         shinobiEntrypointContract.updateChainSupport(42161, true); // Arbitrum
@@ -140,7 +149,8 @@ contract Deploy is Script {
         require(simplePaymaster.code.length > 0, "Simple paymaster deployment failed");
         require(ethCashPool.code.length > 0, "Cash Pool deployment failed");
         require(shinobiEntrypoint.code.length > 0, "Entrypoint deployment failed");
-        require(extendedInputSettler.code.length > 0, "Extended Input Settler deployment failed");
+        require(inputSettler.code.length > 0, "Shinobi Input Settler deployment failed");
+        require(outputSettler.code.length > 0, "Shinobi Output Settler deployment failed");
         console.log("   All contracts deployed successfully");
 
         vm.stopBroadcast();
@@ -150,10 +160,11 @@ contract Deploy is Script {
         console.log("=== DEPLOYMENT COMPLETE ===");
         console.log("Copy these addresses to your integration scripts:");
         console.log("SHINOBI_ENTRYPOINT:", shinobiEntrypoint);
-        console.log("PRIVACY_POOL:", ethCashPool); 
+        console.log("PRIVACY_POOL:", ethCashPool);
         console.log("CROSS_CHAIN_PAYMASTER:", crossChainPaymaster);
         console.log("SIMPLE_PAYMASTER:", simplePaymaster);
-        console.log("EXTENDED_INPUT_SETTLER:", extendedInputSettler);
+        console.log("INPUT_SETTLER:", inputSettler);
+        console.log("OUTPUT_SETTLER:", outputSettler);
         console.log("WITHDRAWAL_VERIFIER:", withdrawalVerifier);
         console.log("COMMITMENT_VERIFIER:", commitmentVerifier);
         console.log("CROSS_CHAIN_VERIFIER:", crossChainVerifier);

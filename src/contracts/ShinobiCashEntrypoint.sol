@@ -6,13 +6,14 @@ import {Entrypoint} from "contracts/Entrypoint.sol";
 import {CrossChainProofLib} from "./lib/CrossChainProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
-import {IExtendedOrder} from "../oif/interfaces/IExtendedOrder.sol";
-import {ExtendedOrderLib} from "../oif/lib/ExtendedOrderLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {ProofLib} from "contracts/lib/ProofLib.sol";
 import {IShinobiCashCrossChainHandler} from "./interfaces/IShinobiCashCrossChainHandler.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
+import {ShinobiIntent} from "../oif/types/ShinobiIntentType.sol";
+import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
+import {Constants} from "contracts/lib/Constants.sol";
 
 /**
  * @title ShinobiCashEntrypoint
@@ -20,7 +21,6 @@ import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
  */
 contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
-    using ExtendedOrderLib for IExtendedOrder.ExtendedOrder;
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN STATE VARIABLES
@@ -28,10 +28,16 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     
     /// @notice Mapping of chain IDs to their support status
     mapping(uint256 chainId => bool isSupported) public supportedChains;
-    
-    
-    /// @notice Address of the Extended OIF InputSettler authorized to call handleRefund
-    address public extendedInputSettler;
+
+
+    /// @notice Address of the ShinobiInputSettler for cross-chain withdrawals
+    address public inputSettler;
+
+    /// @notice Address of the ShinobiOutputSettler for cross-chain operations
+    address public outputSettler;
+
+    /// @notice Intent oracle address (for deposits - not used for withdrawals)
+    address public intentOracle;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -85,17 +91,14 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         uint256 netAmount = withdrawnAmount - feeAmount;
         uint256 nullifierHash = proof.existingNullifierHash();
         
-        // Validate ExtendedInputSettler is set
-        require(extendedInputSettler != address(0), "ExtendedInputSettler not set");
-        
-        // TODO: Validate intent parameters for OIF order creation 
-        // _validateIntentParams(intentParams, withdrawnAmount);
-        
+        // Validate ShinobiInputSettler is set
+        require(inputSettler != address(0), "InputSettler not set");
+
         if (feeAmount > 0) {
             _transfer(asset, relayData.feeRecipient, feeAmount);
         }
-        
-        // Create and submit ExtendedOrder to OIF InputSettler
+
+        // Create and submit ShinobiIntent to ShinobiInputSettler
         _createAndSubmitOIFOrder(
             intentParams,
             bytes32(nullifierHash),
@@ -103,6 +106,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
             netAmount,
             scope
         );
+        emit WithdrawalRelayed(msg.sender, address(uint160(uint256(relayData.encodedDestination))), asset, withdrawnAmount, feeAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -117,16 +121,29 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         emit ChainSupportUpdated(chainId, supported);
     }
 
-    /// @notice Set the Extended OIF InputSettler address
-    /// @param _inputSettler The address of the Extended InputSettler contract
-    function setExtendedInputSettler(address _inputSettler) external onlyRole(_OWNER_ROLE) {
+    /// @notice Set the ShinobiInputSettler address
+    /// @param _inputSettler The address of the ShinobiInputSettler contract
+    function setInputSettler(address _inputSettler) external onlyRole(_OWNER_ROLE) {
         require(_inputSettler != address(0), "InputSettler address cannot be zero");
-        extendedInputSettler = _inputSettler;
+        inputSettler = _inputSettler;
+    }
+
+    /// @notice Set the ShinobiOutputSettler address
+    /// @param _outputSettler The address of the ShinobiOutputSettler contract
+    function setOutputSettler(address _outputSettler) external onlyRole(_OWNER_ROLE) {
+        require(_outputSettler != address(0), "OutputSettler address cannot be zero");
+        outputSettler = _outputSettler;
+    }
+
+    /// @notice Set the intent oracle address (used for deposits, not withdrawals)
+    /// @param _intentOracle The address of the intent oracle contract
+    function setIntentOracle(address _intentOracle) external onlyRole(_OWNER_ROLE) {
+        intentOracle = _intentOracle;
     }
 
     /**
      * @notice Handle refund for failed cross-chain withdrawal
-     * @dev Can only be called by the Extended OIF InputSettler
+     * @dev Can only be called by the ShinobiInputSettler
      * @dev Forwards ETH to privacy pool for refund commitment creation
      * @param _refundCommitmentHash The commitment hash for refund (from 9th signal of original proof)
      * @param _amount The amount being refunded (escrowed amount from OIF)
@@ -137,8 +154,8 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         uint256 _amount,
         uint256 _scope
     ) external payable  {
-        // Only Extended OIF InputSettler can call this function
-        require(msg.sender == extendedInputSettler, "Only InputSettler can call handleRefund");
+        // Only ShinobiInputSettler can call this function
+        require(msg.sender == inputSettler, "Only InputSettler can call handleRefund");
         require(msg.value == _amount, "ETH amount mismatch");
         
         // Get the privacy pool for this scope
@@ -157,14 +174,55 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         return supportedChains[chainId];
     }
 
-    
+    /**
+     * @notice Process a cross-chain deposit with verified depositor address
+     * @dev Called by ShinobiOutputSettler after intent proof validation
+     * @dev CRITICAL: depositor parameter comes from VERIFIED intent.user via intent proof
+     * @param depositor The verified depositor address from origin chain
+     * @param amount The deposit amount
+     * @param precommitment The precommitment for the deposit
+     */
+    function processCrossChainDeposit(
+        address depositor,
+        uint256 amount,
+        uint256 precommitment
+    ) external payable nonReentrant {
+        // CRITICAL: Only ShinobiOutputSettler can call this
+        // This ensures the depositor was verified via intent proof
+        require(msg.sender == outputSettler, "Only OutputSettler");
+
+        // Validate amount matches msg.value
+        require(msg.value == amount, "Amount mismatch");
+
+        // Get the native ETH pool
+        IERC20 asset = IERC20(Constants.NATIVE_ASSET);
+        AssetConfig memory config = assetConfig[asset];
+        IPrivacyPool pool = config.pool;
+        require(address(pool) != address(0), "Pool not found");
+
+        // Check if the precommitment has already been used
+        require(!usedPrecommitments[precommitment], "Precommitment already used");
+        usedPrecommitments[precommitment] = true;
+
+        // Check minimum deposit amount
+        require(amount >= config.minimumDepositAmount, "Below minimum deposit");
+
+        // Deduct vetting fees
+        uint256 amountAfterFees = _deductFee(amount, config.vettingFeeBPS);
+
+        // Deposit to pool with VERIFIED depositor address
+        // This maintains ASP compliance since depositor was verified via intent proof
+        uint256 commitment = pool.deposit{value: amountAfterFees}(depositor, amountAfterFees, precommitment);
+
+        emit Deposited(depositor, pool, commitment, amountAfterFees);
+    }
 
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
  /**
-     * @notice Create ExtendedOrder and submit to OIF InputSettler
+     * @notice Create ShinobiIntent and submit to ShinobiInputSettler
      * @param intentParams User-provided validated intent parameters
      * @param nullifierHash The nullifier hash from privacy pool withdrawal
      * @param refundCommitmentHash The commitment hash for refund recovery
@@ -178,7 +236,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         uint256 netAmount,
         uint256 scope
     ) internal {
-        // Calculate refund calldata hash internally
+        // Create refund calldata for returning to pool as commitment
         bytes memory refundCalldata = abi.encode(
             address(this), // target: ShinobiCashEntrypoint
             abi.encodeWithSelector(
@@ -188,61 +246,23 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
                 scope                          // privacy pool scope
             )
         );
-        bytes32 refundCalldataHash = keccak256(refundCalldata);
-        
-        // Create Extended order using validated parameters
-        IExtendedOrder.ExtendedOrder memory order = IExtendedOrder.ExtendedOrder({
-            user: address(this), // ShinobiCashEntrypoint creates the order
-            nonce: uint256(nullifierHash), // Use nullifier hash as nonce for uniqueness
-            originChainId: block.chainid, // Current chain
-            expires: intentParams.expires, // User-provided expiry
-            fillDeadline: intentParams.fillDeadline, // User-provided fill deadline
-            inputOracle: intentParams.inputOracle, // User-provided oracle
-            inputs: intentParams.inputs, // User-provided inputs
-            outputs: intentParams.outputs, // User-provided outputs
-            refundCalldataHash: refundCalldataHash // Calculated refund calldata hash
+
+        // Create ShinobiIntent for withdrawal
+        ShinobiIntent memory intent = ShinobiIntent({
+            user: address(this),                        // ShinobiCashEntrypoint creates the order
+            nonce: uint256(nullifierHash),              // Use nullifier hash as nonce for uniqueness
+            originChainId: block.chainid,               // Current chain (Ethereum)
+            expires: intentParams.expires,              // User-provided expiry
+            fillDeadline: intentParams.fillDeadline,    // User-provided fill deadline
+            fillOracle: intentParams.fillOracle,        // Fill proof oracle (destination → origin)
+            inputs: intentParams.inputs,                // User-provided inputs
+            outputs: intentParams.outputs,              // User-provided outputs
+            intentOracle: address(0),                   // No intent verification needed for withdrawals
+            refundCalldata: refundCalldata              // Custom refund logic
         });
-        
-        // Submit order to ExtendedInputSettler
-        IExtendedOrder(extendedInputSettler).openExtended{value: netAmount}(order);
+
+        // Submit intent to ShinobiInputSettler
+        IShinobiInputSettler(inputSettler).open{value: netAmount}(intent);
     }
-
-    // /**
-    //  * @notice Validate intent parameters for OIF order creation
-    //  * @param intentParams User-provided intent parameters
-    //  * @param totalAmount Total amount to be escrowed (withdrawn amount)
-    //  */
-    // function _validateIntentParams(
-    //     CrossChainIntentParams calldata intentParams,
-    //     uint256 totalAmount
-    // ) internal view {
-    //     // Validate timing parameters
-    //     require(
-    //         intentParams.fillDeadline > block.timestamp,
-    //         "Fill deadline must be in the future"
-    //     );
-    //     require(
-    //         intentParams.expires > intentParams.fillDeadline,
-    //         "Expiry must be after fill deadline"
-    //     );
-    //     require(
-    //         intentParams.expires <= block.timestamp + 24 hours,
-    //         "Expiry too far in the future (max 24 hours)"
-    //     );
-
-    //     // Validate inputs match the total amount
-    //     require(intentParams.inputs.length == 1, "Must have exactly one input");
-    //     require(
-    //         intentParams.inputs[0][0] == 0, // Native ETH
-    //         "Input must be native ETH (address 0)"
-    //     );
-    //     require(
-    //         intentParams.inputs[0][1] == totalAmount,
-    //         "Input amount must match total withdrawn amount"
-    //     );
-
-    //     // Validate outputs are not empty
-    //     require(intentParams.outputs.length > 0, "Must have at least one output");
-    // }
  
 }
