@@ -9,9 +9,16 @@ import {ShinobiCrosschainDepositEntrypoint} from "../src/contracts/ShinobiCrossc
 
 /**
  * @title 06b_SetupDepositEntrypoint
- * @notice Configure Deposit Entrypoint for L2 deposits
- * @dev Requires: DEPOSIT_ENTRYPOINT, INPUT_SETTLER, FILL_ORACLE, INTENT_ORACLE,
- *               DESTINATION_CHAIN_ID, DESTINATION_ENTRYPOINT, DESTINATION_ORACLE env vars
+ * @notice Configure Deposit Entrypoint for L2 deposits (Base Sepolia -> Arbitrum Sepolia)
+ * @dev Required env vars:
+ *      - SHINOBI_CASH_DEPOSITE_ENTRYPOINT_BASE_SEPOLIA: Deposit entrypoint on Base Sepolia
+ *      - INPUT_SETTLER_BASE_SEPOLIA: Input settler on Base Sepolia
+ *      - FILL_ORACLE_BASE_SEPOLIA: Oracle on Base Sepolia (validates fills on Arbitrum)
+ *      - INTENT_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum Sepolia (validates intents from Base)
+ *      - DESTINATION_CHAIN_ID: 421614 (Arbitrum Sepolia)
+ *      - SHINOBI_CASH_ENTRYPOINT_PROXY: Main entrypoint on Arbitrum Sepolia
+ *      - OUTPUT_SETTLER_ARBITRUM_SEPOLIA: Output settler on Arbitrum Sepolia
+ *      - DESTINATION_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum Sepolia (validates outputs)
  */
 contract SetupDepositEntrypoint is Script {
     function run() external {
@@ -23,12 +30,18 @@ contract SetupDepositEntrypoint is Script {
         address inputSettler = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
 
         // Oracle configuration
-        address fillOracle = vm.envAddress("FILL_ORACLE");
-        address intentOracle = vm.envAddress("INTENT_ORACLE");
+        // CRITICAL: For cross-chain deposits from Base Sepolia -> Arbitrum Sepolia:
+        // - fillOracle: Base Sepolia oracle (validates fills happened on Arbitrum)
+        // - intentOracle: Arbitrum Sepolia oracle (validates intent came from Base)
+        // - destinationOracle: Arbitrum Sepolia oracle (validates output on Arbitrum)
+        address fillOracle = vm.envAddress("FILL_ORACLE_BASE_SEPOLIA");  // Base Sepolia oracle
+        address intentOracle = vm.envAddress("INTENT_ORACLE_ARBITRUM_SEPOLIA");  // Arbitrum Sepolia oracle
 
-        // Destination configuration (mainnet where pool is)
+        // Destination configuration (Arbitrum Sepolia where pool is)
         uint256 destinationChainId = vm.envUint("DESTINATION_CHAIN_ID");
         address destinationEntrypoint = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
+        address destinationOutputSettler = vm.envAddress("OUTPUT_SETTLER_ARBITRUM_SEPOLIA");
+        address destinationOracle = vm.envAddress("DESTINATION_ORACLE_ARBITRUM_SEPOLIA");  // Arbitrum Sepolia oracle
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -55,24 +68,25 @@ contract SetupDepositEntrypoint is Script {
         depositEntrypoint.setIntentOracle(intentOracle);
         console.log("   Intent Oracle set:", intentOracle);
 
-        // 4. Set Destination Configuration (chain, entrypoint, oracle)
+        // 4. Set Destination Configuration (chain, entrypoint, output settler, oracle)
         console.log("4. Setting Destination Configuration...");
         // Note: destinationOracle is the oracle address on the destination chain
-        address destinationOracle = vm.envAddress("DESTINATION_ORACLE");
         depositEntrypoint.setDestinationConfig(
             destinationChainId,
             destinationEntrypoint,
+            destinationOutputSettler,
             destinationOracle
         );
         console.log("   Destination Chain ID:", destinationChainId);
         console.log("   Destination Entrypoint:", destinationEntrypoint);
+        console.log("   Destination Output Settler:", destinationOutputSettler);
         console.log("   Destination Oracle:", destinationOracle);
 
         // 5. Set default deadlines (optional, has defaults)
         console.log("5. Setting default deadlines...");
-        depositEntrypoint.setDefaultFillDeadline(24 hours);
+        depositEntrypoint.setDefaultFillDeadline(23 hours);
         depositEntrypoint.setDefaultExpiry(24 hours);
-        console.log("   Fill Deadline: 24 hour");
+        console.log("   Fill Deadline: 23 hour");
         console.log("   Expiry: 24 hours");
 
         vm.stopBroadcast();
