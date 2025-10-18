@@ -81,9 +81,20 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Thrown when deposit amount is zero
     error InvalidAmount();
+
+    /// @notice Thrown when ShinobiInputSettler is not configured
     error InputSettlerNotSet();
+
+    /// @notice Thrown when destination chain configuration is not set
     error ConfigurationNotSet();
+
+    /// @notice Thrown when setter is called with zero address
+    error InvalidAddress();
+
+    /// @notice Thrown when chain ID is zero
+    error InvalidChainId();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -183,7 +194,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      * @param _inputSettler Address of the ShinobiInputSettler contract
      */
     function setInputSettler(address _inputSettler) external onlyOwner {
-        require(_inputSettler != address(0), "Invalid address");
+        if (_inputSettler == address(0)) revert InvalidAddress();
         address previousInputSettler = inputSettler;
         inputSettler = _inputSettler;
         emit InputSettlerUpdated(previousInputSettler, _inputSettler);
@@ -242,11 +253,13 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         address _outputSettler,
         address _oracle
     ) external onlyOwner {
-        require(_chainId != 0, "Invalid chain ID");
-        require(_entrypoint != address(0), "Invalid entrypoint");
-        require(_outputSettler != address(0), "Invalid output settler");
-        require(_oracle != address(0), "Invalid oracle");
+        // SECURITY: Validate all configuration parameters
+        if (_chainId == 0) revert InvalidChainId();
+        if (_entrypoint == address(0)) revert InvalidAddress();
+        if (_outputSettler == address(0)) revert InvalidAddress();
+        if (_oracle == address(0)) revert InvalidAddress();
 
+        // Update destination chain configuration
         destinationChainId = _chainId;
         destinationEntrypoint = _entrypoint;
         destinationOutputSettler = _outputSettler;
