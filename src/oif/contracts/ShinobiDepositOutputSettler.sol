@@ -89,6 +89,9 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
     /// @notice Thrown when output token is not native ETH
     error InvalidAsset();
 
+    /// @notice Thrown when deposit output has no callback data (deposits require callback)
+    error EmptyCallbackData();
+
     /// @notice Thrown when callback execution fails
     error CallbackFailed();
 
@@ -224,16 +227,14 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
         // Validate token is native ETH (only supported asset)
         if (output.token != bytes32(0)) revert InvalidAsset();
 
+        // SECURITY: Deposits MUST have callback data (processCrossChainDeposit call)
+        // Without callback, deposit cannot be processed into privacy pool
+        if (output.call.length == 0) revert EmptyCallbackData();
+
         // For deposits, output.call contains processCrossChainDeposit(depositor, amount, precommitment)
         // Execute callback with ETH payment
-        if (output.call.length > 0) {
-            (bool success,) = recipient.call{value: amount}(output.call);
-            if (!success) revert CallbackFailed();
-        } else {
-            // Fallback: Simple ETH transfer (should not happen for deposits)
-            (bool success,) = payable(recipient).call{value: amount}("");
-            if (!success) revert ETHTransferFailed();
-        }
+        (bool success,) = recipient.call{value: amount}(output.call);
+        if (!success) revert CallbackFailed();
 
         emit OutputFilled(
             orderId, bytes32(uint256(uint160(solver))), uint32(block.timestamp), output, amount

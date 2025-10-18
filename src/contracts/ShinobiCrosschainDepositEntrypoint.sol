@@ -40,7 +40,42 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    // No events needed - ShinobiInputSettler emits Open/Refunded events
+    /// @notice Emitted when the ShinobiInputSettler address is updated
+    /// @param previousInputSettler The previous ShinobiInputSettler address
+    /// @param newInputSettler The new ShinobiInputSettler address
+    event InputSettlerUpdated(address indexed previousInputSettler, address indexed newInputSettler);
+
+    /// @notice Emitted when the default fill deadline is updated
+    /// @param previousFillDeadline The previous default fill deadline
+    /// @param newFillDeadline The new default fill deadline
+    event DefaultFillDeadlineUpdated(uint32 previousFillDeadline, uint32 newFillDeadline);
+
+    /// @notice Emitted when the default expiry is updated
+    /// @param previousExpiry The previous default expiry
+    /// @param newExpiry The new default expiry
+    event DefaultExpiryUpdated(uint32 previousExpiry, uint32 newExpiry);
+
+    /// @notice Emitted when the fill oracle address is updated
+    /// @param previousFillOracle The previous fill oracle address
+    /// @param newFillOracle The new fill oracle address
+    event FillOracleUpdated(address indexed previousFillOracle, address indexed newFillOracle);
+
+    /// @notice Emitted when the intent oracle address is updated
+    /// @param previousIntentOracle The previous intent oracle address
+    /// @param newIntentOracle The new intent oracle address
+    event IntentOracleUpdated(address indexed previousIntentOracle, address indexed newIntentOracle);
+
+    /// @notice Emitted when the destination chain configuration is updated
+    /// @param chainId The destination chain ID
+    /// @param entrypoint The destination ShinobiCashEntrypoint address
+    /// @param outputSettler The destination ShinobiOutputSettler address
+    /// @param oracle The destination oracle address
+    event DestinationConfigUpdated(
+        uint256 indexed chainId,
+        address indexed entrypoint,
+        address outputSettler,
+        address oracle
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -149,7 +184,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      */
     function setInputSettler(address _inputSettler) external onlyOwner {
         require(_inputSettler != address(0), "Invalid address");
+        address previousInputSettler = inputSettler;
         inputSettler = _inputSettler;
+        emit InputSettlerUpdated(previousInputSettler, _inputSettler);
     }
 
     /**
@@ -157,7 +194,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      * @param _fillDeadline Fill deadline in seconds from now
      */
     function setDefaultFillDeadline(uint32 _fillDeadline) external onlyOwner {
+        uint32 previousFillDeadline = defaultFillDeadline;
         defaultFillDeadline = _fillDeadline;
+        emit DefaultFillDeadlineUpdated(previousFillDeadline, _fillDeadline);
     }
 
     /**
@@ -165,7 +204,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      * @param _expiry Expiry in seconds from now
      */
     function setDefaultExpiry(uint32 _expiry) external onlyOwner {
+        uint32 previousExpiry = defaultExpiry;
         defaultExpiry = _expiry;
+        emit DefaultExpiryUpdated(previousExpiry, _expiry);
     }
 
     /**
@@ -173,7 +214,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      * @param _fillOracle Fill oracle address
      */
     function setFillOracle(address _fillOracle) external onlyOwner {
+        address previousFillOracle = fillOracle;
         fillOracle = _fillOracle;
+        emit FillOracleUpdated(previousFillOracle, _fillOracle);
     }
 
     /**
@@ -181,7 +224,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      * @param _intentOracle Intent oracle address
      */
     function setIntentOracle(address _intentOracle) external onlyOwner {
+        address previousIntentOracle = intentOracle;
         intentOracle = _intentOracle;
+        emit IntentOracleUpdated(previousIntentOracle, _intentOracle);
     }
 
     /**
@@ -206,5 +251,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         destinationEntrypoint = _entrypoint;
         destinationOutputSettler = _outputSettler;
         destinationOracle = _oracle;
+
+        emit DestinationConfigUpdated(_chainId, _entrypoint, _outputSettler, _oracle);
     }
 }

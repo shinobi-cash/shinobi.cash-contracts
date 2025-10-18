@@ -46,6 +46,20 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     /// @notice Emitted when a chain's support status is updated
     event ChainSupportUpdated(uint256 indexed chainId, bool supported);
 
+    /// @notice Emitted when the ShinobiInputSettler address is updated
+    /// @param previousInputSettler The previous ShinobiInputSettler address
+    /// @param newInputSettler The new ShinobiInputSettler address
+    event InputSettlerUpdated(address indexed previousInputSettler, address indexed newInputSettler);
+
+    /// @notice Emitted when the ShinobiOutputSettler address is updated
+    /// @param previousOutputSettler The previous ShinobiOutputSettler address
+    /// @param newOutputSettler The new ShinobiOutputSettler address
+    event OutputSettlerUpdated(address indexed previousOutputSettler, address indexed newOutputSettler);
+
+    /// @notice Emitted when the intent oracle address is updated
+    /// @param previousIntentOracle The previous intent oracle address
+    /// @param newIntentOracle The new intent oracle address
+    event IntentOracleUpdated(address indexed previousIntentOracle, address indexed newIntentOracle);
 
     /// @notice Emitted when a cross-chain refund is processed
     event RefundProcessed(
@@ -125,20 +139,26 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     /// @param _inputSettler The address of the ShinobiInputSettler contract
     function setInputSettler(address _inputSettler) external onlyRole(_OWNER_ROLE) {
         require(_inputSettler != address(0), "InputSettler address cannot be zero");
+        address previousInputSettler = inputSettler;
         inputSettler = _inputSettler;
+        emit InputSettlerUpdated(previousInputSettler, _inputSettler);
     }
 
     /// @notice Set the ShinobiOutputSettler address
     /// @param _outputSettler The address of the ShinobiOutputSettler contract
     function setOutputSettler(address _outputSettler) external onlyRole(_OWNER_ROLE) {
         require(_outputSettler != address(0), "OutputSettler address cannot be zero");
+        address previousOutputSettler = outputSettler;
         outputSettler = _outputSettler;
+        emit OutputSettlerUpdated(previousOutputSettler, _outputSettler);
     }
 
     /// @notice Set the intent oracle address (used for deposits, not withdrawals)
     /// @param _intentOracle The address of the intent oracle contract
     function setIntentOracle(address _intentOracle) external onlyRole(_OWNER_ROLE) {
+        address previousIntentOracle = intentOracle;
         intentOracle = _intentOracle;
+        emit IntentOracleUpdated(previousIntentOracle, _intentOracle);
     }
 
     /**

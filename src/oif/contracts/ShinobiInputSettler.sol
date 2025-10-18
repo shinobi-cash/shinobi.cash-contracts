@@ -124,6 +124,12 @@ contract ShinobiInputSettler is IShinobiInputSettler {
     /// @notice Thrown when ETH transfer fails during finalize or refund
     error ETHTransferFailed();
 
+    /// @notice Thrown when refund calldata length is invalid (too short for abi.decode)
+    error InvalidRefundCalldataLength();
+
+    /// @notice Thrown when refund target address is zero
+    error InvalidRefundTarget();
+
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -309,8 +315,15 @@ contract ShinobiInputSettler is IShinobiInputSettler {
             if (!success) revert ETHTransferFailed();
         } else {
             // Custom refund: Execute calldata (e.g., handleRefund on entrypoint)
+            // SECURITY: Validate calldata length before decoding to prevent out-of-bounds reads
+            // Minimum length: 32 bytes for address + 32 bytes for dynamic array offset = 64 bytes
+            if (intent.refundCalldata.length < 64) revert InvalidRefundCalldataLength();
+
             (address target, bytes memory functionCalldata) =
                 abi.decode(intent.refundCalldata, (address, bytes));
+
+            // SECURITY: Ensure refund target is not zero address
+            if (target == address(0)) revert InvalidRefundTarget();
 
             (bool success,) = target.call{value: totalAmount}(functionCalldata);
             if (!success) revert ETHTransferFailed();
