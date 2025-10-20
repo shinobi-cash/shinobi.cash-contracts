@@ -74,9 +74,6 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     /// @notice Thrown when destination chain is not supported for cross-chain operations
     error DestinationChainNotSupported();
 
-    /// @notice Thrown when privacy pool is not found for the given scope
-    error PoolNotFound();
-
     /// @notice Thrown when pool does not support cross-chain operations
     error PoolDoesNotSupportCrossChain();
 
@@ -100,9 +97,6 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
 
     /// @notice Thrown when ETH amount sent doesn't match the expected amount
     error AmountMismatch();
-
-    /// @notice Thrown when precommitment has already been used
-    error PrecommitmentAlreadyUsed();
 
     /// @notice Thrown when deposit amount is below minimum required
     error BelowMinimumDeposit();
