@@ -12,8 +12,10 @@ import {CrossChainWithdrawalPaymaster} from "../src/paymaster/contracts/CrossCha
 import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/contracts/SimpleShinobiCashPoolPaymaster.sol";
 import {CrossChainWithdrawalVerifier} from "../src/paymaster/contracts/CrossChainWithdrawalVerifier.sol";
 import {ShinobiInputSettler} from "../src/oif/contracts/ShinobiInputSettler.sol";
-import {ShinobiOutputSettler} from "../src/oif/contracts/ShinobiOutputSettler.sol";
+import {ShinobiDepositOutputSettler} from "../src/oif/contracts/ShinobiDepositOutputSettler.sol";
+import {ShinobiWithdrawalOutputSettler} from "../src/oif/contracts/ShinobiWithdrawalOutputSettler.sol";
 import {ShinobiCrosschainDepositEntrypoint} from "../src/contracts/ShinobiCrosschainDepositEntrypoint.sol";
+import {MockOracle} from "../src/mocks/MockOracle.sol";
 
 // Privacy Pools Core contracts (from submodule)
 import {WithdrawalVerifier} from "contracts/verifiers/WithdrawalVerifier.sol";
@@ -93,25 +95,37 @@ contract Deploy is Script {
         );
         console.log("   ETH Pool registered with Shinobi Entrypoint");
 
-        // 5. Deploy OIF Settlers
-        console.log("5. Deploying OIF Settlers...");
-        address inputSettler = address(new ShinobiInputSettler());
-        address outputSettler = address(new ShinobiOutputSettler());
+        // 5. Deploy Mock Oracle for testing
+        console.log("5. Deploying Mock Oracle...");
+        address mockOracle = address(new MockOracle());
+        console.log("   Mock Oracle:", mockOracle);
 
+        // 6. Deploy OIF Settlers
+        console.log("6. Deploying OIF Settlers...");
+
+        // Input Settler (for withdrawals - origin chain)
+        address inputSettler = address(new ShinobiInputSettler(shinobiEntrypoint));
         console.log("   Shinobi Input Settler:", inputSettler);
-        console.log("   Shinobi Output Settler:", outputSettler);
 
-        // 6. Configure cross-chain support
-        console.log("6. Configuring cross-chain support...");
+        // Deposit Output Settler (for deposits - destination/pool chain)
+        address depositOutputSettler = address(new ShinobiDepositOutputSettler(deployer, mockOracle));
+        console.log("   Shinobi Deposit Output Settler:", depositOutputSettler);
+
+        // Withdrawal Output Settler (for withdrawals - destination/user chain)
+        address withdrawalOutputSettler = address(new ShinobiWithdrawalOutputSettler(deployer, mockOracle));
+        console.log("   Shinobi Withdrawal Output Settler:", withdrawalOutputSettler);
+
+        // 7. Configure cross-chain support
+        console.log("7. Configuring cross-chain support...");
         ShinobiCashEntrypoint shinobiEntrypointContract = ShinobiCashEntrypoint(payable(shinobiEntrypoint));
 
-        // Set Shinobi Input Settler
+        // Set Shinobi Input Settler (entrypoint already set in constructor)
         shinobiEntrypointContract.setInputSettler(inputSettler);
         console.log("   Shinobi Input Settler configured");
 
-        // Set Shinobi Output Settler
-        shinobiEntrypointContract.setOutputSettler(outputSettler);
-        console.log("   Shinobi Output Settler configured");
+        // Set Shinobi Output Settler (for deposits - receives cross-chain deposits)
+        shinobiEntrypointContract.setOutputSettler(depositOutputSettler);
+        console.log("   Shinobi Deposit Output Settler configured");
 
         // Enable supported chains (example: Ethereum mainnet, Arbitrum, Polygon)
         shinobiEntrypointContract.updateChainSupport(1, true);    // Ethereum
@@ -119,8 +133,8 @@ contract Deploy is Script {
         shinobiEntrypointContract.updateChainSupport(137, true);   // Polygon
         console.log("   Cross-chain support enabled for: Ethereum, Arbitrum, Polygon");
 
-        // 7. Deploy Cross-Chain Withdrawal Paymaster
-        console.log("7. Deploying Cross-Chain Withdrawal Paymaster...");
+        // 8. Deploy Cross-Chain Withdrawal Paymaster
+        console.log("8. Deploying Cross-Chain Withdrawal Paymaster...");
         address payable crossChainPaymaster = payable(address(new CrossChainWithdrawalPaymaster(
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
             IShinobiCashEntrypoint(address(shinobiEntrypointContract)),
@@ -128,8 +142,8 @@ contract Deploy is Script {
         )));
         console.log("   Cross-Chain Paymaster deployed:", crossChainPaymaster);
 
-        // 8. Deploy Simple Privacy Pool Paymaster
-        console.log("8. Deploying Simple Privacy Pool Paymaster...");
+        // 9. Deploy Simple Privacy Pool Paymaster
+        console.log("9. Deploying Simple Privacy Pool Paymaster...");
         address payable simplePaymaster = payable(address(new SimpleShinobiCashPoolPaymaster(
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
             IShinobiCashEntrypoint(address(shinobiEntrypointContract)),
@@ -137,20 +151,21 @@ contract Deploy is Script {
         )));
         console.log("   Simple Paymaster deployed:", simplePaymaster);
 
-        // 9. Fund paymasters for gas sponsorship
-        console.log("9. Funding Paymasters...");
+        // 10. Fund paymasters for gas sponsorship
+        console.log("10. Funding Paymasters...");
         CrossChainWithdrawalPaymaster(crossChainPaymaster).deposit{value: 0.1 ether}();
         SimpleShinobiCashPoolPaymaster(simplePaymaster).deposit{value: 0.1 ether}();
         console.log("   Paymasters funded with 0.1 ETH each");
 
-        // 10. Verify deployment
-        console.log("10. Verifying deployment...");
+        // 11. Verify deployment
+        console.log("11. Verifying deployment...");
         require(crossChainPaymaster.code.length > 0, "Cross-chain paymaster deployment failed");
         require(simplePaymaster.code.length > 0, "Simple paymaster deployment failed");
         require(ethCashPool.code.length > 0, "Cash Pool deployment failed");
         require(shinobiEntrypoint.code.length > 0, "Entrypoint deployment failed");
         require(inputSettler.code.length > 0, "Shinobi Input Settler deployment failed");
-        require(outputSettler.code.length > 0, "Shinobi Output Settler deployment failed");
+        require(depositOutputSettler.code.length > 0, "Shinobi Deposit Output Settler deployment failed");
+        require(withdrawalOutputSettler.code.length > 0, "Shinobi Withdrawal Output Settler deployment failed");
         console.log("   All contracts deployed successfully");
 
         vm.stopBroadcast();
@@ -163,8 +178,10 @@ contract Deploy is Script {
         console.log("PRIVACY_POOL:", ethCashPool);
         console.log("CROSS_CHAIN_PAYMASTER:", crossChainPaymaster);
         console.log("SIMPLE_PAYMASTER:", simplePaymaster);
+        console.log("MOCK_ORACLE:", mockOracle);
         console.log("INPUT_SETTLER:", inputSettler);
-        console.log("OUTPUT_SETTLER:", outputSettler);
+        console.log("DEPOSIT_OUTPUT_SETTLER:", depositOutputSettler);
+        console.log("WITHDRAWAL_OUTPUT_SETTLER:", withdrawalOutputSettler);
         console.log("WITHDRAWAL_VERIFIER:", withdrawalVerifier);
         console.log("COMMITMENT_VERIFIER:", commitmentVerifier);
         console.log("CROSS_CHAIN_VERIFIER:", crossChainVerifier);

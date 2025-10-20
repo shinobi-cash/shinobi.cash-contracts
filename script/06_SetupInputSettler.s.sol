@@ -9,39 +9,32 @@ import {ShinobiInputSettler} from "../src/oif/contracts/ShinobiInputSettler.sol"
 
 /**
  * @title 06_SetupInputSettler
- * @notice Configure Input Settler with entrypoint
- * @dev Requires: INPUT_SETTLER, ENTRYPOINT env vars
+ * @notice Verify Input Settler configuration (entrypoint set in constructor)
+ * @dev NOTE: This script is now deprecated - entrypoint is set immutably in constructor
+ * @dev Kept for verification purposes only
  */
 contract SetupInputSettler is Script {
-    function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
-
+    function run() external view {
         // Get addresses from previous deployments
         address inputSettlerAddr = vm.envAddress("INPUT_SETTLER_ARBITRUM_SEPOLIA");
-        address entrypoint = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
-        // // Get addresses from previous deployments
-        // address inputSettlerAddr = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
-        // address entrypoint = vm.envAddress("SHINOBI_CASH_DEPOSITE_ENTRYPOINT_BASE_SEPOLIA");
+        address expectedEntrypoint = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
 
-        vm.startBroadcast(deployerPrivateKey);
-
-        console.log("=== Step 6: Setup Input Settler ===");
-        console.log("Deployer:", deployer);
+        console.log("=== Step 6: Verify Input Settler Configuration ===");
         console.log("Input Settler:", inputSettlerAddr);
-        console.log("Entrypoint:", entrypoint);
+        console.log("Expected Entrypoint:", expectedEntrypoint);
         console.log("");
 
         ShinobiInputSettler inputSettler = ShinobiInputSettler(payable(inputSettlerAddr));
 
-        // Set entrypoint (only address allowed to call open())
-        console.log("Setting entrypoint...");
-        inputSettler.setEntrypoint(entrypoint);
-        console.log("Entrypoint configured");
+        // Verify entrypoint is correctly set (immutable from constructor)
+        address actualEntrypoint = inputSettler.entrypoint();
+        console.log("Actual Entrypoint:", actualEntrypoint);
 
-        vm.stopBroadcast();
+        require(actualEntrypoint == expectedEntrypoint, "Entrypoint mismatch!");
+        console.log("Entrypoint verification: PASSED");
 
         console.log("");
-        console.log("=== Input Settler configuration complete ===");
+        console.log("=== Input Settler verified successfully ===");
+        console.log("NOTE: Entrypoint is immutable and was set during deployment");
     }
 }
