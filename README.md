@@ -64,6 +64,20 @@ Enables gasless withdrawals — users don't need destination chain gas tokens.
 
 ---
 
+## Flow Diagrams
+
+### Cross-Chain Withdrawal Flow
+![Cross-Chain Withdrawal Flow](./assets/images/ShinobiCrosschainWithdrawalFlow.png)
+
+*User withdraws from privacy pool on Chain Arbitrum, receives funds privately on any L2 Chain via solver network.*
+
+### Cross-Chain Deposit Flow
+![Cross-Chain Deposit Flow](./assets/images/ShinobiCrosschainDepositFlow.png)
+
+*User deposits on supported L2 Chain, funds appear in privacy pool on Arbitrum Chain with unlinkability.*
+
+---
+
 ## Key Contracts
 
 ### Privacy & Entrypoint
