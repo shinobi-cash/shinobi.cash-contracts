@@ -137,7 +137,7 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
      *      5. Fill each output (execute callback)
      *
      * @dev Requirements:
-     *      - intent.outputs.length > 0
+     *      - intent.outputs.length == 1 (deposits have exactly one output)
      *      - intent.outputs[0].chainId == block.chainid
      *      - block.timestamp <= intent.fillDeadline
      *      - intent.intentOracle == configured intentOracle (MANDATORY)
@@ -146,8 +146,9 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
      *      - Output not already filled
      */
     function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
-        // Validate intent has outputs
-        if (intent.outputs.length == 0) revert InvalidOutput();
+        // SECURITY: Deposits must have exactly one output
+        // This prevents complex multi-output attacks and ensures clean accounting
+        if (intent.outputs.length != 1) revert InvalidOutput();
 
         // Validate this is the correct destination chain
         if (intent.outputs[0].chainId != block.chainid) revert InvalidChain();
@@ -176,10 +177,8 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
             revert IntentNotProven();
         }
 
-        // Fill each output (typically just one for deposits)
-        for (uint256 i = 0; i < intent.outputs.length; i++) {
-            _fillOutput(orderId, intent.outputs[i], msg.sender);
-        }
+        // Fill the single deposit output
+        _fillOutput(orderId, intent.outputs[0], msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////
