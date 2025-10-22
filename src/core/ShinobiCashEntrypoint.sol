@@ -64,7 +64,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     event IntentOracleUpdated(address indexed previousIntentOracle, address indexed newIntentOracle);
 
     /// @notice Emitted when a cross-chain refund is processed
-    event RefundProcessed(
+    event Refunded(
         uint256 amount,
         uint256 indexed refundCommitmentHash
     );
@@ -250,7 +250,7 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         ShinobiCashPool shinobiPool = ShinobiCashPool(address(basePool));
         shinobiPool.handleRefund{value: msg.value}(_refundCommitmentHash, _amount);
 
-        emit RefundProcessed(_amount, _refundCommitmentHash);
+        emit Refunded(_amount, _refundCommitmentHash);
     }
 
     /// @inheritdoc IShinobiCashCrossChainHandler
