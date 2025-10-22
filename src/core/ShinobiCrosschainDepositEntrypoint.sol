@@ -5,6 +5,7 @@ pragma solidity 0.8.28;
 
 import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
 import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
+import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -16,6 +17,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
  * @dev Provides simple deposit/refund interface and calls ShinobiInputSettler
  */
 contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
+    using ShinobiIntentLib for ShinobiIntent;
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -75,6 +77,20 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         address indexed entrypoint,
         address outputSettler,
         address oracle
+    );
+
+    /// @notice Emitted when a user initiates a cross-chain deposit
+    /// @param depositor The address initiating the deposit
+    /// @param precommitment The precommitment for the pool deposit
+    /// @param amount The amount being deposited
+    /// @param destinationChainId The destination chain where deposit will be processed
+    /// @param orderId The unique order identifier for tracking (links to InputSettler.Open event)
+    event CrossChainDepositIntent(
+        address indexed depositor,
+        uint256 indexed precommitment,
+        uint256 amount,
+        uint256 destinationChainId,
+        bytes32 indexed orderId
     );
 
     /*//////////////////////////////////////////////////////////////
@@ -142,7 +158,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         MandateOutput[] memory outputs = new MandateOutput[](1);
         outputs[0] = MandateOutput({
             oracle: bytes32(uint256(uint160(destinationOracle))),
-            settler: bytes32(uint256(uint160(destinationOutputSettler))),  // Output Settler, not Entrypoint
+            settler: bytes32(uint256(uint160(destinationOutputSettler))),  // Output Settler
             chainId: destinationChainId,
             token: bytes32(0), // Native ETH
             amount: msg.value,
@@ -164,6 +180,18 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
             intentOracle: intentOracle,
             refundCalldata: refundCalldata
         });
+
+        // Calculate orderId for event emission using library (gas efficient)
+        bytes32 orderId = intent.orderIdentifier();
+
+        // Emit event for indexers to track deposit initiation
+        emit CrossChainDepositIntent(
+            msg.sender,
+            precommitment,
+            msg.value,
+            destinationChainId,
+            orderId
+        );
 
         // Call ShinobiInputSettler to open intent and escrow funds
         // ShinobiInputSettler will emit Open(orderId, intent) event
