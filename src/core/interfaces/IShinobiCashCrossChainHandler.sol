@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
+import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
   /**
    * @title IShinobiCashCrossChainHandler
    * @notice Interface for handling cross-chain privacy pool operations (deposits and withdrawals)

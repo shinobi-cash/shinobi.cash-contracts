@@ -3,7 +3,7 @@
 pragma solidity 0.8.28;
 
 import {Entrypoint} from "contracts/Entrypoint.sol";
-import {CrossChainProofLib} from "./lib/CrossChainProofLib.sol";
+import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
@@ -11,7 +11,7 @@ import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {ProofLib} from "contracts/lib/ProofLib.sol";
 import {IShinobiCashCrossChainHandler} from "./interfaces/IShinobiCashCrossChainHandler.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {ShinobiIntent} from "../oif/types/ShinobiIntentType.sol";
+import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 

@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 
 import {PrivacyPool} from "contracts/PrivacyPool.sol";
 import {ICrossChainWithdrawalProofVerifier} from "./interfaces/ICrossChainWithdrawalProofVerifier.sol";
-import {CrossChainProofLib} from "./lib/CrossChainProofLib.sol";
+import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**

@@ -3,41 +3,38 @@
 
 pragma solidity 0.8.28;
 
-import {IShinobiOutputSettler} from "../interfaces/IShinobiOutputSettler.sol";
-import {ShinobiIntent} from "../types/ShinobiIntentType.sol";
-import {ShinobiIntentLib} from "../lib/ShinobiIntentLib.sol";
+import {IShinobiOutputSettler} from "./interfaces/IShinobiOutputSettler.sol";
+import {ShinobiIntent} from "./libraries/ShinobiIntentType.sol";
+import {ShinobiIntentLib} from "./libraries/ShinobiIntentLib.sol";
+import {IInputOracle} from "oif-contracts/interfaces/IInputOracle.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
 /**
- * @title ShinobiWithdrawalOutputSettler
+ * @title ShinobiDepositOutputSettler
  * @author Karandeep Singh
- * @notice Output settler for cross-chain withdrawals on destination chain (user's chain)
- * @dev This contract handles fills for withdrawal intents on user's destination chain (e.g., Base Sepolia)
+ * @notice Output settler for cross-chain deposits on destination chain (pool chain)
+ * @dev This contract handles fills for deposit intents on the pool chain (e.g., Arbitrum Sepolia)
  *
- * @dev Flow: Arbitrum Sepolia (pool) → Base Sepolia (user)
- *      1. User creates withdrawal via ZK proof on Arbitrum Sepolia pool
- *      2. ShinobiCashEntrypoint validates ZK proof and creates intent
- *      3. Intent has NO intentOracle (ZK proof already validated user)
- *      4. Intent includes fillOracle for fill validation on origin chain
- *      5. Solver fills on Base Sepolia via this contract
- *      6. This contract validates intent uses configured fillOracle
- *      7. Performs OPTIMISTIC settlement (no oracle validation here)
- *      8. Simple ETH transfer to user recipient
- *      9. InputSettler on origin will validate fill via fillOracle
+ * @dev Flow: Base Sepolia (user) → Arbitrum Sepolia (pool)
+ *      1. User creates deposit intent on Base Sepolia via ShinobiCrosschainDepositEntrypoint
+ *      2. Intent includes intentOracle for validation
+ *      3. Solver fills on Arbitrum Sepolia via this contract
+ *      4. This contract VALIDATES intent proof via intentOracle (MANDATORY)
+ *      5. Validates intent uses the configured intentOracle (security)
+ *      6. Calls processCrossChainDeposit() on pool entrypoint with verified depositor
  *
  * @dev Security model:
- *      - Configured fillOracle prevents use of malicious/fake oracles
- *      - NO intentOracle validation (ZK proof provides authentication)
- *      - Optimistic settlement - assumes intent is valid
- *      - ZK proof on origin chain already validated withdrawer's credentials
+ *      - Configured intentOracle prevents use of malicious/fake oracles
+ *      - MANDATORY intentOracle validation prevents depositor spoofing
+ *      - Without oracle validation, attacker could create fake deposit intent
+ *      - Oracle cryptographically proves intent came from legitimate user
  *      - ReentrancyGuard protects against reentrancy attacks
  *      - Fill records prevent double-filling same intent
- *      - Simpler and cheaper than deposit flow
  */
-contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuard, Ownable {
+contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, Ownable {
     using ShinobiIntentLib for ShinobiIntent;
     using MandateOutputEncodingLib for MandateOutput;
 
@@ -46,12 +43,11 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Configured fill oracle that must be used for all withdrawals
+     * @notice Configured intent oracle that must be used for all deposits
      * @dev Set immutably in constructor for security
-     * @dev All withdrawal intents must use this oracle, preventing oracle substitution attacks
-     * @dev This oracle validates fills on origin chain (InputSettler validation)
+     * @dev All deposit intents must use this oracle, preventing oracle substitution attacks
      */
-    address public immutable fillOracle;
+    address public immutable intentOracle;
 
     /*//////////////////////////////////////////////////////////////
                             MUTABLE STATE
@@ -69,8 +65,8 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Thrown when fillOracle address is zero in constructor
-    error InvalidFillOracle();
+    /// @notice Thrown when intentOracle address is zero in constructor
+    error InvalidIntentOracle();
 
     /// @notice Thrown when intent has no outputs
     error InvalidOutput();
@@ -81,14 +77,23 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
     /// @notice Thrown when fill deadline has passed
     error FillDeadlinePassed();
 
-    /// @notice Thrown when intent uses wrong fillOracle (doesn't match configured)
-    error FillOracleMismatch();
+    /// @notice Thrown when intent uses wrong intentOracle (doesn't match configured)
+    error IntentOracleMismatch();
+
+    /// @notice Thrown when intent proof validation fails
+    error IntentNotProven();
 
     /// @notice Thrown when output has already been filled
     error AlreadyFilled();
 
     /// @notice Thrown when output token is not native ETH
     error InvalidAsset();
+
+    /// @notice Thrown when deposit output has no callback data (deposits require callback)
+    error EmptyCallbackData();
+
+    /// @notice Thrown when callback execution fails
+    error CallbackFailed();
 
     /// @notice Thrown when ETH transfer fails
     error ETHTransferFailed();
@@ -98,14 +103,14 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Initialize the WithdrawalOutputSettler with immutable fillOracle
-     * @dev FillOracle address is set once and cannot be changed (security feature)
+     * @notice Initialize the DepositOutputSettler with immutable intentOracle
+     * @dev IntentOracle address is set once and cannot be changed (security feature)
      * @param _owner Address of the contract owner
-     * @param _fillOracle Address of the fill oracle (validates fills on origin chain)
+     * @param _intentOracle Address of the intent oracle (validates deposit intents)
      */
-    constructor(address _owner, address _fillOracle) Ownable(_owner) {
-        if (_fillOracle == address(0)) revert InvalidFillOracle();
-        fillOracle = _fillOracle;
+    constructor(address _owner, address _intentOracle) Ownable(_owner) {
+        if (_intentOracle == address(0)) revert InvalidIntentOracle();
+        intentOracle = _intentOracle;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -113,44 +118,32 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Fill a withdrawal intent on user's chain (destination)
-     * @dev OPTIMISTIC: Does NOT validate intent proof (ZK proof already validated on origin)
-     * @dev Validates intent uses configured fillOracle for consistency
-     * @dev Solver provides ETH and sends directly to recipient
+     * @notice Fill a deposit intent on pool chain (destination)
+     * @dev CRITICAL: Always validates intent proof via configured intentOracle
+     * @dev Solver provides ETH and calls processCrossChainDeposit with verified depositor
      *
-     * @param intent The withdrawal intent from pool chain (Arbitrum Sepolia), containing:
-     *               - user: The ShinobiCashEntrypoint (not end user)
-     *               - originChainId: Pool chain where ZK proof was validated
+     * @param intent The deposit intent from origin chain (Base Sepolia), containing:
+     *               - user: The verified depositor address
+     *               - originChainId: Origin chain where intent was created
      *               - fillDeadline: Solver must fill before this timestamp
-     *               - fillOracle: MUST match configured fillOracle
-     *               - intentOracle: address(0) (no validation needed)
-     *               - outputs: Array of outputs to fill (recipient gets ETH)
+     *               - intentOracle: MUST match configured intentOracle
+     *               - outputs: Array of outputs to fill
      *
      * @dev Process:
      *      1. Validate intent structure (has outputs, correct chain)
      *      2. Check fill deadline hasn't passed
-     *      3. Validate intent uses configured fillOracle
-     *      4. Fill each output (simple ETH transfer)
-     *      5. NO intentOracle validation (optimistic settlement)
+     *      3. CRITICAL: Validate intent uses configured intentOracle
+     *      4. CRITICAL: Validate intent proof via oracle
+     *      5. Fill each output (execute callback)
      *
      * @dev Requirements:
      *      - intent.outputs.length > 0
      *      - intent.outputs[0].chainId == block.chainid
      *      - block.timestamp <= intent.fillDeadline
-     *      - intent.fillOracle == configured fillOracle (MANDATORY)
+     *      - intent.intentOracle == configured intentOracle (MANDATORY)
+     *      - Oracle must attest to valid intent
      *      - msg.value must match output amounts
      *      - Output not already filled
-     *
-     * @dev Why no intentOracle validation?
-     *      - ZK proof on origin chain already validated the withdrawer
-     *      - Privacy pool verified nullifier and commitment
-     *      - Intent created by trusted ShinobiCashEntrypoint
-     *      - No risk of spoofing since ZK proof cannot be faked
-     *
-     * @dev Why validate fillOracle?
-     *      - Ensures InputSettler can validate fill with correct oracle
-     *      - Prevents confusion from using wrong oracle address
-     *      - Maintains consistency across the intent lifecycle
      */
     function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
         // Validate intent has outputs
@@ -162,17 +155,28 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
         // Validate fill deadline hasn't passed
         if (block.timestamp > intent.fillDeadline) revert FillDeadlinePassed();
 
-        // CRITICAL: Validate intent uses the configured fillOracle
-        // This ensures consistency - InputSettler will validate fill with this oracle
-        if (intent.fillOracle != fillOracle) revert FillOracleMismatch();
+        // CRITICAL: Validate intent uses the configured intentOracle
+        // This prevents oracle substitution attacks where attacker uses malicious oracle
+        if (intent.intentOracle != intentOracle) revert IntentOracleMismatch();
 
         // Compute unique order identifier
         bytes32 orderId = intent.orderIdentifier();
 
-        // NO intentOracle validation - optimistic settlement
-        // ZK proof on origin chain already validated the withdrawer
+        // CRITICAL: Validate intent proof via configured oracle
+        // Oracle must attest that this intent was legitimately created on origin chain
+        // Params: (originChainId, oracleOnOrigin, settlerOnDestination, orderId)
+        if (
+            !IInputOracle(intentOracle).isProven(
+                intent.originChainId,
+                bytes32(uint256(uint160(intentOracle))),
+                bytes32(uint256(uint160(address(this)))),
+                orderId
+            )
+        ) {
+            revert IntentNotProven();
+        }
 
-        // Fill each output
+        // Fill each output (typically just one for deposits)
         for (uint256 i = 0; i < intent.outputs.length; i++) {
             _fillOutput(orderId, intent.outputs[i], msg.sender);
         }
@@ -183,11 +187,11 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Fill a single output by transferring ETH to recipient
-     * @dev Stores fill record and performs simple ETH transfer
+     * @notice Fill a single output by transferring ETH and executing callback
+     * @dev Stores fill record and executes processCrossChainDeposit callback
      *
      * @param orderId The unique order identifier
-     * @param output The output to fill (contains recipient, amount)
+     * @param output The output to fill (contains recipient, amount, callback)
      * @param solver The solver providing liquidity
      *
      * @dev Process:
@@ -196,7 +200,7 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
      *      3. Check output not already filled
      *      4. Store fill record
      *      5. Validate native ETH
-     *      6. Transfer ETH to recipient (simple transfer, no callback)
+     *      6. Execute callback (processCrossChainDeposit)
      */
     function _fillOutput(bytes32 orderId, MandateOutput calldata output, address solver) internal {
         // Validate output is for this chain
@@ -223,10 +227,14 @@ contract ShinobiWithdrawalOutputSettler is IShinobiOutputSettler, ReentrancyGuar
         // Validate token is native ETH (only supported asset)
         if (output.token != bytes32(0)) revert InvalidAsset();
 
-        // For withdrawals, typically no callback needed - simple ETH transfer
-        // User receives ETH directly on their destination chain
-        (bool success,) = payable(recipient).call{value: amount}("");
-        if (!success) revert ETHTransferFailed();
+        // SECURITY: Deposits MUST have callback data (processCrossChainDeposit call)
+        // Without callback, deposit cannot be processed into privacy pool
+        if (output.call.length == 0) revert EmptyCallbackData();
+
+        // For deposits, output.call contains processCrossChainDeposit(depositor, amount, precommitment)
+        // Execute callback with ETH payment
+        (bool success,) = recipient.call{value: amount}(output.call);
+        if (!success) revert CallbackFailed();
 
         emit OutputFilled(
             orderId, bytes32(uint256(uint160(solver))), uint32(block.timestamp), output, amount

@@ -4,7 +4,7 @@
 pragma solidity 0.8.28;
 
 import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
-import {ShinobiIntent} from "../oif/types/ShinobiIntentType.sol";
+import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
 import {Ownable} from "@oz/access/Ownable.sol";

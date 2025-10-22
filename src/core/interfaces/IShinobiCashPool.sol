@@ -4,7 +4,7 @@
 pragma solidity 0.8.28;
 
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {CrossChainProofLib} from "../lib/CrossChainProofLib.sol";
+import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
 
 /**
  * @title IShinobiCashPool

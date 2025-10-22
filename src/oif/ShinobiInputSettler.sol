@@ -3,9 +3,9 @@
 
 pragma solidity 0.8.28;
 
-import {IShinobiInputSettler} from "../interfaces/IShinobiInputSettler.sol";
-import {ShinobiIntent} from "../types/ShinobiIntentType.sol";
-import {ShinobiIntentLib} from "../lib/ShinobiIntentLib.sol";
+import {IShinobiInputSettler} from "./interfaces/IShinobiInputSettler.sol";
+import {ShinobiIntent} from "./libraries/ShinobiIntentType.sol";
+import {ShinobiIntentLib} from "./libraries/ShinobiIntentLib.sol";
 import {IInputOracle} from "oif-contracts/interfaces/IInputOracle.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
