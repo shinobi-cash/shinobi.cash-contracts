@@ -12,6 +12,7 @@ import {ProofLib} from "contracts/lib/ProofLib.sol";
 import {IShinobiCashCrossChainHandler} from "./interfaces/IShinobiCashCrossChainHandler.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
+import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
 import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
@@ -21,6 +22,7 @@ import {Constants} from "contracts/lib/Constants.sol";
  */
 contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
+    using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN STATE VARIABLES
@@ -65,6 +67,22 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
     event RefundProcessed(
         uint256 amount,
         uint256 indexed refundCommitmentHash
+    );
+
+    /// @notice Emitted when a user initiates a cross-chain withdrawal
+    /// @param withdrawer The address initiating the withdrawal
+    /// @param nullifierHash The nullifier hash being spent
+    /// @param recipient The final recipient on destination chain
+    /// @param netAmount The net amount after fees
+    /// @param destinationChainId The destination chain where withdrawal will be settled
+    /// @param orderId The unique order identifier for tracking (links to InputSettler.Open event)
+    event CrossChainWithdrawalIntent(
+        address indexed withdrawer,
+        uint256 indexed nullifierHash,
+        address recipient,
+        uint256 netAmount,
+        uint256 destinationChainId,
+        bytes32 indexed orderId
     );
 
     /*//////////////////////////////////////////////////////////////
@@ -151,25 +169,22 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         uint256 scope,
         CrossChainIntentParams calldata intentParams
     ) external override nonReentrant {
-        CrossChainRelayData memory relayData = abi.decode(withdrawal.data, (CrossChainRelayData));
+        // CRITICAL: Validate ShinobiInputSettler is configured
+        if (inputSettler == address(0)) revert InputSettlerNotSet();
 
+        CrossChainRelayData memory relayData = abi.decode(withdrawal.data, (CrossChainRelayData));
         uint256 destinationChain = uint256(relayData.encodedDestination) >> 224;
 
         // SECURITY: Validate destination chain is supported
         if (!supportedChains[destinationChain]) revert DestinationChainNotSupported();
 
-        // Get privacy pool for scope
-        IPrivacyPool basePool = scopeToPool[scope];
-        if (address(basePool) == address(0)) revert PoolNotFound();
-
-        // SECURITY: Ensure pool supports cross-chain operations
-        ShinobiCashPool shinobiPool = ShinobiCashPool(address(basePool));
+        // Get and validate privacy pool
+        ShinobiCashPool shinobiPool = ShinobiCashPool(address(scopeToPool[scope]));
+        if (address(shinobiPool) == address(0)) revert PoolNotFound();
         if (!shinobiPool.supportsCrossChain()) revert PoolDoesNotSupportCrossChain();
 
-        // Get asset from pool
-        IERC20 asset = IERC20(shinobiPool.ASSET());
-
         // SECURITY: Validate relay fee doesn't exceed configured maximum
+        IERC20 asset = IERC20(shinobiPool.ASSET());
         if (relayData.relayFeeBPS > assetConfig[asset].maxRelayFeeBPS) {
             revert RelayFeeExceedsMaximum();
         }
@@ -177,28 +192,32 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         // Execute privacy pool cross-chain withdrawal (validates ZK proof)
         shinobiPool.crossChainWithdraw(withdrawal, proof);
 
-        // Calculate amounts
+        // Calculate amounts and transfer fee if needed
         uint256 withdrawnAmount = proof.withdrawnValue();
         uint256 feeAmount = (withdrawnAmount * relayData.relayFeeBPS) / 10000;
         uint256 netAmount = withdrawnAmount - feeAmount;
-        uint256 nullifierHash = proof.existingNullifierHash();
-
-        // CRITICAL: Validate ShinobiInputSettler is configured
-        if (inputSettler == address(0)) revert InputSettlerNotSet();
 
         if (feeAmount > 0) {
             _transfer(asset, relayData.feeRecipient, feeAmount);
         }
 
-        // Create and submit ShinobiIntent to ShinobiInputSettler
-        _createAndSubmitOIFOrder(
+        // Step 1: Create withdrawal intent
+        ShinobiIntent memory intent = _createWithdrawalIntent(
             intentParams,
-            bytes32(nullifierHash),
-            bytes32(proof.pubSignals[8]), // refundCommitmentHash 
+            bytes32(proof.existingNullifierHash()),
+            bytes32(proof.pubSignals[8]), // refundCommitmentHash
             netAmount,
             scope
         );
-        emit WithdrawalRelayed(msg.sender, address(uint160(uint256(relayData.encodedDestination))), asset, withdrawnAmount, feeAmount);
+
+        // Step 2: Submit intent and emit tracking event
+        _submitIntent(
+            intent,
+            netAmount,
+            msg.sender, // withdrawer
+            address(uint160(uint256(relayData.encodedDestination))), // recipient
+            destinationChain // destination chain ID
+        );
     }
     
 
@@ -288,21 +307,22 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
- /**
-     * @notice Create ShinobiIntent and submit to ShinobiInputSettler
+    /**
+     * @notice Create ShinobiIntent for withdrawal
      * @param intentParams User-provided validated intent parameters
      * @param nullifierHash The nullifier hash from privacy pool withdrawal
      * @param refundCommitmentHash The commitment hash for refund recovery
      * @param netAmount The net amount after fees
      * @param scope The privacy pool scope identifier
+     * @return intent The created ShinobiIntent
      */
-    function _createAndSubmitOIFOrder(
+    function _createWithdrawalIntent(
         CrossChainIntentParams calldata intentParams,
         bytes32 nullifierHash,
         bytes32 refundCommitmentHash,
         uint256 netAmount,
         uint256 scope
-    ) internal {
+    ) internal view returns (ShinobiIntent memory intent) {
         // Create refund calldata for returning to pool as commitment
         bytes memory refundCalldata = abi.encode(
             address(this), // target: ShinobiCashEntrypoint
@@ -315,10 +335,10 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
         );
 
         // Create ShinobiIntent for withdrawal
-        ShinobiIntent memory intent = ShinobiIntent({
+        intent = ShinobiIntent({
             user: address(this),                        // ShinobiCashEntrypoint creates the order
             nonce: uint256(nullifierHash),              // Use nullifier hash as nonce for uniqueness
-            originChainId: block.chainid,               // Current chain (Ethereum)
+            originChainId: block.chainid,               // Current chain (Arbitrum)
             expires: intentParams.expires,              // User-provided expiry
             fillDeadline: intentParams.fillDeadline,    // User-provided fill deadline
             fillOracle: intentParams.fillOracle,        // Fill proof oracle (destination → origin)
@@ -327,8 +347,38 @@ contract ShinobiCashEntrypoint is Entrypoint, IShinobiCashCrossChainHandler {
             intentOracle: address(0),                   // No intent verification needed for withdrawals
             refundCalldata: refundCalldata              // Custom refund logic
         });
+    }
+
+    /**
+     * @notice Submit ShinobiIntent to InputSettler and emit tracking event
+     * @param intent The withdrawal intent to submit
+     * @param netAmount The net amount after fees (for ETH transfer)
+     * @param withdrawer The address initiating the withdrawal
+     * @param recipient The final recipient on destination chain
+     * @param destinationChainId The destination chain ID
+     */
+    function _submitIntent(
+        ShinobiIntent memory intent,
+        uint256 netAmount,
+        address withdrawer,
+        address recipient,
+        uint256 destinationChainId
+    ) internal {
+        // Calculate orderId using library (gas efficient)
+        bytes32 orderId = intent.orderIdentifier();
+
+        // Emit event for indexers to track withdrawal initiation
+        emit CrossChainWithdrawalIntent(
+            withdrawer,
+            intent.nonce, // nullifierHash
+            recipient,
+            netAmount,
+            destinationChainId,
+            orderId
+        );
 
         // Submit intent to ShinobiInputSettler
+        // ShinobiInputSettler will emit Open(orderId, intent) event
         IShinobiInputSettler(inputSettler).open{value: netAmount}(intent);
     }
  

@@ -29,14 +29,14 @@ abstract contract ShinobiCashPool is PrivacyPool {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Emitted when a cross-chain withdrawal is processed
+     * @notice Emitted when a cross-chain withdrawal is executed from the pool
      * @param processooor The processor contract handling the cross-chain logic
      * @param withdrawnValue The amount withdrawn
      * @param existingNullifierHash The nullifier hash that was spent
      * @param newCommitmentHash The new commitment hash that was inserted
      * @param refundCommitmentHash The commitment hash for potential refunds if cross-chain intent fails (cross-chain specific)
      */
-    event CrossChainWithdrawalProcessed(
+    event CrossChainWithdrawn(
         address indexed processooor,
         uint256 withdrawnValue,
         uint256 indexed existingNullifierHash,
@@ -146,7 +146,7 @@ abstract contract ShinobiCashPool is PrivacyPool {
 
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
-        emit CrossChainWithdrawalProcessed(
+        emit CrossChainWithdrawn(
             _withdrawal.processooor,
             _proof.withdrawnValue(),
             _proof.existingNullifierHash(),
