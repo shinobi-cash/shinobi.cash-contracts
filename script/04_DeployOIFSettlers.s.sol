@@ -5,9 +5,9 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // OIF Settlers
-import {ShinobiInputSettler} from "../src/oif/contracts/ShinobiInputSettler.sol";
-import {ShinobiDepositOutputSettler} from "../src/oif/contracts/ShinobiDepositOutputSettler.sol";
-import {ShinobiWithdrawalOutputSettler} from "../src/oif/contracts/ShinobiWithdrawalOutputSettler.sol";
+import {ShinobiInputSettler} from "../src/oif/ShinobiInputSettler.sol";
+import {ShinobiDepositOutputSettler} from "../src/oif/ShinobiDepositOutputSettler.sol";
+import {ShinobiWithdrawalOutputSettler} from "../src/oif/ShinobiWithdrawalOutputSettler.sol";
 
 /**
  * @title 04_DeployOIFSettlers

@@ -5,8 +5,8 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Shinobi Cash contracts
-import {ShinobiCashPoolSimple} from "../src/contracts/implementations/ShinobiCashPoolSimple.sol";
-import {ICrossChainWithdrawalProofVerifier} from "../src/contracts/interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {ShinobiCashPoolSimple} from "../src/core/implementations/ShinobiCashPoolSimple.sol";
+import {ICrossChainWithdrawalProofVerifier} from "../src/core/interfaces/ICrossChainWithdrawalProofVerifier.sol";
 
 /**
  * @title 03_DeployPrivacyPool

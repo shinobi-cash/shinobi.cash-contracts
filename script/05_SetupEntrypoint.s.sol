@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Shinobi Cash contracts
-import {ShinobiCashEntrypoint} from "../src/contracts/ShinobiCashEntrypoint.sol";
+import {ShinobiCashEntrypoint} from "../src/core/ShinobiCashEntrypoint.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {Constants} from "contracts/lib/Constants.sol";

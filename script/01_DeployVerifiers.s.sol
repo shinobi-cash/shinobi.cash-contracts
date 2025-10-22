@@ -7,7 +7,7 @@ import {console} from "forge-std/console.sol";
 // ZK Verifiers
 import {WithdrawalVerifier} from "contracts/verifiers/WithdrawalVerifier.sol";
 import {CommitmentVerifier} from "contracts/verifiers/CommitmentVerifier.sol";
-import {CrossChainWithdrawalVerifier} from "../src/paymaster/contracts/CrossChainWithdrawalVerifier.sol";
+import {CrossChainWithdrawalVerifier} from "../src/core/CrossChainWithdrawalVerifier.sol";
 
 /**
  * @title 01_DeployVerifiers

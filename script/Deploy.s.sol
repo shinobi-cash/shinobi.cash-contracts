@@ -5,16 +5,16 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Shinobi Cash contracts
-import {ShinobiCashEntrypoint} from "../src/contracts/ShinobiCashEntrypoint.sol";
-import {ShinobiCashPoolSimple} from "../src/contracts/implementations/ShinobiCashPoolSimple.sol";
-import {IShinobiCashPool} from "../src/contracts/interfaces/IShinobiCashPool.sol";
-import {CrossChainWithdrawalPaymaster} from "../src/paymaster/contracts/CrossChainWithdrawalPaymaster.sol";
-import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/contracts/SimpleShinobiCashPoolPaymaster.sol";
-import {CrossChainWithdrawalVerifier} from "../src/paymaster/contracts/CrossChainWithdrawalVerifier.sol";
-import {ShinobiInputSettler} from "../src/oif/contracts/ShinobiInputSettler.sol";
-import {ShinobiDepositOutputSettler} from "../src/oif/contracts/ShinobiDepositOutputSettler.sol";
-import {ShinobiWithdrawalOutputSettler} from "../src/oif/contracts/ShinobiWithdrawalOutputSettler.sol";
-import {ShinobiCrosschainDepositEntrypoint} from "../src/contracts/ShinobiCrosschainDepositEntrypoint.sol";
+import {ShinobiCashEntrypoint} from "../src/core/ShinobiCashEntrypoint.sol";
+import {ShinobiCashPoolSimple} from "../src/core/implementations/ShinobiCashPoolSimple.sol";
+import {IShinobiCashPool} from "../src/core/interfaces/IShinobiCashPool.sol";
+import {CrossChainWithdrawalPaymaster} from "../src/paymaster/CrossChainWithdrawalPaymaster.sol";
+import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/SimpleShinobiCashPoolPaymaster.sol";
+import {CrossChainWithdrawalVerifier} from "../src/core/CrossChainWithdrawalVerifier.sol";
+import {ShinobiInputSettler} from "../src/oif/ShinobiInputSettler.sol";
+import {ShinobiDepositOutputSettler} from "../src/oif/ShinobiDepositOutputSettler.sol";
+import {ShinobiWithdrawalOutputSettler} from "../src/oif/ShinobiWithdrawalOutputSettler.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainDepositEntrypoint.sol";
 import {MockOracle} from "../src/mocks/MockOracle.sol";
 
 // Privacy Pools Core contracts (from submodule)
@@ -28,9 +28,9 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {IEntryPoint as IERC4337EntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {ICrossChainWithdrawalProofVerifier} from "../src/contracts/interfaces/ICrossChainWithdrawalProofVerifier.sol";
-import {IShinobiCashEntrypoint} from "../src/contracts/interfaces/IShinobiCashEntrypoint.sol";
-import {IShinobiCashCrossChainHandler} from "../src/contracts/interfaces/IShinobiCashCrossChainHandler.sol";
+import {ICrossChainWithdrawalProofVerifier} from "../src/core/interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {IShinobiCashEntrypoint} from "../src/core/interfaces/IShinobiCashEntrypoint.sol";
+import {IShinobiCashCrossChainHandler} from "../src/core/interfaces/IShinobiCashCrossChainHandler.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
