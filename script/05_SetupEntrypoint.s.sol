@@ -12,8 +12,9 @@ import {Constants} from "contracts/lib/Constants.sol";
 
 /**
  * @title 05_SetupEntrypoint
- * @notice Configure Shinobi Cash Entrypoint with pool and settlers
- * @dev Requires: ENTRYPOINT, ETH_POOL, INPUT_SETTLER, OUTPUT_SETTLER env vars
+ * @notice Configure Shinobi Cash Entrypoint with pool, settlers, and supported chains
+ * @dev Requires: ENTRYPOINT, ETH_POOL, INPUT_SETTLER, DEPOSIT_OUTPUT_SETTLER env vars
+ * @dev Note: Intent oracle is NOT configured here - it's set immutably in ShinobiDepositOutputSettler constructor
  */
 contract SetupEntrypoint is Script {
     function run() external {
@@ -24,7 +25,7 @@ contract SetupEntrypoint is Script {
         address entrypointAddr = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
         address ethPool = vm.envAddress("SHINOBI_CASH_ETH_POOL");
         address inputSettler = vm.envAddress("INPUT_SETTLER_ARBITRUM_SEPOLIA");
-        address outputSettler = vm.envAddress("OUTPUT_SETTLER_ARBITRUM_SEPOLIA");
+        address depositOutputSettler = vm.envAddress("DEPOSIT_OUTPUT_SETTLER_ARBITRUM_SEPOLIA");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -46,15 +47,15 @@ contract SetupEntrypoint is Script {
         );
         console.log("   ETH Pool registered:", ethPool);
 
-        // 2. Set Input Settler
+        // 2. Set Input Settler (for withdrawal intents)
         console.log("2. Setting Input Settler...");
         entrypoint.setInputSettler(inputSettler);
         console.log("   Input Settler set:", inputSettler);
 
-        // 3. Set Output Settler
+        // 3. Set Output Settler (for receiving cross-chain deposits)
         console.log("3. Setting Output Settler...");
-        entrypoint.setOutputSettler(outputSettler);
-        console.log("   Output Settler set:", outputSettler);
+        entrypoint.setOutputSettler(depositOutputSettler);
+        console.log("   Deposit Output Settler set:", depositOutputSettler);
 
         // 4. Enable supported chains
         console.log("4. Enabling cross-chain support...");

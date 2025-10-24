@@ -63,11 +63,19 @@ contract DeployPaymasters is Script {
         SimpleShinobiCashPoolPaymaster(simplePaymaster).deposit{value: 0.01 ether}();
         console.log("   Paymasters funded with 0.01 ETH each");
 
+        // Configure expected smart account (Rhinestone's Safe7579 factory default account)
+        console.log("4. Configuring Expected Smart Account...");
+        address expectedSmartAccount = 0xa3aBDC7f6334CD3EE466A115f30522377787c024;
+        CrossChainWithdrawalPaymaster(crossChainPaymaster).setExpectedSmartAccount(expectedSmartAccount);
+        SimpleShinobiCashPoolPaymaster(simplePaymaster).setExpectedSmartAccount(expectedSmartAccount);
+        console.log("   Expected Smart Account set:", expectedSmartAccount);
+
         vm.stopBroadcast();
 
         console.log("");
         console.log("=== Paymasters deployed and funded ===");
         console.log("CROSS_CHAIN_PAYMASTER:", crossChainPaymaster);
         console.log("SIMPLE_PAYMASTER:", simplePaymaster);
+        console.log("EXPECTED_SMART_ACCOUNT:", expectedSmartAccount);
     }
 }

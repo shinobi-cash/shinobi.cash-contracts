@@ -9,9 +9,9 @@ import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainD
 
 /**
  * @title 04b_DeployDepositEntrypoint
- * @notice Deploy Deposit Entrypoint for L2 chains
- * @dev This should be deployed on L2 chains (e.g., Arbitrum) for deposits
- * @dev The main ShinobiCashEntrypoint (step 02) is for withdrawals on mainnet
+ * @notice Deploy Deposit Entrypoint on Base Sepolia (User Chain)
+ * @dev This should be deployed on Base Sepolia for users to initiate cross-chain deposits
+ * @dev The main ShinobiCashEntrypoint (step 02) is deployed on Arbitrum Sepolia (Pool Chain)
  */
 contract DeployDepositEntrypoint is Script {
     function run() external {
