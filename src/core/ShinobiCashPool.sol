@@ -153,9 +153,6 @@ abstract contract ShinobiCashPool is PrivacyPool {
             _proof.newCommitmentHash(),
             _proof.refundCommitmentHash()
         );
-         emit Withdrawn(
-            _withdrawal.processooor, _proof.withdrawnValue(), _proof.existingNullifierHash(), _proof.newCommitmentHash()
-        );
     }
 
     /**
