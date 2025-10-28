@@ -8,7 +8,7 @@ import {console} from "forge-std/console.sol";
 import {ShinobiWithdrawalOutputSettler} from "../src/oif/ShinobiWithdrawalOutputSettler.sol";
 
 /**
- * @title 04c_DeployWithdrawalOutputSettler
+ * @title 04e_DeployWithdrawalOutputSettlerBase
  * @notice Deploy Withdrawal Output Settler on Base Sepolia (User Chain)
  * @dev This script deploys the Withdrawal Output Settler for receiving cross-chain withdrawals
  *      from Arbitrum Sepolia (Pool Chain) to Base Sepolia (User Chain)
@@ -36,7 +36,7 @@ contract DeployWithdrawalOutputSettler is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 4c: Deploy Withdrawal Output Settler (Base Sepolia - User Chain) ===");
+        console.log("=== Step 4e: Deploy Withdrawal Output Settler (Base Sepolia - User Chain) ===");
         console.log("Deployer:", deployer);
         console.log("Fill Oracle:", fillOracle);
         console.log("");
