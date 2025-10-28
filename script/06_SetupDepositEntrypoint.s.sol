@@ -8,7 +8,7 @@ import {console} from "forge-std/console.sol";
 import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainDepositEntrypoint.sol";
 
 /**
- * @title 06b_SetupDepositEntrypoint
+ * @title 06_SetupDepositEntrypoint
  * @notice Configure Deposit Entrypoint for L2 deposits (Base Sepolia -> Arbitrum Sepolia)
  * @dev Required env vars:
  *      - SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA: Deposit entrypoint on Base Sepolia
@@ -45,7 +45,7 @@ contract SetupDepositEntrypoint is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 6b: Setup Deposit Entrypoint (L2) ===");
+        console.log("=== Step 6: Setup Deposit Entrypoint (L2) ===");
         console.log("Deployer:", deployer);
         console.log("Deposit Entrypoint:", depositEntrypointAddr);
         console.log("");
