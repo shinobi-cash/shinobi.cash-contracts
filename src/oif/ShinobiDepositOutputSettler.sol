@@ -3,14 +3,12 @@
 
 pragma solidity 0.8.28;
 
-import {IShinobiOutputSettler} from "./interfaces/IShinobiOutputSettler.sol";
+import {BaseShinobiOutputSettler} from "./BaseShinobiOutputSettler.sol";
 import {ShinobiIntent} from "./libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "./libraries/ShinobiIntentLib.sol";
 import {IInputOracle} from "oif-contracts/interfaces/IInputOracle.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
-import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
 
 /**
  * @title ShinobiDepositOutputSettler
@@ -34,7 +32,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
  *      - ReentrancyGuard protects against reentrancy attacks
  *      - Fill records prevent double-filling same intent
  */
-contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, Ownable {
+contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
     using ShinobiIntentLib for ShinobiIntent;
     using MandateOutputEncodingLib for MandateOutput;
 
@@ -50,32 +48,11 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
     address public immutable intentOracle;
 
     /*//////////////////////////////////////////////////////////////
-                            MUTABLE STATE
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Tracks which outputs have been filled
-     * @dev Mapping: orderId => outputHash => fillRecordHash
-     * @dev fillRecordHash = keccak256(solver, timestamp)
-     * @dev Prevents double-filling and enables fill verification
-     */
-    mapping(bytes32 => mapping(bytes32 => bytes32)) internal _fillRecords;
-
-    /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Thrown when intentOracle address is zero in constructor
     error InvalidIntentOracle();
-
-    /// @notice Thrown when intent has no outputs
-    error InvalidOutput();
-
-    /// @notice Thrown when output chain doesn't match current chain
-    error InvalidChain();
-
-    /// @notice Thrown when fill deadline has passed
-    error FillDeadlinePassed();
 
     /// @notice Thrown when intent uses wrong intentOracle (doesn't match configured)
     error IntentOracleMismatch();
@@ -83,20 +60,11 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
     /// @notice Thrown when intent proof validation fails
     error IntentNotProven();
 
-    /// @notice Thrown when output has already been filled
-    error AlreadyFilled();
-
-    /// @notice Thrown when output token is not native ETH
-    error InvalidAsset();
-
     /// @notice Thrown when deposit output has no callback data (deposits require callback)
     error EmptyCallbackData();
 
     /// @notice Thrown when callback execution fails
     error CallbackFailed();
-
-    /// @notice Thrown when ETH transfer fails
-    error ETHTransferFailed();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -108,7 +76,7 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
      * @param _owner Address of the contract owner
      * @param _intentOracle Address of the intent oracle (validates deposit intents)
      */
-    constructor(address _owner, address _intentOracle) Ownable(_owner) {
+    constructor(address _owner, address _intentOracle) BaseShinobiOutputSettler(_owner) {
         if (_intentOracle == address(0)) revert InvalidIntentOracle();
         intentOracle = _intentOracle;
     }
@@ -202,29 +170,18 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
      *      6. Execute callback (processCrossChainDeposit)
      */
     function _fillOutput(bytes32 orderId, MandateOutput calldata output, address solver) internal {
-        // Validate output is for this chain
-        if (output.chainId != block.chainid) revert InvalidChain();
+        // Validate output (chain and asset)
+        _validateOutput(output);
 
         // Compute output hash for fill tracking
         bytes32 outputHash = output.getMandateOutputHash();
 
-        // Check if already filled
-        bytes32 existingFillRecord = _fillRecords[orderId][outputHash];
-        if (existingFillRecord != bytes32(0)) revert AlreadyFilled();
-
-        // Create fill record: keccak256(solver, timestamp)
-        bytes32 fillRecordHash =
-            keccak256(abi.encodePacked(bytes32(uint256(uint160(solver))), uint32(block.timestamp)));
-
-        // Store fill record BEFORE external call (CEI pattern)
-        _fillRecords[orderId][outputHash] = fillRecordHash;
+        // Create and store fill record (checks for duplicates)
+        _createAndStoreFillRecord(orderId, outputHash, solver);
 
         // Extract recipient and amount
         address recipient = address(uint160(uint256(output.recipient)));
         uint256 amount = output.amount;
-
-        // Validate token is native ETH (only supported asset)
-        if (output.token != bytes32(0)) revert InvalidAsset();
 
         // SECURITY: Deposits MUST have callback data (processCrossChainDeposit call)
         // Without callback, deposit cannot be processed into privacy pool
@@ -239,34 +196,4 @@ contract ShinobiDepositOutputSettler is IShinobiOutputSettler, ReentrancyGuard, 
             orderId, bytes32(uint256(uint160(solver))), uint32(block.timestamp), output, amount
         );
     }
-
-    /*//////////////////////////////////////////////////////////////
-                            VIEW FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Get fill record for a specific output
-     * @dev Returns fillRecordHash = keccak256(solver, timestamp) or bytes32(0) if not filled
-     * @param orderId The order identifier
-     * @param outputHash The output hash
-     * @return payloadHash The fill record hash
-     */
-    function getFillRecord(bytes32 orderId, bytes32 outputHash)
-        external
-        view
-        override
-        returns (bytes32 payloadHash)
-    {
-        return _fillRecords[orderId][outputHash];
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            RECEIVE ETH
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Allow contract to receive ETH
-     * @dev Required for solver to provide liquidity
-     */
-    receive() external payable {}
 }
