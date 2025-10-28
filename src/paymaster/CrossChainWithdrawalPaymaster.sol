@@ -10,8 +10,8 @@ import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.s
 import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
 import {IShinobiCashEntrypoint} from "../core/interfaces/IShinobiCashEntrypoint.sol";
 import {IShinobiCashCrossChainHandler} from "../core/interfaces/IShinobiCashCrossChainHandler.sol";
-import {IShinobiCashPool} from "../core/interfaces/IShinobiCashPool.sol";
-import {ICrossChainWithdrawalVerifier} from "../core/interfaces/ICrossChainWithdrawalVerifier.sol";
+import {ShinobiCashPool} from "../core/ShinobiCashPool.sol";
+import {ICrossChainWithdrawalProofVerifier} from "../core/interfaces/ICrossChainWithdrawalProofVerifier.sol";
 import {CrossChainProofLib} from "../core/libraries/CrossChainProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
@@ -38,7 +38,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
 
     /// @notice Cross-Chain Privacy Pool contract
-    IShinobiCashPool public immutable ETH_POOL;
+    ShinobiCashPool public immutable ETH_POOL;
 
     /// @notice Expected smart account address for deterministic account pattern
     address public expectedSmartAccount;
@@ -92,7 +92,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
-        IShinobiCashPool _ethShinobiCashPool
+        ShinobiCashPool _ethShinobiCashPool
     ) BasePaymaster(_entryPoint) {
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
         ETH_POOL = _ethShinobiCashPool;
@@ -144,8 +144,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     function processCrossChainWithdrawal(
         IPrivacyPool.Withdrawal calldata withdrawal,
         CrossChainProofLib.CrossChainWithdrawProof calldata proof,
-        uint256 scope,
-        IShinobiCashCrossChainHandler.CrossChainIntentParams calldata /* intentParams */
+        uint256 scope
     ) external {
         if (msg.sender != address(this)) {
             revert UnauthorizedCaller();
@@ -401,7 +400,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
 
         // 7. Verify Groth16 proof with cross-chain withdrawal verifier
         if (
-            !ICrossChainWithdrawalVerifier(ETH_POOL.crossChainVerifier()).verifyProof(
+            !ICrossChainWithdrawalProofVerifier(ETH_POOL.CROSS_CHAIN_WITHDRAWAL_VERIFIER()).verifyProof(
                 proof.pA,
                 proof.pB,
                 proof.pC,
