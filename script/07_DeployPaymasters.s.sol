@@ -11,7 +11,7 @@ import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/SimpleShinobiCash
 // Interfaces
 import {IEntryPoint as IERC4337EntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {IShinobiCashEntrypoint} from "../src/core/interfaces/IShinobiCashEntrypoint.sol";
-import {IShinobiCashPool} from "../src/core/interfaces/IShinobiCashPool.sol";
+import {ShinobiCashPool} from "../src/core/ShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 
 /**
@@ -44,7 +44,7 @@ contract DeployPaymasters is Script {
         address payable crossChainPaymaster = payable(address(new CrossChainWithdrawalPaymaster(
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
             IShinobiCashEntrypoint(entrypoint),
-            IShinobiCashPool(ethPool)
+            ShinobiCashPool(ethPool)
         )));
         console.log("   Cross-Chain Paymaster:", crossChainPaymaster);
 
