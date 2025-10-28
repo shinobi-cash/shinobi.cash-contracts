@@ -18,14 +18,14 @@ interface IShinobiCashPool is IPrivacyPool {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Emitted when a cross-chain withdrawal is processed
+     * @notice Emitted when a cross-chain withdrawal is executed from the pool
      * @param processooor The processor contract handling the cross-chain logic
      * @param withdrawnValue The amount withdrawn
      * @param existingNullifierHash The nullifier hash that was spent
      * @param newCommitmentHash The new commitment hash that was inserted
-     * @param refundCommitmentHash The commitment hash for potential refunds if cross-chain intent fails
+     * @param refundCommitmentHash The commitment hash for potential refunds if cross-chain intent fails (cross-chain specific)
      */
-    event CrossChainWithdrawalProcessed(
+    event CrosschainWithdrawn(
         address indexed processooor,
         uint256 withdrawnValue,
         uint256 indexed existingNullifierHash,
@@ -45,24 +45,18 @@ interface IShinobiCashPool is IPrivacyPool {
         uint256 refundAmount
     );
 
-    /*//////////////////////////////////////////////////////////////
-                            ERRORS
+     /*//////////////////////////////////////////////////////////////
+                               ERRORS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Thrown when cross-chain verifier address is zero
-    error InvalidCrossChainWithdrawalVerifier();
+    error InvalidCrosschainWithdrawalVerifier();
 
     /// @notice Thrown when cross-chain proof verification fails
-    error InvalidCrossChainWithdrawalProof();
+    error InvalidCrosschainWithdrawalProof();
 
-    /// @notice Thrown when cross-chain proof structure is invalid
-    error InvalidCrossChainWithdrawalProofStructure();
-
-    /// @notice Thrown when cross-chain withdrawal is called by unauthorized processor
-    error UnauthorizedCrossChainProcessor();
-
-    /// @notice Thrown when the state root is invalid
-    error InvalidStateRoot();
+    /// @notice Thrown when ETH amount doesn't match expected amount
+    error AmountMismatch();
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
@@ -73,18 +67,10 @@ interface IShinobiCashPool is IPrivacyPool {
      * @param _withdrawal The cross-chain withdrawal data
      * @param _proof The enhanced 9-signal cross-chain proof
      */
-    function crossChainWithdraw(
+    function crosschainWithdraw(
         Withdrawal memory _withdrawal,
         CrossChainProofLib.CrossChainWithdrawProof memory _proof
     ) external;
-
-    /**
-     * @notice Insert refund commitment into the merkle tree
-     * @dev Can only be called by the entrypoint for processing refunds
-     * @param _refundCommitmentHash The commitment hash to insert for refund
-     * @return The updated root after insertion
-     */
-    function insertRefundCommitment(uint256 _refundCommitmentHash) external returns (uint256);
 
     /**
      * @notice Handle refund for failed cross-chain withdrawal
@@ -94,19 +80,4 @@ interface IShinobiCashPool is IPrivacyPool {
      */
     function handleRefund(uint256 _refundCommitmentHash, uint256 _amount) external payable;
 
-    /*//////////////////////////////////////////////////////////////
-                            VIEW FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Get the cross-chain verifier address
-     * @return The address of the cross-chain withdrawal proof verifier
-     */
-    function crossChainVerifier() external view returns (address);
-
-    /**
-     * @notice Check if this pool supports cross-chain withdrawals
-     * @return True, as this pool supports cross-chain functionality
-     */
-    function supportsCrossChain() external pure returns (bool);
 }

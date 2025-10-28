@@ -5,6 +5,7 @@ pragma solidity 0.8.28;
 
 import {PrivacyPool} from "contracts/PrivacyPool.sol";
 import {ICrossChainWithdrawalProofVerifier} from "./interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {IShinobiCashPool} from "./interfaces/IShinobiCashPool.sol";
 import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
@@ -14,7 +15,7 @@ import {Constants} from "contracts/lib/Constants.sol";
  * @dev Extends PrivacyPool with additional cross-chain withdrawal support
  *      Concrete implementations handle asset-specific transfer logic
  */
-abstract contract ShinobiCashPool is PrivacyPool {
+abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
 
     /*//////////////////////////////////////////////////////////////
@@ -25,61 +26,10 @@ abstract contract ShinobiCashPool is PrivacyPool {
     ICrossChainWithdrawalProofVerifier public immutable CROSS_CHAIN_WITHDRAWAL_VERIFIER;
 
     /*//////////////////////////////////////////////////////////////
-                                EVENTS
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Emitted when a cross-chain withdrawal is executed from the pool
-     * @param processooor The processor contract handling the cross-chain logic
-     * @param withdrawnValue The amount withdrawn
-     * @param existingNullifierHash The nullifier hash that was spent
-     * @param newCommitmentHash The new commitment hash that was inserted
-     * @param refundCommitmentHash The commitment hash for potential refunds if cross-chain intent fails (cross-chain specific)
-     */
-    event CrossChainWithdrawn(
-        address indexed processooor,
-        uint256 withdrawnValue,
-        uint256 indexed existingNullifierHash,
-        uint256 indexed newCommitmentHash,
-        uint256 refundCommitmentHash
-    );
-
-    /**
-     * @notice Emitted when a refund commitment is inserted for failed cross-chain withdrawal
-     * @param processoor The entrypoint that processed the refund
-     * @param refundCommitmentHash The commitment hash inserted for refund
-     * @param refundAmount The amount available for refund
-     */
-    event RefundCommitmentInserted(
-        address indexed processoor,
-        uint256 indexed refundCommitmentHash,
-        uint256 refundAmount
-    );
-
-    /*//////////////////////////////////////////////////////////////
-                               ERRORS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Thrown when cross-chain verifier address is zero
-    error InvalidCrossChainWithdrawalVerifier();
-
-    /// @notice Thrown when cross-chain proof verification fails
-    error InvalidCrossChainWithdrawalProof();
-
-    /// @notice Thrown when cross-chain proof structure is invalid
-    error InvalidCrossChainWithdrawalProofStructure();
-
-    /// @notice Thrown when cross-chain withdrawal is called by unauthorized processor
-    error UnauthorizedCrossChainProcessor();
-
-    /// @notice Thrown when the state root is invalid
-    error InvalidStateRoot();
-
-    /*//////////////////////////////////////////////////////////////
                               MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
-    modifier validCrossChainWithdrawal(
+    modifier validCrosschainWithdrawal(
         Withdrawal memory _withdrawal,
         CrossChainProofLib.CrossChainWithdrawProof memory _proof
     ) {
@@ -118,7 +68,7 @@ abstract contract ShinobiCashPool is PrivacyPool {
         address _asset,
         ICrossChainWithdrawalProofVerifier _crossChainVerifier
     ) PrivacyPool(_entrypoint, _withdrawalVerifier, _ragequitVerifier, _asset) {
-        if (address(_crossChainVerifier) == address(0)) revert InvalidCrossChainWithdrawalVerifier();
+        if (address(_crossChainVerifier) == address(0)) revert InvalidCrosschainWithdrawalVerifier();
         CROSS_CHAIN_WITHDRAWAL_VERIFIER = _crossChainVerifier;
     }
 
@@ -132,12 +82,12 @@ abstract contract ShinobiCashPool is PrivacyPool {
      * @param _withdrawal The cross-chain withdrawal data
      * @param _proof The enhanced 9-signal cross-chain proof
      */
-    function crossChainWithdraw(
+    function crosschainWithdraw(
         Withdrawal memory _withdrawal,
         CrossChainProofLib.CrossChainWithdrawProof memory _proof
-    ) external validCrossChainWithdrawal(_withdrawal, _proof) {
+    ) external override validCrosschainWithdrawal(_withdrawal, _proof) {
         if (!CROSS_CHAIN_WITHDRAWAL_VERIFIER.verifyProof(_proof.pA, _proof.pB, _proof.pC, _proof.pubSignals)) {
-            revert InvalidCrossChainWithdrawalProof();
+            revert InvalidCrosschainWithdrawalProof();
         }
 
         _spend(_proof.existingNullifierHash());
@@ -146,7 +96,7 @@ abstract contract ShinobiCashPool is PrivacyPool {
 
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
-        emit CrossChainWithdrawn(
+        emit CrosschainWithdrawn(
             _withdrawal.processooor,
             _proof.withdrawnValue(),
             _proof.existingNullifierHash(),
@@ -156,42 +106,23 @@ abstract contract ShinobiCashPool is PrivacyPool {
     }
 
     /**
-     * @notice Insert refund commitment into the merkle tree
-     * @dev Can only be called by the entrypoint for processing refunds
-     * @param _refundCommitmentHash The commitment hash to insert for refund
-     * @return The updated root after insertion
-     */
-    function insertRefundCommitment(uint256 _refundCommitmentHash) external onlyEntrypoint returns (uint256) {
-        return _insert(_refundCommitmentHash);
-    }
-
-    /**
      * @notice Handle refund for failed cross-chain withdrawal
      * @dev Can only be called by the entrypoint with ETH for refund commitment creation
      * @param _refundCommitmentHash The commitment hash for refund
      * @param _amount The amount being refunded (for validation)
      */
-    function handleRefund(uint256 _refundCommitmentHash, uint256 _amount) external payable onlyEntrypoint {
-        require(msg.value == _amount, "ETH amount mismatch");
-        
+    function handleRefund(uint256 _refundCommitmentHash, uint256 _amount) external payable override onlyEntrypoint {
+        if (msg.value != _amount) revert AmountMismatch();
+
         // Insert the refund commitment into the merkle tree
         _insert(_refundCommitmentHash);
-        
+
         emit RefundCommitmentInserted(msg.sender,_refundCommitmentHash, _amount);
     }
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Get the cross-chain verifier address
-     * @return The address of the cross-chain withdrawal proof verifier
-     */
-    function crossChainVerifier() external view returns (address) {
-        return address(CROSS_CHAIN_WITHDRAWAL_VERIFIER);
-    }
-
     /**
      * @notice Check if this pool supports cross-chain withdrawals
      * @return True, as this pool supports cross-chain functionality
