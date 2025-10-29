@@ -70,14 +70,14 @@ contract SetupEntrypoint is Script {
             withdrawalOutputSettler, // Withdrawal Output Settler on Base
             outputOracle, // Output oracle on Base
             fillOracle, // Fill oracle for validating fills
-            1 hours, // Fill deadline (solver must fill within 1 hour)
+            23 hours, // Fill deadline (solver must fill within 23 hour)
             24 hours // Expiry (intent expires after 24 hours)
         );
         console.log("   Configured chain: Base Sepolia (84532)");
         console.log("   - Withdrawal Output Settler:", withdrawalOutputSettler);
         console.log("   - Output Oracle:", outputOracle);
         console.log("   - Fill Oracle:", fillOracle);
-        console.log("   - Fill Deadline: 1 hour");
+        console.log("   - Fill Deadline: 23 hour");
         console.log("   - Expiry: 24 hours");
 
         vm.stopBroadcast();
