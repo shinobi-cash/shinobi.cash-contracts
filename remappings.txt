@@ -1,10 +1,7 @@
-@account-abstraction/=node_modules/@account-abstraction/
-@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
+@account-abstraction/=lib/account-abstraction/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 @oz-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @oz/=lib/openzeppelin-contracts/contracts/
-lean-imt/=node_modules/@zk-kit/lean-imt.sol/
-poseidon-solidity/=node_modules/poseidon-solidity/
-poseidon/=node_modules/poseidon-solidity/
 interfaces/=lib/privacy-pools-core/packages/contracts/src/interfaces/
 contracts/=lib/privacy-pools-core/packages/contracts/src/contracts/
 forge-std/=lib/forge-std/src/
@@ -13,3 +10,7 @@ oif-contracts/=lib/oif-contracts/src/
 openzeppelin/=lib/oif-contracts/lib/openzeppelin-contracts/contracts/
 permit2/=lib/oif-contracts/lib/permit2/
 the-compact/=lib/oif-contracts/lib/the-compact/
+
+lean-imt/=node_modules/@zk-kit/lean-imt.sol/
+poseidon-solidity/=node_modules/poseidon-solidity/
+poseidon/=node_modules/poseidon-solidity/
