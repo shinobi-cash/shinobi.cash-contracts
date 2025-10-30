@@ -132,52 +132,52 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Internal relay method that mirrors ShinobiCashEntrypoint.processCrossChainWithdrawal()
+     * @notice Internal relay method that mirrors ShinobiCashEntrypoint.crosschainWithdrawal()
      * @dev This method is called internally by the paymaster to validate withdrawal proofs
      *      without actually executing the withdrawal. It performs the same validation as
      *      the real Cross-Chain Handler but stores results in transient storage for economic checks.
-     *      
-     * @param withdrawal The cross-chain withdrawal parameters to validate
-     * @param proof The ZK cross-chain withdrawal proof
-     * @param scope The scope identifier for the privacy pool
+     *
+     * @param _withdrawal The cross-chain withdrawal parameters to validate
+     * @param _proof The ZK cross-chain withdrawal proof
+     * @param _scope The scope identifier for the privacy pool
      */
-    function processCrossChainWithdrawal(
-        IPrivacyPool.Withdrawal calldata withdrawal,
-        CrossChainProofLib.CrossChainWithdrawProof calldata proof,
-        uint256 scope
+    function crosschainWithdrawal(
+        IPrivacyPool.Withdrawal calldata _withdrawal,
+        CrossChainProofLib.CrossChainWithdrawProof calldata _proof,
+        uint256 _scope
     ) external {
         if (msg.sender != address(this)) {
             revert UnauthorizedCaller();
         }
-        
+
         // Validate withdrawal targets the correct processooor (SHINOBI_CASH_ENTRYPOINT)
-        if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
+        if (_withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
             revert InvalidProcessooor();
         }
-        
+
         // Decode and validate relay data structure
         IShinobiCashCrossChainHandler.CrossChainRelayData memory relayData = abi.decode(
-            withdrawal.data,
+            _withdrawal.data,
             (IShinobiCashCrossChainHandler.CrossChainRelayData)
         );
-        
+
         // Ensure this paymaster receives the relay fees
         if (relayData.feeRecipient != address(this)) {
             revert WrongFeeRecipient();
         }
-        
+
         // Validate scope matches our supported Cross-Chain Privacy Pool
-        if (scope != ETH_POOL.SCOPE()) {
+        if (_scope != ETH_POOL.SCOPE()) {
             revert InvalidScope();
         }
 
         // CRITICAL: Verify ZK proof to ensure withdrawal is valid
-        if (!_validateCrossChainWithdrawCall(withdrawal, proof)) {
+        if (!_validateCrossChainWithdrawCall(_withdrawal, _proof)) {
             revert CrossChainWithdrawalValidationFailed();
         }
 
         // Store decoded values in transient storage for economic validation
-        uint256 withdrawnValue = proof.withdrawnValue(); // withdrawnValue from 9-signal proof
+        uint256 withdrawnValue = _proof.withdrawnValue(); // withdrawnValue from 9-signal proof
         uint256 relayFeeBPS = relayData.relayFeeBPS;
         
         // Extract recipient from encoded destination
@@ -336,8 +336,8 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         if (value != 0) {
             return false;
         }
-        
-        // Direct call to processCrossChainWithdrawal method - let Solidity's dispatcher handle parameter decoding
+
+        // Direct call to crosschainWithdrawal method - let Solidity's dispatcher handle parameter decoding
         // This is more gas efficient than manually decoding parameters
         (bool success, ) = address(this).call(data);
         return success;
