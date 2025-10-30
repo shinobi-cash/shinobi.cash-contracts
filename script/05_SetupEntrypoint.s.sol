@@ -31,7 +31,8 @@ contract SetupEntrypoint is Script {
         // Get addresses for Base Sepolia (Destination Chain for Withdrawals)
         address withdrawalOutputSettler = vm.envAddress("WITHDRAWAL_OUTPUT_SETTLER_BASE_SEPOLIA");
         address outputOracle = vm.envAddress("OUTPUT_ORACLE_BASE_SEPOLIA");
-        address fillOracle = vm.envAddress("FILL_ORACLE_BASE_SEPOLIA");
+        // Fill oracle validates fills on ORIGIN chain (Arb Sepolia), not destination
+        address fillOracle = vm.envAddress("FILL_ORACLE_ARBITRUM_SEPOLIA");
 
         vm.startBroadcast(deployerPrivateKey);
 
