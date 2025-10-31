@@ -32,7 +32,7 @@ contract DeployWithdrawalOutputSettler is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         // Get required oracle address for Base Sepolia
-        address fillOracle = vm.envAddress("FILL_ORACLE_BASE_SEPOLIA");
+        address fillOracle = vm.envAddress("FILL_ORACLE_ARBITRUM_SEPOLIA");
 
         vm.startBroadcast(deployerPrivateKey);
 
