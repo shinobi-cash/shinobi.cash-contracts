@@ -12,13 +12,13 @@ import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainD
  * @notice Configure Deposit Entrypoint for L2 deposits (Base Sepolia -> Arbitrum Sepolia)
  * @dev Required env vars:
  *      - SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA: Deposit entrypoint on Base Sepolia
- *      - INPUT_SETTLER_BASE_SEPOLIA: Input settler on Base Sepolia
  *      - FILL_ORACLE_BASE_SEPOLIA: Oracle on Base Sepolia (validates fills on Arbitrum)
  *      - INTENT_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum Sepolia (validates intents from Base)
  *      - DESTINATION_CHAIN_ID: 421614 (Arbitrum Sepolia)
  *      - SHINOBI_CASH_ENTRYPOINT_PROXY: Main entrypoint on Arbitrum Sepolia
  *      - DEPOSIT_OUTPUT_SETTLER_ARBITRUM_SEPOLIA: Output settler on Arbitrum Sepolia
  *      - DESTINATION_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum Sepolia (validates outputs)
+ * @dev Note: INPUT_SETTLER is now set in constructor (immutable), not in setup
  */
 contract SetupDepositEntrypoint is Script {
     function run() external {
@@ -27,7 +27,6 @@ contract SetupDepositEntrypoint is Script {
 
         // Get addresses from previous deployments
         address depositEntrypointAddr = vm.envAddress("SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA");
-        address inputSettler = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
 
         // Oracle configuration
         // CRITICAL: For cross-chain deposits from Base Sepolia -> Arbitrum Sepolia:
@@ -53,24 +52,20 @@ contract SetupDepositEntrypoint is Script {
         ShinobiCrosschainDepositEntrypoint depositEntrypoint =
             ShinobiCrosschainDepositEntrypoint(payable(depositEntrypointAddr));
 
-        // 1. Set Input Settler
-        console.log("1. Setting Input Settler...");
-        depositEntrypoint.setInputSettler(inputSettler);
-        console.log("   Input Settler set:", inputSettler);
+        // Note: Input Settler is now immutable (set in constructor), not configured here
 
-        // 2. Set Fill Oracle (validates fills on destination)
-        console.log("2. Setting Fill Oracle...");
+        // 1. Set Fill Oracle (validates fills on destination)
+        console.log("1. Setting Fill Oracle...");
         depositEntrypoint.setFillOracle(fillOracle);
         console.log("   Fill Oracle set:", fillOracle);
 
-        // 3. Set Intent Oracle (validates intents from origin)
-        console.log("3. Setting Intent Oracle...");
+        // 2. Set Intent Oracle (validates intents from origin)
+        console.log("2. Setting Intent Oracle...");
         depositEntrypoint.setIntentOracle(intentOracle);
         console.log("   Intent Oracle set:", intentOracle);
 
-        // 4. Set Destination Configuration (chain, entrypoint, output settler, oracle)
-        console.log("4. Setting Destination Configuration...");
-        // Note: destinationOracle is the oracle address on the destination chain
+        // 3. Set Destination Configuration (chain, entrypoint, output settler, oracle)
+        console.log("3. Setting Destination Configuration...");
         depositEntrypoint.setDestinationConfig(
             destinationChainId,
             destinationEntrypoint,
@@ -82,12 +77,23 @@ contract SetupDepositEntrypoint is Script {
         console.log("   Destination Output Settler:", destinationOutputSettler);
         console.log("   Destination Oracle:", destinationOracle);
 
-        // 5. Set default deadlines (optional, has defaults)
-        console.log("5. Setting default deadlines...");
+        // 4. Set default deadlines
+        console.log("4. Setting default deadlines...");
         depositEntrypoint.setDefaultFillDeadline(23 hours);
         depositEntrypoint.setDefaultExpiry(24 hours);
-        console.log("   Fill Deadline: 23 hour");
+        console.log("   Fill Deadline: 23 hours");
         console.log("   Expiry: 24 hours");
+
+        // 5. Set fee configuration
+        console.log("5. Setting fee configuration...");
+        depositEntrypoint.setMinimumDepositAmount(0.01 ether);
+        console.log("   Minimum Deposit Amount: 0.01 ETH");
+
+        depositEntrypoint.setDefaultSolverFeeBPS(500); // 5%
+        console.log("   Default Solver Fee: 5% (500 BPS)");
+
+        depositEntrypoint.setMaxSolverFeeBPS(1000); // 10%
+        console.log("   Max Solver Fee: 10% (1000 BPS)");
 
         vm.stopBroadcast();
 
