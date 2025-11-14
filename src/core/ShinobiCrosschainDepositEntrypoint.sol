@@ -26,7 +26,10 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Address of the ShinobiInputSettler contract (Immutable for security)
-    address public immutable inputSettler;
+    address public inputSettler;
+
+    /// @notice Flag to ensure the inputSettler is only set once
+    bool private inputSettlerSet;
 
     /// @notice Default configuration for cross-chain deposits
     uint32 public defaultFillDeadline = 1 hours;
@@ -55,6 +58,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Emitted when the ShinobiInputSettler address is set
+    event InputSettlerSet(address indexed inputSettlerAddress);
 
     /// @notice Emitted when the default fill deadline is updated
     event DefaultFillDeadlineUpdated(uint32 previousFillDeadline, uint32 newFillDeadline);
@@ -135,12 +141,8 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     /**
      * @notice Constructor for the Crosschain Deposit Entrypoint
      * @param _owner Initial owner of the contract
-     * @param _inputSettler Address of the ShinobiInputSettler contract (made immutable)
      */
-    constructor(address _owner, address _inputSettler) Ownable(_owner) {
-        if (_inputSettler == address(0)) revert InvalidAddress(_inputSettler);
-        inputSettler = _inputSettler;
-    }
+    constructor(address _owner) Ownable(_owner) {}
 
     /*//////////////////////////////////////////////////////////////
                             USER FUNCTIONS
@@ -172,7 +174,6 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
      * @param precommitment The precommitment for the pool deposit
      * @param _solverFeeBPS Solver fee in basis points to use for this deposit
      */
-    // Function signature updated
     function _deposit(uint256 precommitment, uint256 _solverFeeBPS) internal {
         // --- 1. Basic Validations ---
         uint256 totalPaid = msg.value;
@@ -183,7 +184,6 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         if (destinationChainId == 0) revert ConfigurationNotSet();
 
         // --- 2. Fee Calculation ---
-        // Accessing _solverFeeBPS directly as it is uint256
         uint256 solverFee = (totalPaid * _solverFeeBPS) / 10000;
         uint256 netDepositAmount = totalPaid - solverFee;
 
@@ -192,7 +192,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
             revert DepositAmountBelowMinimumAfterFee(netDepositAmount, minimumDepositAmount);
         }
 
-        // --- 3. Intent Construction ---
+        // --- 3. Intent Construction (Stack Reduction Applied Here) ---
         // Generate global unique nonce
         uint256 intentNonce = ++nonce;
 
@@ -201,54 +201,62 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         uint32 fillDeadline = currentTimestamp + defaultFillDeadline;
         uint32 expires = currentTimestamp + defaultExpiry;
 
-        // Empty refund calldata = simple refund to user
-        bytes memory refundCalldata = "";
-
-        // Construct input: FULL amount user paid (includes solver fee)
+        // --- Inputs Construction (Reduced Local Variables) ---
         uint256[2][] memory inputs = new uint256[2][](1);
         inputs[0] = [uint256(0), totalPaid]; // Native ETH is token 0
 
-        // CRITICAL: Construct output.call with VERIFIED depositor and deposit amount (AFTER solver fee)
-        bytes memory outputCall = abi.encodeWithSignature(
-            "crosschainDeposit(address,uint256,uint256)",
-            msg.sender,         // VERIFIED depositor
-            netDepositAmount,   // Amount to deposit in pool (after solver fee)
-            precommitment
-        );
+        // --- Outputs Construction (Isolated in block to free stack space) ---
+        bytes32 orderId; // Declare orderId early
+        bytes memory refundCalldata = "";
 
-        // Construct output: Amount solver must fill on destination (AFTER solver fee)
-        MandateOutput[] memory outputs = new MandateOutput[](1);
-        outputs[0] = MandateOutput({
-            oracle: bytes32(uint256(uint160(destinationOracle))),
-            settler: bytes32(uint256(uint160(destinationOutputSettler))),
-            chainId: destinationChainId,
-            token: bytes32(0), // Native ETH
-            amount: netDepositAmount, // Solver fills net deposit amount
-            recipient: bytes32(uint256(uint160(destinationEntrypoint))),
-            call: outputCall,
-            context: ""
-        });
+        { // Start nested block to reduce stack depth
+            // CRITICAL: Construct output.call
+            bytes memory outputCall = abi.encodeWithSignature(
+                "crosschainDeposit(address,uint256,uint256)",
+                msg.sender,         // VERIFIED depositor
+                netDepositAmount,   // Amount to deposit in pool (after solver fee)
+                precommitment
+            );
 
-        // Construct ShinobiIntent with msg.sender as depositor
-        ShinobiIntent memory intent = ShinobiIntent({
-            user: msg.sender, // CRITICAL: Verified depositor
-            nonce: intentNonce,
-            originChainId: block.chainid,
-            expires: expires,
-            fillDeadline: fillDeadline,
-            fillOracle: fillOracle,
-            inputs: inputs,
-            outputs: outputs,
-            intentOracle: intentOracle,
-            refundCalldata: refundCalldata
-        });
+            // Construct output: Amount solver must fill on destination (AFTER solver fee)
+            MandateOutput[] memory outputs = new MandateOutput[](1);
+            outputs[0] = MandateOutput({
+                oracle: bytes32(uint256(uint160(destinationOracle))),
+                settler: bytes32(uint256(uint160(destinationOutputSettler))),
+                chainId: destinationChainId,
+                token: bytes32(0), // Native ETH
+                amount: netDepositAmount, // Solver fills net deposit amount
+                recipient: bytes32(uint256(uint160(destinationEntrypoint))),
+                call: outputCall,
+                context: ""
+            });
 
-        // Calculate orderId for event emission
-        bytes32 orderId = intent.orderIdentifier();
+            // Construct ShinobiIntent with msg.sender as depositor
+            ShinobiIntent memory intent = ShinobiIntent({
+                user: msg.sender, // CRITICAL: Verified depositor
+                nonce: intentNonce,
+                originChainId: block.chainid,
+                expires: expires,
+                fillDeadline: fillDeadline,
+                fillOracle: fillOracle,
+                inputs: inputs,
+                outputs: outputs,
+                intentOracle: intentOracle,
+                refundCalldata: refundCalldata
+            });
 
-        // --- 4. Call Settler & Emit Event ---
+            // Calculate orderId for event emission
+            orderId = intent.orderIdentifier();
 
+            // --- 4. Call Settler ---
+            // Call ShinobiInputSettler to open intent and escrow funds
+            // This is the last action before the block ends, freeing up intent/outputs/outputCall
+            IShinobiInputSettler(inputSettler).open{value: totalPaid}(intent);
+        } // End nested block. outputs, intent, outputCall are now freed from the stack.
+
+        // --- 5. Emit Event (Using previously calculated values) ---
         // Emit event for indexers to track deposit initiation
+        // orderId was declared outside the block and is safe to use.
         emit CrossChainDepositIntent(
             msg.sender,
             precommitment,
@@ -256,11 +264,8 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
             netDepositAmount,
             solverFee,
             destinationChainId,
-            orderId
+            orderId // orderId is available here
         );
-
-        // Call ShinobiInputSettler to open intent and escrow funds
-        IShinobiInputSettler(inputSettler).open{value: totalPaid}(intent);
     }
 
     /**
@@ -276,6 +281,19 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     /*//////////////////////////////////////////////////////////////
                         CONFIGURATION FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Set the ShinobiInputSettler address (can only be called once by owner)
+     * @param _inputSettler Address of the ShinobiInputSettler contract
+     */
+    function setInputSettler(address _inputSettler) external onlyOwner {
+        if (_inputSettler == address(0)) revert InvalidAddress(_inputSettler);
+        
+        inputSettler = _inputSettler;
+        inputSettlerSet = true;
+        
+        emit InputSettlerSet(_inputSettler);
+    }
 
     /**
      * @notice Set default fill deadline duration
