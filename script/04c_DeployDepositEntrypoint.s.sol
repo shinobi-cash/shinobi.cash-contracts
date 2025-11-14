@@ -31,7 +31,7 @@ contract DeployDepositEntrypoint is Script {
         console.log("");
 
         // Deploy with immutable inputSettler
-        address depositEntrypoint = address(new ShinobiCrosschainDepositEntrypoint(deployer, inputSettler));
+        address depositEntrypoint = address(new ShinobiCrosschainDepositEntrypoint(deployer));
 
         console.log("Deposit Entrypoint:", depositEntrypoint);
 
