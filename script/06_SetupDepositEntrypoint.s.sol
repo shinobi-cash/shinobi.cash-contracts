@@ -41,7 +41,8 @@ contract SetupDepositEntrypoint is Script {
         address destinationEntrypoint = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
         address destinationOutputSettler = vm.envAddress("DEPOSIT_OUTPUT_SETTLER_ARBITRUM_SEPOLIA");
         address destinationOracle = vm.envAddress("DESTINATION_ORACLE_ARBITRUM_SEPOLIA");  // Arbitrum Sepolia oracle
-
+        address inputSettler = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
+        
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("=== Step 6: Setup Deposit Entrypoint (L2) ===");
@@ -94,6 +95,10 @@ contract SetupDepositEntrypoint is Script {
 
         depositEntrypoint.setMaxSolverFeeBPS(1000); // 10%
         console.log("   Max Solver Fee: 10% (1000 BPS)");
+
+        console.log("Setting input settler...");
+        depositEntrypoint.setInputSettler(inputSettler);
+        console.log("Input Settler:", inputSettler);
 
         vm.stopBroadcast();
 
