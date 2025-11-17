@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Shinobi Cash contracts
-import {ShinobiCashEntrypoint} from "../src/contracts/ShinobiCashEntrypoint.sol";
+import {ShinobiCashEntrypoint} from "../src/core/ShinobiCashEntrypoint.sol";
 
 // OpenZeppelin proxy
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";

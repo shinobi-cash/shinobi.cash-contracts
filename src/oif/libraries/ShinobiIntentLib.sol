@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.28;
 
-import {ShinobiIntent} from "../types/ShinobiIntentType.sol";
+import {ShinobiIntent} from "./ShinobiIntentType.sol";
 import {StandardOrder} from "oif-contracts/input/types/StandardOrderType.sol";
 import {MandateOutputType} from "oif-contracts/input/types/MandateOutputType.sol";
 

@@ -9,11 +9,11 @@ import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.s
 import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
 
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {IShinobiCashEntrypoint} from "../../contracts/interfaces/IShinobiCashEntrypoint.sol";
+import {IShinobiCashEntrypoint} from "../core/interfaces/IShinobiCashEntrypoint.sol";
 import {IEntrypoint} from "interfaces/IEntrypoint.sol";
 import {ProofLib} from "contracts/lib/ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
-import {IWithdrawalVerifier} from "../interfaces/IWithdrawalVerifier.sol";
+import {IWithdrawalVerifier} from "../core/interfaces/IWithdrawalVerifier.sol";
 
 /**
  * @title SimpleShinobiCashPoolPaymaster

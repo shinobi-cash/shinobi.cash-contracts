@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.28;
 
-import {ShinobiIntent} from "../types/ShinobiIntentType.sol";
+import {ShinobiIntent} from "../libraries/ShinobiIntentType.sol";
 
 /**
  * @title IShinobiInputSettler

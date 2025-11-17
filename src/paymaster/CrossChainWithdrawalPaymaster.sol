@@ -8,11 +8,11 @@ import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.s
 import {_packValidationData} from "@account-abstraction/contracts/core/Helpers.sol";
 import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
-import {IShinobiCashEntrypoint} from "../../contracts/interfaces/IShinobiCashEntrypoint.sol";
-import {IShinobiCashCrossChainHandler} from "../../contracts/interfaces/IShinobiCashCrossChainHandler.sol";
-import {IShinobiCashPool} from "../../contracts/interfaces/IShinobiCashPool.sol";
-import {ICrossChainWithdrawalVerifier} from "../interfaces/ICrossChainWithdrawalVerifier.sol";
-import {CrossChainProofLib} from "../../contracts/lib/CrossChainProofLib.sol";
+import {IShinobiCashEntrypoint} from "../core/interfaces/IShinobiCashEntrypoint.sol";
+import {IShinobiCashCrossChainHandler} from "../core/interfaces/IShinobiCashCrossChainHandler.sol";
+import {ShinobiCashPool} from "../core/ShinobiCashPool.sol";
+import {ICrossChainWithdrawalProofVerifier} from "../core/interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {CrossChainProofLib} from "../core/libraries/CrossChainProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 
@@ -38,7 +38,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
 
     /// @notice Cross-Chain Privacy Pool contract
-    IShinobiCashPool public immutable ETH_POOL;
+    ShinobiCashPool public immutable ETH_POOL;
 
     /// @notice Expected smart account address for deterministic account pattern
     address public expectedSmartAccount;
@@ -92,7 +92,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
-        IShinobiCashPool _ethShinobiCashPool
+        ShinobiCashPool _ethShinobiCashPool
     ) BasePaymaster(_entryPoint) {
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
         ETH_POOL = _ethShinobiCashPool;
@@ -132,53 +132,52 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Internal relay method that mirrors ShinobiCashEntrypoint.processCrossChainWithdrawal()
+     * @notice Internal relay method that mirrors ShinobiCashEntrypoint.crosschainWithdrawal()
      * @dev This method is called internally by the paymaster to validate withdrawal proofs
      *      without actually executing the withdrawal. It performs the same validation as
      *      the real Cross-Chain Handler but stores results in transient storage for economic checks.
-     *      
-     * @param withdrawal The cross-chain withdrawal parameters to validate
-     * @param proof The ZK cross-chain withdrawal proof
-     * @param scope The scope identifier for the privacy pool
+     *
+     * @param _withdrawal The cross-chain withdrawal parameters to validate
+     * @param _proof The ZK cross-chain withdrawal proof
+     * @param _scope The scope identifier for the privacy pool
      */
-    function processCrossChainWithdrawal(
-        IPrivacyPool.Withdrawal calldata withdrawal,
-        CrossChainProofLib.CrossChainWithdrawProof calldata proof,
-        uint256 scope,
-        IShinobiCashCrossChainHandler.CrossChainIntentParams calldata /* intentParams */
+    function crosschainWithdrawal(
+        IPrivacyPool.Withdrawal calldata _withdrawal,
+        CrossChainProofLib.CrossChainWithdrawProof calldata _proof,
+        uint256 _scope
     ) external {
         if (msg.sender != address(this)) {
             revert UnauthorizedCaller();
         }
-        
+
         // Validate withdrawal targets the correct processooor (SHINOBI_CASH_ENTRYPOINT)
-        if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
+        if (_withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
             revert InvalidProcessooor();
         }
-        
+
         // Decode and validate relay data structure
         IShinobiCashCrossChainHandler.CrossChainRelayData memory relayData = abi.decode(
-            withdrawal.data,
+            _withdrawal.data,
             (IShinobiCashCrossChainHandler.CrossChainRelayData)
         );
-        
+
         // Ensure this paymaster receives the relay fees
         if (relayData.feeRecipient != address(this)) {
             revert WrongFeeRecipient();
         }
-        
+
         // Validate scope matches our supported Cross-Chain Privacy Pool
-        if (scope != ETH_POOL.SCOPE()) {
+        if (_scope != ETH_POOL.SCOPE()) {
             revert InvalidScope();
         }
 
         // CRITICAL: Verify ZK proof to ensure withdrawal is valid
-        if (!_validateCrossChainWithdrawCall(withdrawal, proof)) {
+        if (!_validateCrossChainWithdrawCall(_withdrawal, _proof)) {
             revert CrossChainWithdrawalValidationFailed();
         }
 
         // Store decoded values in transient storage for economic validation
-        uint256 withdrawnValue = proof.withdrawnValue(); // withdrawnValue from 9-signal proof
+        uint256 withdrawnValue = _proof.withdrawnValue(); // withdrawnValue from 9-signal proof
         uint256 relayFeeBPS = relayData.relayFeeBPS;
         
         // Extract recipient from encoded destination
@@ -337,8 +336,8 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         if (value != 0) {
             return false;
         }
-        
-        // Direct call to processCrossChainWithdrawal method - let Solidity's dispatcher handle parameter decoding
+
+        // Direct call to crosschainWithdrawal method - let Solidity's dispatcher handle parameter decoding
         // This is more gas efficient than manually decoding parameters
         (bool success, ) = address(this).call(data);
         return success;
@@ -401,7 +400,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
 
         // 7. Verify Groth16 proof with cross-chain withdrawal verifier
         if (
-            !ICrossChainWithdrawalVerifier(ETH_POOL.crossChainVerifier()).verifyProof(
+            !ICrossChainWithdrawalProofVerifier(ETH_POOL.CROSS_CHAIN_WITHDRAWAL_VERIFIER()).verifyProof(
                 proof.pA,
                 proof.pB,
                 proof.pC,
