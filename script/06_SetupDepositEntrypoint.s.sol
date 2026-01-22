@@ -6,6 +6,7 @@ import {console} from "forge-std/console.sol";
 
 // Deposit Entrypoint
 import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainDepositEntrypoint.sol";
+import {Constants} from "contracts/lib/Constants.sol";
 
 /**
  * @title 06_SetupDepositEntrypoint
@@ -18,7 +19,8 @@ import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainD
  *      - SHINOBI_CASH_ENTRYPOINT_PROXY: Main entrypoint on Arbitrum Sepolia
  *      - DEPOSIT_OUTPUT_SETTLER_ARBITRUM_SEPOLIA: Output settler on Arbitrum Sepolia
  *      - DESTINATION_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum Sepolia (validates outputs)
- * @dev Note: INPUT_SETTLER is now set in constructor (immutable), not in setup
+ *      - INPUT_SETTLER_BASE_SEPOLIA: Input settler on Base Sepolia
+ *      - SHINOBI_CASH_ETH_POOL: Destination pool on Arbitrum Sepolia (for asset->pool mapping)
  */
 contract SetupDepositEntrypoint is Script {
     function run() external {
@@ -42,6 +44,7 @@ contract SetupDepositEntrypoint is Script {
         address destinationOutputSettler = vm.envAddress("DEPOSIT_OUTPUT_SETTLER_ARBITRUM_SEPOLIA");
         address destinationOracle = vm.envAddress("DESTINATION_ORACLE_ARBITRUM_SEPOLIA");  // Arbitrum Sepolia oracle
         address inputSettler = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
+        address destinationPool = vm.envAddress("SHINOBI_CASH_ETH_POOL");  // Pool on Arbitrum Sepolia
         
         vm.startBroadcast(deployerPrivateKey);
 
@@ -99,6 +102,12 @@ contract SetupDepositEntrypoint is Script {
         console.log("Setting input settler...");
         depositEntrypoint.setInputSettler(inputSettler);
         console.log("Input Settler:", inputSettler);
+
+        // 6. Set Asset Pool Configuration
+        console.log("6. Setting asset pool configuration...");
+        depositEntrypoint.setAssetPool(Constants.NATIVE_ASSET, destinationPool);
+        console.log("   Asset: Native ETH (", Constants.NATIVE_ASSET, ")");
+        console.log("   Destination Pool:", destinationPool);
 
         vm.stopBroadcast();
 

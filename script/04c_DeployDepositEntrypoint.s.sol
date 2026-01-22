@@ -20,15 +20,10 @@ contract DeployDepositEntrypoint is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
-        // Get inputSettler address (required for immutable constructor parameter)
-        address inputSettler = vm.envAddress("INPUT_SETTLER_BASE_SEPOLIA");
-
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("=== Step 4c: Deploy Deposit Entrypoint (for L2) ===");
         console.log("Deployer:", deployer);
-        console.log("Input Settler:", inputSettler);
-        console.log("");
 
         // Deploy with immutable inputSettler
         address depositEntrypoint = address(new ShinobiCrosschainDepositEntrypoint(deployer));

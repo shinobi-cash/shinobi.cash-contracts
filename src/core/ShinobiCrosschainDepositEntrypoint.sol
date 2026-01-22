@@ -10,6 +10,7 @@ import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Constants} from "contracts/lib/Constants.sol";
 
 /**
  * @title ShinobiCrosschainDepositEntrypoint
@@ -55,6 +56,10 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     /// @notice Global nonce for generating unique order IDs
     uint256 public nonce;
 
+    /// @notice Mapping of asset address to destination pool address
+    /// @dev Use Constants.NATIVE_ASSET for native ETH
+    mapping(address => address) public assetToPool;
+
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -93,6 +98,12 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     // Event signature updated
     event MaxSolverFeeBPSUpdated(uint256 previousMaxFeeBPS, uint256 newMaxFeeBPS);
 
+    /// @notice Emitted when an asset-to-pool mapping is configured
+    event AssetPoolConfigured(address indexed asset, address indexed pool);
+
+    /// @notice Emitted when an asset-to-pool mapping is removed
+    event AssetPoolRemoved(address indexed asset);
+
     /// @notice Emitted when a user initiates a cross-chain deposit
     event CrossChainDepositIntent(
         address indexed depositor,
@@ -101,6 +112,8 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         uint256 netDepositAmount,
         uint256 solverFee,
         uint256 destinationChainId,
+        address asset,
+        address destinationPool,
         bytes32 indexed orderId
     );
 
@@ -133,6 +146,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
 
     /// @notice Thrown when chain ID is zero
     error InvalidChainId(uint256 providedChainId);
+
+    /// @notice Thrown when asset is not configured with a destination pool
+    error AssetNotSupported(address asset);
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -182,6 +198,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
             revert MinimumDepositAmount(totalPaid, minimumDepositAmount);
         }
         if (destinationChainId == 0) revert ConfigurationNotSet();
+
+        // Validate asset pool is configured (lookup again before emit to avoid stack depth)
+        if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
 
         // --- 2. Fee Calculation ---
         uint256 solverFee = (totalPaid * _solverFeeBPS) / 10000;
@@ -257,6 +276,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         // --- 5. Emit Event (Using previously calculated values) ---
         // Emit event for indexers to track deposit initiation
         // orderId was declared outside the block and is safe to use.
+        // Lookup pool here to avoid stack depth issues (already validated above)
         emit CrossChainDepositIntent(
             msg.sender,
             precommitment,
@@ -264,7 +284,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
             netDepositAmount,
             solverFee,
             destinationChainId,
-            orderId // orderId is available here
+            Constants.NATIVE_ASSET,
+            assetToPool[Constants.NATIVE_ASSET],
+            orderId
         );
     }
 
@@ -361,6 +383,26 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         destinationOracle = _oracle;
 
         emit DestinationConfigUpdated(_chainId, _entrypoint, _outputSettler, _oracle);
+    }
+
+    /**
+     * @notice Configure asset to destination pool mapping
+     * @param _asset Asset address (use Constants.NATIVE_ASSET for native ETH)
+     * @param _pool Destination pool address on the destination chain
+     */
+    function setAssetPool(address _asset, address _pool) external onlyOwner {
+        if (_pool == address(0)) revert InvalidAddress(_pool);
+        assetToPool[_asset] = _pool;
+        emit AssetPoolConfigured(_asset, _pool);
+    }
+
+    /**
+     * @notice Remove asset to pool mapping (disables deposits for this asset)
+     * @param _asset Asset address to remove
+     */
+    function removeAssetPool(address _asset) external onlyOwner {
+        delete assetToPool[_asset];
+        emit AssetPoolRemoved(_asset);
     }
 
     /**
