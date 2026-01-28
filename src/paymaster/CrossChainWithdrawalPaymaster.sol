@@ -60,7 +60,8 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
-        uint256 refunded
+        uint256 refunded,
+        bool success
     );
 
     event ExpectedSmartAccountUpdated(
@@ -215,7 +216,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
      * @param actualUserOpFeePerGas Gas price paid by the UserOperation
      */
     function _postOp(
-        IPaymaster.PostOpMode /* mode */,
+        IPaymaster.PostOpMode mode,
         bytes calldata context,
         uint256 actualGasCost,
         uint256 actualUserOpFeePerGas
@@ -228,12 +229,13 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         uint256 postOpCost = POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
         uint256 actualWithdrawalCost = actualGasCost + postOpCost;
 
-        // Emit withdrawal tracking event
+        // Emit withdrawal tracking event with execution status
         emit CrossChainWithdrawalSponsored(
             withdrawalRecipient,
             userOpHash,
             actualWithdrawalCost,
-            0
+            0,
+            mode == IPaymaster.PostOpMode.opSucceeded
         );
     }
 

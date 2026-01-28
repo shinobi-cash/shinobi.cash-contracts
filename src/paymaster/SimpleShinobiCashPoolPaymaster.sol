@@ -63,7 +63,8 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
-        uint256 refunded
+        uint256 refunded,
+        bool success
     );
 
     event ExpectedSmartAccountUpdated(
@@ -145,13 +146,15 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
 
     /**
      * @notice Handle post-operation gas cost calculation and refunds
-     * @dev Called after UserOperation execution to calculate actual costs and refund excess
+     * @dev Called after UserOperation execution to calculate actual costs and refund excess.
+     *      Only refunds if the UserOp executed successfully to prevent refunding for failed withdrawals.
+     * @param mode The post-operation mode (opSucceeded, opReverted, postOpReverted)
      * @param context Encoded context from validation containing user info and expected costs
      * @param actualGasCost Actual gas cost of the UserOperation
      * @param actualUserOpFeePerGas Gas price paid by the UserOperation
      */
     function _postOp(
-        IPaymaster.PostOpMode /* mode */,
+        IPaymaster.PostOpMode mode,
         bytes calldata context,
         uint256 actualGasCost,
         uint256 actualUserOpFeePerGas
@@ -163,11 +166,13 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
         // Calculate total actual cost including postOp overhead
         uint256 postOpCost = POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
         uint256 actualWithdrawalCost = actualGasCost + postOpCost;
-        uint256 refundAmount = expectedFeeAmount > actualWithdrawalCost
-            ? expectedFeeAmount - actualWithdrawalCost
-            : 0;
-        // If actual cost is less than expected, refund the difference to the user
-        if (refundAmount > 0) {
+
+        // Only refund if execution succeeded - don't refund for failed withdrawals
+        uint256 refundAmount = 0;
+        bool executionSucceeded = mode == IPaymaster.PostOpMode.opSucceeded;
+
+        if (executionSucceeded && expectedFeeAmount > actualWithdrawalCost) {
+            refundAmount = expectedFeeAmount - actualWithdrawalCost;
             // Transfer refund to withdrawalRecipient
             (bool success, ) = withdrawalRecipient.call{value: refundAmount}("");
             success; // Suppress unused variable warning
@@ -175,12 +180,12 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
             // If refund fails, the paymaster keeps the excess
         }
 
-        // Emit withdrawal tracking event (regardless of mode)
         emit PrivacyPoolWithdrawalSponsored(
             withdrawalRecipient,
             userOpHash,
-            actualWithdrawalCost, // this is what user paid for withdrawal
-            refundAmount
+            actualWithdrawalCost,
+            refundAmount,
+            executionSucceeded
         );
     }
 
