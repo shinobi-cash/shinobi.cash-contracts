@@ -34,15 +34,6 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     /// @notice Return value for signature validation failures only
     uint256 internal constant _VALIDATION_FAILED = 1;
 
-    /// @notice Cross-Chain Handler contract (ShinobiCashEntrypoint)
-    IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
-
-    /// @notice Cross-Chain Privacy Pool contract
-    ShinobiCashPool public immutable ETH_POOL;
-
-    /// @notice Expected smart account address for deterministic account pattern
-    address public expectedSmartAccount;
-
     /// @notice Estimated gas cost for postOp operations
     uint256 public constant POST_OP_GAS_LIMIT = 32000;
 
@@ -51,6 +42,15 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
 
     /// @notice Minimum paymaster verification gas limit for cross-chain
     uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 500_000;
+
+    /// @notice Cross-Chain Handler contract (ShinobiCashEntrypoint)
+    IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
+
+    /// @notice Cross-Chain Privacy Pool contract
+    ShinobiCashPool public immutable ETH_POOL;
+
+    /// @notice Expected smart account address for deterministic account pattern
+    address public expectedSmartAccount;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS

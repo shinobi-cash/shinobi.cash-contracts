@@ -35,16 +35,6 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     ///      Validation logic failures should use revert() for better UX and gas estimation.
     uint256 internal constant _VALIDATION_FAILED = 1;
 
-    /// @notice Privacy Pool Entrypoint contract
-    IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
-
-    /// @notice ETH Cash Pool contract
-    IPrivacyPool public immutable ETH_CASH_POOL;
-
-    /// @notice Expected smart account address for deterministic account pattern
-    /// @dev Set via setExpectedSmartAccount(), must be configured before processing UserOps
-    address public expectedSmartAccount;
-
     /// @notice Estimated gas cost for postOp operations (includes ETH refund transfers)
     uint256 public constant POST_OP_GAS_LIMIT = 32000;
 
@@ -54,6 +44,15 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     /// @notice Minimum paymaster verification gas limit
     uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 400_000;
 
+    /// @notice Privacy Pool Entrypoint contract
+    IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
+
+    /// @notice ETH Cash Pool contract
+    IPrivacyPool public immutable ETH_CASH_POOL;
+
+    /// @notice Expected smart account address for deterministic account pattern
+    /// @dev Set via setExpectedSmartAccount(), must be configured before processing UserOps
+    address public expectedSmartAccount;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -145,6 +144,75 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
         expectedSmartAccount = account;
         
         emit ExpectedSmartAccountUpdated(previousAccount, account);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        EMBEDDED WITHDRAWAL VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Internal relay method that mirrors Privacy Pool Entrypoint.relay()
+     * @dev This method is called internally by the paymaster to validate withdrawal proofs
+     *      without actually executing the withdrawal. It performs the same validation as
+     *      the real Privacy Pool but stores results in transient storage for economic checks.
+     *      
+     *      Only callable by the paymaster itself during UserOperation validation to ensure
+     *      secure proof verification before gas sponsorship approval.
+     *      
+     * @param withdrawal The withdrawal parameters to validate
+     * @param proof The ZK withdrawal proof
+     * @param scope The scope identifier for the privacy pool
+     */
+    function relay(
+        IPrivacyPool.Withdrawal calldata withdrawal,
+        ProofLib.WithdrawProof calldata proof,
+        uint256 scope
+    ) external {
+        if (msg.sender != address(this)) {
+            revert UnauthorizedCaller();
+        }
+        
+        // Validate withdrawal targets the correct processooor (Privacy Pool Entrypoint)
+        if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
+            revert InvalidProcessooor();
+        }
+        
+        // Decode and validate relay data structure
+        IEntrypoint.RelayData memory relayData = abi.decode(
+            withdrawal.data,
+            (IEntrypoint.RelayData)
+        );
+        
+        // Ensure this paymaster receives the relay fees
+        if (relayData.feeRecipient != address(this)) {
+            revert WrongFeeRecipient();
+        }
+        
+        // Validate scope matches our supported ETH Privacy Pool
+        if (scope != ETH_CASH_POOL.SCOPE()) {
+            revert InvalidScope();
+        }
+        // CRITICAL: Verify ZK proof to ensure withdrawal is valid
+        if (!_validateWithdrawCall(withdrawal, proof)) {
+            revert WithdrawalValidationFailed();
+        }
+        // Store decoded values in transient storage for economic validation
+        // Hash of withdrawal value + fee BPS for retrieval
+        uint256 withdrawnValue = proof.withdrawnValue();
+        uint256 relayFeeBPS = relayData.relayFeeBPS;
+        address withdrawalRecipient = relayData.recipient;
+
+        // Store in transient storage (EIP-1153)
+        assembly {
+            tstore(0, withdrawnValue)
+            tstore(1, relayFeeBPS)
+            tstore(2, withdrawalRecipient)
+        }
+        
+        // Ensure non-zero fees to prevent free withdrawals
+        if (relayFeeBPS == 0) {
+            revert ZeroFeeNotAllowed();
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -287,75 +355,6 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        EMBEDDED WITHDRAWAL VALIDATION
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Internal relay method that mirrors Privacy Pool Entrypoint.relay()
-     * @dev This method is called internally by the paymaster to validate withdrawal proofs
-     *      without actually executing the withdrawal. It performs the same validation as
-     *      the real Privacy Pool but stores results in transient storage for economic checks.
-     *      
-     *      Only callable by the paymaster itself during UserOperation validation to ensure
-     *      secure proof verification before gas sponsorship approval.
-     *      
-     * @param withdrawal The withdrawal parameters to validate
-     * @param proof The ZK withdrawal proof
-     * @param scope The scope identifier for the privacy pool
-     */
-    function relay(
-        IPrivacyPool.Withdrawal calldata withdrawal,
-        ProofLib.WithdrawProof calldata proof,
-        uint256 scope
-    ) external {
-        if (msg.sender != address(this)) {
-            revert UnauthorizedCaller();
-        }
-        
-        // Validate withdrawal targets the correct processooor (Privacy Pool Entrypoint)
-        if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) {
-            revert InvalidProcessooor();
-        }
-        
-        // Decode and validate relay data structure
-        IEntrypoint.RelayData memory relayData = abi.decode(
-            withdrawal.data,
-            (IEntrypoint.RelayData)
-        );
-        
-        // Ensure this paymaster receives the relay fees
-        if (relayData.feeRecipient != address(this)) {
-            revert WrongFeeRecipient();
-        }
-        
-        // Validate scope matches our supported ETH Privacy Pool
-        if (scope != ETH_CASH_POOL.SCOPE()) {
-            revert InvalidScope();
-        }
-        // CRITICAL: Verify ZK proof to ensure withdrawal is valid
-        if (!_validateWithdrawCall(withdrawal, proof)) {
-            revert WithdrawalValidationFailed();
-        }
-        // Store decoded values in transient storage for economic validation
-        // Hash of withdrawal value + fee BPS for retrieval
-        uint256 withdrawnValue = proof.withdrawnValue();
-        uint256 relayFeeBPS = relayData.relayFeeBPS;
-        address withdrawalRecipient = relayData.recipient;
-
-        // Store in transient storage (EIP-1153)
-        assembly {
-            tstore(0, withdrawnValue)
-            tstore(1, relayFeeBPS)
-            tstore(2, withdrawalRecipient)
-        }
-        
-        // Ensure non-zero fees to prevent free withdrawals
-        if (relayFeeBPS == 0) {
-            revert ZeroFeeNotAllowed();
-        }
-    }
-
-    /*//////////////////////////////////////////////////////////////
                         EMBEDDED WITHDRAWAL VALIDATION  
     //////////////////////////////////////////////////////////////*/
 
@@ -396,69 +395,6 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Extract target, value, and data from SimpleAccount.execute() callData
-     * @dev Validates callData format and extracts execute parameters
-     * @param callData The UserOperation callData
-     * @return target The target address being called
-     * @return value The ETH value being sent 
-     * @return data The call data to the target
-     */
-    function _extractExecuteCall(bytes calldata callData) 
-        internal 
-        pure 
-        returns (address target, uint256 value, bytes memory data) 
-    {
-        // Check minimum callData length (4 bytes selector + minimal parameters)
-        if (callData.length < 4) {
-            revert InvalidCallData();
-        }
-        
-        // Check if it's SimpleAccount.execute() selector (0xb61d27f6)
-        bytes4 selector = bytes4(callData[:4]);
-        if (selector != 0xb61d27f6) {
-            revert InvalidCallData(); // Not a SimpleAccount.execute() call
-        }
-        
-        // Decode execute parameters: execute(address target, uint256 value, bytes calldata data)
-        (target, value, data) = abi.decode(callData[4:], (address, uint256, bytes));
-        
-        return (target, value, data);
-    }
-
-
-    /*//////////////////////////////////////////////////////////////
-                            CALLDATA DECODING
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Decode Privacy Pool Entrypoint.relay() callData
-     */
-    function _decodeRelayCallData(
-        bytes calldata data
-    )
-        internal
-        pure
-        returns (
-            IPrivacyPool.Withdrawal memory withdrawal,
-            ProofLib.WithdrawProof memory proof,
-            uint256 scope
-        )
-    {
-        if (data.length < 4) {
-            revert InvalidCallData();
-        }
-
-        // Create a new bytes array for the parameters (skip 4-byte selector)
-        // Use built-in slicing instead of a manual loop
-        bytes memory params = data[4:];
-
-        (withdrawal, proof, scope) = abi.decode(
-            params,
-            (IPrivacyPool.Withdrawal, ProofLib.WithdrawProof, uint256)
-        );
-    }
-
-  /**
      * @notice Validate withdrawal proof (mirrors PrivacyPool.withdraw logic)
      */
     function _validateWithdrawCall(
@@ -538,4 +474,67 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
 
         return false;
     }
+
+    /**
+     * @notice Extract target, value, and data from SimpleAccount.execute() callData
+     * @dev Validates callData format and extracts execute parameters
+     * @param callData The UserOperation callData
+     * @return target The target address being called
+     * @return value The ETH value being sent 
+     * @return data The call data to the target
+     */
+    function _extractExecuteCall(bytes calldata callData) 
+        internal 
+        pure 
+        returns (address target, uint256 value, bytes memory data) 
+    {
+        // Check minimum callData length (4 bytes selector + minimal parameters)
+        if (callData.length < 4) {
+            revert InvalidCallData();
+        }
+        
+        // Check if it's SimpleAccount.execute() selector (0xb61d27f6)
+        bytes4 selector = bytes4(callData[:4]);
+        if (selector != 0xb61d27f6) {
+            revert InvalidCallData(); // Not a SimpleAccount.execute() call
+        }
+        
+        // Decode execute parameters: execute(address target, uint256 value, bytes calldata data)
+        (target, value, data) = abi.decode(callData[4:], (address, uint256, bytes));
+        
+        return (target, value, data);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            CALLDATA DECODING
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Decode Privacy Pool Entrypoint.relay() callData
+     */
+    function _decodeRelayCallData(
+        bytes calldata data
+    )
+        internal
+        pure
+        returns (
+            IPrivacyPool.Withdrawal memory withdrawal,
+            ProofLib.WithdrawProof memory proof,
+            uint256 scope
+        )
+    {
+        if (data.length < 4) {
+            revert InvalidCallData();
+        }
+
+        // Create a new bytes array for the parameters (skip 4-byte selector)
+        // Use built-in slicing instead of a manual loop
+        bytes memory params = data[4:];
+
+        (withdrawal, proof, scope) = abi.decode(
+            params,
+            (IPrivacyPool.Withdrawal, ProofLib.WithdrawProof, uint256)
+        );
+    }
+
 }
