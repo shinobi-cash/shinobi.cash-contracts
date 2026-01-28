@@ -34,7 +34,8 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     struct WithdrawalResult {
         bytes32 orderId;       // Order identifier for tracking
         uint256 netAmount;     // Amount user receives on destination
-        uint256 totalFees;     // Total fees (relay + solver)
+        uint256 relayFee;      // Relay fee paid to Paymaster
+        uint256 solverFee;     // Solver fee escrowed in OIF
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -183,7 +184,8 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             _data.encodedDestination,
             _asset,
             result.netAmount,
-            result.totalFees,
+            result.relayFee,
+            result.solverFee,
             result.orderId
         );
     }
@@ -255,7 +257,8 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         // Prepare result data for event emission
         result.orderId = intent.orderIdentifier();
         result.netAmount = _netAmount;
-        result.totalFees = fees.relayFee + fees.solverFee;
+        result.relayFee = fees.relayFee;
+        result.solverFee = fees.solverFee;
     }
 
     /**

@@ -58,14 +58,16 @@ contract ShinobiCashCrosschainState {
     /// @param _crosschainRecipient The final recipient encode with destination chain
     /// @param _asset The asset being withdrawn
     /// @param _amount The net amount after fees
-    /// @param _feeAmount The fee amount deducted
+    /// @param _relayFee The relay fee paid to feeRecipient (Paymaster)
+    /// @param _solverFee The solver fee escrowed in OIF (kept by solver when filling)
     /// @param orderId The unique order identifier for tracking (links to InputSettler.Open event)
     event CrossChainWithdrawalIntentRelayed(
         address indexed _relayer,
-        bytes32 indexed _crosschainRecipient, 
+        bytes32 indexed _crosschainRecipient,
         IERC20 indexed _asset,
         uint256 _amount,
-        uint256 _feeAmount,
+        uint256 _relayFee,
+        uint256 _solverFee,
         bytes32 orderId
     );
 
