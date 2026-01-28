@@ -48,6 +48,12 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     /// @notice Estimated gas cost for postOp operations (includes ETH refund transfers)
     uint256 public constant POST_OP_GAS_LIMIT = 32000;
 
+    /// @notice Minimum call gas limit to ensure withdrawal execution completes
+    uint256 public constant MIN_CALL_GAS_LIMIT = 550_000;
+
+    /// @notice Minimum paymaster verification gas limit
+    uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 400_000;
+
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -72,6 +78,8 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
 
     error InvalidCallData();
     error InsufficientPostOpGasLimit();
+    error InsufficientCallGasLimit();
+    error InsufficientPaymasterVerificationGas();
     error WithdrawalValidationFailed();
     error InsufficientPaymasterCost();
     error WrongFeeRecipient();
@@ -217,11 +225,17 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
             revert SmartAccountNotDeployed();
         }
         
-        // 4. Check post-op gas limit is sufficient
+        // 4. Check gas limits are sufficient to prevent out-of-gas reverts after validation
         if (userOp.unpackPostOpGasLimit() < POST_OP_GAS_LIMIT) {
             revert InsufficientPostOpGasLimit();
         }
-        
+        if (userOp.unpackCallGasLimit() < MIN_CALL_GAS_LIMIT) {
+            revert InsufficientCallGasLimit();
+        }
+        if (userOp.unpackPaymasterVerificationGasLimit() < MIN_PAYMASTER_VERIFICATION_GAS) {
+            revert InsufficientPaymasterVerificationGas();
+        }
+
         // 5. Direct callData validation for SimpleAccount.execute()
         (address target, uint256 value, bytes memory data) = _extractExecuteCall(userOp.callData);
         

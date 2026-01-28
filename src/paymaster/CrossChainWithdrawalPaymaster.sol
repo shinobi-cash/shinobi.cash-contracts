@@ -46,6 +46,12 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     /// @notice Estimated gas cost for postOp operations
     uint256 public constant POST_OP_GAS_LIMIT = 32000;
 
+    /// @notice Minimum call gas limit for cross-chain withdrawal execution
+    uint256 public constant MIN_CALL_GAS_LIMIT = 687_500;
+
+    /// @notice Minimum paymaster verification gas limit for cross-chain
+    uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 500_000;
+
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -68,6 +74,8 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
 
     error InvalidCallData();
     error InsufficientPostOpGasLimit();
+    error InsufficientCallGasLimit();
+    error InsufficientPaymasterVerificationGas();
     error CrossChainWithdrawalValidationFailed();
     error InsufficientPaymasterCost();
     error WrongFeeRecipient();
@@ -267,11 +275,17 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
             revert SmartAccountNotDeployed();
         }
         
-        // 4. Check post-op gas limit is sufficient
+        // 4. Check gas limits are sufficient to prevent out-of-gas reverts after validation
         if (userOp.unpackPostOpGasLimit() < POST_OP_GAS_LIMIT) {
             revert InsufficientPostOpGasLimit();
         }
-        
+        if (userOp.unpackCallGasLimit() < MIN_CALL_GAS_LIMIT) {
+            revert InsufficientCallGasLimit();
+        }
+        if (userOp.unpackPaymasterVerificationGasLimit() < MIN_PAYMASTER_VERIFICATION_GAS) {
+            revert InsufficientPaymasterVerificationGas();
+        }
+
         // 5. Direct callData validation for SimpleAccount.execute()
         (address target, uint256 value, bytes memory data) = _extractExecuteCall(userOp.callData);
         
