@@ -116,9 +116,16 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Allow contract to receive ETH from Privacy Pool fees and refunds
+     * @notice Receive ETH and auto-deposit to EntryPoint
+     * @dev Relay fees are automatically converted to EntryPoint deposit
+     *      to keep the paymaster funded for gas sponsorship.
+     *      Owner can withdraw excess using inherited withdrawTo().
      */
-    receive() external payable {}
+    receive() external payable {
+        if (msg.value > 0) {
+            entryPoint.depositTo{value: msg.value}(address(this));
+        }
+    }
 
     /*//////////////////////////////////////////////////////////////
                         SMART ACCOUNT CONFIGURATION
