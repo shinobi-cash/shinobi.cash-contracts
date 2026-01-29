@@ -34,8 +34,8 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     /// @notice Return value for signature validation failures only
     uint256 internal constant _VALIDATION_FAILED = 1;
 
-    /// @notice Estimated gas cost for postOp operations
-    uint256 public constant POST_OP_GAS_LIMIT = 32000;
+    /// @notice Estimated gas cost for postOp operations (EntryPoint deposit)
+    uint256 public constant POST_OP_GAS_LIMIT = 100_000;
 
     /// @notice Minimum call gas limit for cross-chain withdrawal execution
     uint256 public constant MIN_CALL_GAS_LIMIT = 687_500;
@@ -112,16 +112,11 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Receive ETH and auto-deposit to EntryPoint
-     * @dev Relay fees are automatically converted to EntryPoint deposit
-     *      to keep the paymaster funded for gas sponsorship.
-     *      Owner can withdraw excess using inherited withdrawTo().
+     * @notice Receive ETH from relay fees
+     * @dev Relay fees are held by paymaster until postOp, where actual gas cost
+     *      is deposited to EntryPoint. Owner can withdraw excess using inherited withdrawTo().
      */
-    receive() external payable {
-        if (msg.value > 0) {
-            entryPoint.depositTo{value: msg.value}(address(this));
-        }
-    }
+    receive() external payable {}
 
     /*//////////////////////////////////////////////////////////////
                         SMART ACCOUNT CONFIGURATION
@@ -229,12 +224,17 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         uint256 actualUserOpFeePerGas
     ) internal override {
         // Decode context from validation phase
-        (bytes32 userOpHash, address withdrawalRecipient, ) = abi
+        (bytes32 userOpHash, address withdrawalRecipient, uint256 expectedFeeAmount) = abi
             .decode(context, (bytes32, address, uint256));
 
         // Calculate total actual cost including postOp overhead
         uint256 postOpCost = POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
         uint256 actualWithdrawalCost = actualGasCost + postOpCost;
+
+        // Deposit full fee amount to EntryPoint (no refund for cross-chain)
+        if (expectedFeeAmount > 0) {
+            entryPoint.depositTo{value: expectedFeeAmount}(address(this));
+        }
 
         // Emit withdrawal tracking event with execution status
         emit CrossChainWithdrawalSponsored(

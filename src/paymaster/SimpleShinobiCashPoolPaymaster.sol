@@ -35,8 +35,8 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     ///      Validation logic failures should use revert() for better UX and gas estimation.
     uint256 internal constant _VALIDATION_FAILED = 1;
 
-    /// @notice Estimated gas cost for postOp operations (includes ETH refund transfers)
-    uint256 public constant POST_OP_GAS_LIMIT = 32000;
+    /// @notice Estimated gas cost for postOp operations (refund transfer + EntryPoint deposit)
+    uint256 public constant POST_OP_GAS_LIMIT = 100_000;
 
     /// @notice Minimum call gas limit to ensure withdrawal execution completes
     uint256 public constant MIN_CALL_GAS_LIMIT = 550_000;
@@ -115,16 +115,12 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Receive ETH and auto-deposit to EntryPoint
-     * @dev Relay fees are automatically converted to EntryPoint deposit
-     *      to keep the paymaster funded for gas sponsorship.
+     * @notice Receive ETH from relay fees
+     * @dev Relay fees are held by paymaster until postOp, where actual gas cost
+     *      is deposited to EntryPoint and excess is refunded to user.
      *      Owner can withdraw excess using inherited withdrawTo().
      */
-    receive() external payable {
-        if (msg.value > 0) {
-            entryPoint.depositTo{value: msg.value}(address(this));
-        }
-    }
+    receive() external payable {}
 
     /*//////////////////////////////////////////////////////////////
                         SMART ACCOUNT CONFIGURATION
@@ -253,6 +249,11 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
             success; // Suppress unused variable warning
             // We don't revert on failure to avoid blocking the transaction
             // If refund fails, the paymaster keeps the excess
+        }
+
+        // Deposit actual gas cost to EntryPoint for future sponsorship
+        if (actualWithdrawalCost > 0) {
+            entryPoint.depositTo{value: actualWithdrawalCost}(address(this));
         }
 
         emit PrivacyPoolWithdrawalSponsored(
