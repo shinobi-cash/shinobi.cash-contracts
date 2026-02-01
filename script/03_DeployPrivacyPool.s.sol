@@ -7,11 +7,12 @@ import {console} from "forge-std/console.sol";
 // Shinobi Cash contracts
 import {ShinobiCashPoolSimple} from "../src/core/implementations/ShinobiCashPoolSimple.sol";
 import {ICrossChainWithdrawalProofVerifier} from "../src/core/interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {IJoinSplitVerifier} from "../src/core/interfaces/IJoinSplitVerifier.sol";
 
 /**
  * @title 03_DeployPrivacyPool
  * @notice Deploy Shinobi ETH Privacy Pool
- * @dev Requires: ENTRYPOINT, WITHDRAWAL_VERIFIER, COMMITMENT_VERIFIER, CROSS_CHAIN_VERIFIER env vars
+ * @dev Requires: ENTRYPOINT, WITHDRAWAL_VERIFIER, COMMITMENT_VERIFIER, CROSS_CHAIN_VERIFIER, JOINSPLIT_VERIFIER env vars
  */
 contract DeployPrivacyPool is Script {
     function run() external {
@@ -23,6 +24,7 @@ contract DeployPrivacyPool is Script {
         address withdrawalVerifier = vm.envAddress("WITHDRAWAL_VERIFIER");
         address commitmentVerifier = vm.envAddress("COMMITMENT_VERIFIER");
         address crossChainVerifier = vm.envAddress("CROSSCHAIN_WITHDRAWAL_VERIFIER");
+        address joinSplitVerifier = vm.envAddress("JOINSPLIT_VERIFIER");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -35,7 +37,8 @@ contract DeployPrivacyPool is Script {
             entrypoint,
             withdrawalVerifier,
             commitmentVerifier,
-            ICrossChainWithdrawalProofVerifier(crossChainVerifier)
+            ICrossChainWithdrawalProofVerifier(crossChainVerifier),
+            IJoinSplitVerifier(joinSplitVerifier)
         ));
 
         console.log("Shinobi ETH Privacy Pool:", ethPool);

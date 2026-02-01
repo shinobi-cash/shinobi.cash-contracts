@@ -6,6 +6,7 @@ pragma solidity 0.8.28;
 import {Constants} from "contracts/lib/Constants.sol";
 import {ShinobiCashPool} from "../ShinobiCashPool.sol";
 import {ICrossChainWithdrawalProofVerifier} from "../interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {IJoinSplitVerifier} from "../interfaces/IJoinSplitVerifier.sol";
 
 /**
  * @title ShinobiCashPoolSimple
@@ -34,18 +35,21 @@ contract ShinobiCashPoolSimple is ShinobiCashPool {
      * @param _withdrawalVerifier The standard withdrawal proof verifier (8 signals)
      * @param _ragequitVerifier The ragequit proof verifier
      * @param _crossChainVerifier The cross-chain withdrawal proof verifier (9 signals)
+     * @param _joinSplitVerifier The JoinSplit proof verifier (10 signals)
      */
     constructor(
         address _entrypoint,
         address _withdrawalVerifier,
         address _ragequitVerifier,
-        ICrossChainWithdrawalProofVerifier _crossChainVerifier
+        ICrossChainWithdrawalProofVerifier _crossChainVerifier,
+        IJoinSplitVerifier _joinSplitVerifier
     ) ShinobiCashPool(
         _entrypoint,
         _withdrawalVerifier,
         _ragequitVerifier,
         Constants.NATIVE_ASSET,
-        _crossChainVerifier
+        _crossChainVerifier,
+        _joinSplitVerifier
     ) {}
 
     /*//////////////////////////////////////////////////////////////
