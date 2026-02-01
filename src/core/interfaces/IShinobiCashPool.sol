@@ -5,6 +5,7 @@ pragma solidity 0.8.28;
 
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
+import {JoinSplitProofLib} from "../libraries/JoinSplitProofLib.sol";
 
 /**
  * @title IShinobiCashPool
@@ -45,6 +46,40 @@ interface IShinobiCashPool is IPrivacyPool {
         uint256 refundAmount
     );
 
+    /**
+     * @notice Emitted when a JoinSplit withdrawal is executed from the pool
+     * @param processooor The processor contract handling the withdrawal
+     * @param withdrawnValue The amount withdrawn
+     * @param nullifierHash0 The first nullifier hash that was spent
+     * @param nullifierHash1 The second nullifier hash that was spent
+     * @param newCommitmentHash The change commitment hash that was inserted
+     */
+    event JoinSplitWithdrawn(
+        address indexed processooor,
+        uint256 withdrawnValue,
+        uint256 indexed nullifierHash0,
+        uint256 nullifierHash1,
+        uint256 indexed newCommitmentHash
+    );
+
+    /**
+     * @notice Emitted when a cross-chain JoinSplit withdrawal is executed
+     * @param processooor The processor contract handling the cross-chain logic
+     * @param withdrawnValue The amount withdrawn
+     * @param nullifierHash0 The first nullifier hash that was spent
+     * @param nullifierHash1 The second nullifier hash that was spent
+     * @param newCommitmentHash The change commitment hash that was inserted
+     * @param refundCommitmentHash The commitment hash for potential refunds
+     */
+    event CrosschainJoinSplitWithdrawn(
+        address indexed processooor,
+        uint256 withdrawnValue,
+        uint256 indexed nullifierHash0,
+        uint256 nullifierHash1,
+        uint256 indexed newCommitmentHash,
+        uint256 refundCommitmentHash
+    );
+
      /*//////////////////////////////////////////////////////////////
                                ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -57,6 +92,12 @@ interface IShinobiCashPool is IPrivacyPool {
 
     /// @notice Thrown when ETH amount doesn't match expected amount
     error AmountMismatch();
+
+    /// @notice Thrown when JoinSplit verifier address is zero
+    error InvalidJoinSplitVerifier();
+
+    /// @notice Thrown when JoinSplit proof verification fails
+    error InvalidJoinSplitProof();
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
@@ -79,5 +120,29 @@ interface IShinobiCashPool is IPrivacyPool {
      * @param _amount The amount being refunded (for validation)
      */
     function handleRefund(uint256 _refundCommitmentHash, uint256 _amount) external payable;
+
+    /*//////////////////////////////////////////////////////////////
+                        JOINSPLIT FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Process a JoinSplit withdrawal combining 2 inputs into 1 output (change) with withdrawal
+     * @param _withdrawal The withdrawal data
+     * @param _proof The JoinSplit 10-signal proof
+     */
+    function joinSplitWithdraw(
+        Withdrawal memory _withdrawal,
+        JoinSplitProofLib.JoinSplitProof memory _proof
+    ) external;
+
+    /**
+     * @notice Process a cross-chain JoinSplit withdrawal
+     * @param _withdrawal The cross-chain withdrawal data
+     * @param _proof The JoinSplit 10-signal proof with refund commitment
+     */
+    function crosschainJoinSplitWithdraw(
+        Withdrawal memory _withdrawal,
+        JoinSplitProofLib.JoinSplitProof memory _proof
+    ) external;
 
 }
