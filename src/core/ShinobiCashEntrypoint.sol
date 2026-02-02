@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 import {Entrypoint} from "contracts/Entrypoint.sol";
 import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
 import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
-import {Withdraw2SameChainProofLib} from "./libraries/Withdraw2SameChainProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "./libraries/CrosschainWithdraw2ProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
@@ -27,7 +27,7 @@ import {ShinobiCashCrosschainState} from "./ShinobiCashCrosschainState.sol";
 contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrossChainHandler {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
-    using Withdraw2SameChainProofLib for Withdraw2SameChainProofLib.Withdraw2SameChainProof;
+    using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
     using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
@@ -204,7 +204,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      */
     function relay2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        Withdraw2SameChainProofLib.Withdraw2SameChainProof calldata _proof,
+        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
         uint256 _scope
     ) external nonReentrant {
         // Check withdrawn amount is non-zero
@@ -227,7 +227,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      */
     function _executeRelay2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        Withdraw2SameChainProofLib.Withdraw2SameChainProof calldata _proof,
+        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
         uint256 _scope,
         Withdraw2Nullifiers memory _nullifiers
     ) internal {
@@ -280,7 +280,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      */
     function crosschainWithdrawal2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
         uint256 _scope
     ) external nonReentrant {
         // CRITICAL: Validate ShinobiInputSettler is configured
@@ -306,7 +306,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      */
     function _executeCrosschainWithdraw2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
         uint256 _scope,
         Withdraw2Nullifiers memory _nullifiers
     ) internal {

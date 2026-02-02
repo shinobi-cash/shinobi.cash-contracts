@@ -5,9 +5,9 @@ pragma solidity 0.8.28;
 
 /**
  * @title Withdraw2ProofLib
- * @notice Facilitates accessing the public signals of a Groth16 proof for 2-input withdrawals.
+ * @notice Facilitates accessing the public signals of a Groth16 proof for same-chain 2-input withdrawals.
  * @dev Withdraw2 allows combining 2 input notes into 1 output note (change) with withdrawal.
- *      Optimized for withdrawal use case where user combines deposits and withdraws to an address.
+ *      Same-chain version does NOT include refundCommitmentHash (9 signals).
  */
 library Withdraw2ProofLib {
     /*///////////////////////////////////////////////////////////////
@@ -15,7 +15,7 @@ library Withdraw2ProofLib {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Struct containing Groth16 proof elements and public signals for Withdraw2 verification
+     * @notice Struct containing Groth16 proof elements and public signals for same-chain Withdraw2 verification
      * @dev The public signals array must match the order of public inputs/outputs in the circuit
      * @param pA First elliptic curve point (pi_A) of the Groth16 proof, encoded as two field elements
      * @param pB Second elliptic curve point (pi_B) of the Groth16 proof, encoded as 2x2 matrix of field elements
@@ -24,19 +24,18 @@ library Withdraw2ProofLib {
      *        - [0] newCommitmentHash: Hash of change commitment (output)
      *        - [1] nullifierHash0: Hash of input 0 nullifier being spent (output)
      *        - [2] nullifierHash1: Hash of input 1 nullifier being spent (output)
-     *        - [3] refundCommitmentHash: Hash of commitment for refund recovery (output)
-     *        - [4] withdrawnValue: Amount being withdrawn from pool (input)
-     *        - [5] stateRoot: Current state root of the privacy pool (input)
-     *        - [6] stateTreeDepth: Current depth of the state tree (input)
-     *        - [7] ASPRoot: Current root of the Association Set Provider tree (input)
-     *        - [8] ASPTreeDepth: Current depth of the ASP tree (input)
-     *        - [9] context: Context value for the withdrawal operation (input)
+     *        - [3] withdrawnValue: Amount being withdrawn from pool (input)
+     *        - [4] stateRoot: Current state root of the privacy pool (input)
+     *        - [5] stateTreeDepth: Current depth of the state tree (input)
+     *        - [6] ASPRoot: Current root of the Association Set Provider tree (input)
+     *        - [7] ASPTreeDepth: Current depth of the ASP tree (input)
+     *        - [8] context: Context value for the withdrawal operation (input)
      */
     struct Withdraw2Proof {
         uint256[2] pA;
         uint256[2][2] pB;
         uint256[2] pC;
-        uint256[10] pubSignals;
+        uint256[9] pubSignals;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -75,21 +74,7 @@ library Withdraw2ProofLib {
     }
 
     /*///////////////////////////////////////////////////////////////
-                     CROSS-CHAIN REFUND EXTRACTOR (3)
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Retrieves the refund commitment hash from the proof's public signals
-     * @dev Used for cross-chain recovery if the intent fails
-     * @param _p The proof containing the public signals
-     * @return The hash of the commitment for refund recovery
-     */
-    function refundCommitmentHash(Withdraw2Proof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[3];
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                        WITHDRAWAL VALUE EXTRACTOR (4)
+                        WITHDRAWAL VALUE EXTRACTOR (3)
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -98,11 +83,11 @@ library Withdraw2ProofLib {
      * @return The amount being withdrawn from Privacy Pool
      */
     function withdrawnValue(Withdraw2Proof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[4];
+        return _p.pubSignals[3];
     }
 
     /*///////////////////////////////////////////////////////////////
-                        STATE TREE EXTRACTORS (5-6)
+                        STATE TREE EXTRACTORS (4-5)
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -111,7 +96,7 @@ library Withdraw2ProofLib {
      * @return The root of the state tree at time of proof generation
      */
     function stateRoot(Withdraw2Proof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[5];
+        return _p.pubSignals[4];
     }
 
     /**
@@ -120,11 +105,11 @@ library Withdraw2ProofLib {
      * @return The depth of the state tree at time of proof generation
      */
     function stateTreeDepth(Withdraw2Proof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[6];
+        return _p.pubSignals[5];
     }
 
     /*///////////////////////////////////////////////////////////////
-                        ASP TREE EXTRACTORS (7-8)
+                        ASP TREE EXTRACTORS (6-7)
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -133,7 +118,7 @@ library Withdraw2ProofLib {
      * @return The latest root of the ASP tree at time of proof generation
      */
     function ASPRoot(Withdraw2Proof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[7];
+        return _p.pubSignals[6];
     }
 
     /**
@@ -142,11 +127,11 @@ library Withdraw2ProofLib {
      * @return The depth of the ASP tree at time of proof generation
      */
     function ASPTreeDepth(Withdraw2Proof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[8];
+        return _p.pubSignals[7];
     }
 
     /*///////////////////////////////////////////////////////////////
-                        CONTEXT EXTRACTOR (9)
+                        CONTEXT EXTRACTOR (8)
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -155,6 +140,6 @@ library Withdraw2ProofLib {
      * @return The context value binding the proof to specific withdrawal data
      */
     function context(Withdraw2Proof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[9];
+        return _p.pubSignals[8];
     }
 }

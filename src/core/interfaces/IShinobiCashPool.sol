@@ -6,7 +6,7 @@ pragma solidity 0.8.28;
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
 import {Withdraw2ProofLib} from "../libraries/Withdraw2ProofLib.sol";
-import {Withdraw2SameChainProofLib} from "../libraries/Withdraw2SameChainProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "../libraries/CrosschainWithdraw2ProofLib.sol";
 
 /**
  * @title IShinobiCashPool
@@ -96,17 +96,17 @@ interface IShinobiCashPool is IPrivacyPool {
     /// @notice Thrown when ETH amount doesn't match expected amount
     error AmountMismatch();
 
-    /// @notice Thrown when Withdraw2 verifier address is zero
+    /// @notice Thrown when same-chain Withdraw2 verifier address is zero
     error InvalidWithdraw2Verifier();
 
-    /// @notice Thrown when same-chain Withdraw2 verifier address is zero
-    error InvalidWithdraw2SameChainVerifier();
-
-    /// @notice Thrown when cross-chain Withdraw2 proof verification fails
-    error InvalidWithdraw2Proof();
+    /// @notice Thrown when cross-chain Withdraw2 verifier address is zero
+    error InvalidCrosschainWithdraw2Verifier();
 
     /// @notice Thrown when same-chain Withdraw2 proof verification fails
-    error InvalidWithdraw2SameChainProof();
+    error InvalidWithdraw2Proof();
+
+    /// @notice Thrown when cross-chain Withdraw2 proof verification fails
+    error InvalidCrosschainWithdraw2Proof();
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
@@ -141,17 +141,17 @@ interface IShinobiCashPool is IPrivacyPool {
      */
     function withdraw2(
         Withdrawal memory _withdrawal,
-        Withdraw2SameChainProofLib.Withdraw2SameChainProof memory _proof
+        Withdraw2ProofLib.Withdraw2Proof memory _proof
     ) external;
 
     /**
      * @notice Process a cross-chain Withdraw2
      * @param _withdrawal The cross-chain withdrawal data
-     * @param _proof The Withdraw2 10-signal proof with refund commitment
+     * @param _proof The cross-chain Withdraw2 10-signal proof with refund commitment
      */
     function crosschainWithdraw2(
         Withdrawal memory _withdrawal,
-        Withdraw2ProofLib.Withdraw2Proof memory _proof
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory _proof
     ) external;
 
 }
