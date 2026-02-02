@@ -5,27 +5,26 @@ pragma solidity 0.8.28;
 
 /**
  * @title ICrossChainWithdrawalProofVerifier
- * @notice Interface for verifying enhanced cross-chain withdrawal ZK proofs
- * @dev This interface will be implemented by the generated Groth16 verifier contract
- *      for the enhanced circuit with 9 public signals (including refundCommitmentHash)
+ * @notice Interface for verifying cross-chain withdrawal (1:1) ZK proofs
+ * @dev Verifies Groth16 proofs with 9 public signals for cross-chain withdrawals
  */
 interface ICrossChainWithdrawalProofVerifier {
     /**
      * @notice Verify a cross-chain withdrawal proof
-     * @dev Verifies the Groth16 proof with enhanced 9 public signals
-     * @param a Proof component A
-     * @param b Proof component B  
-     * @param c Proof component C
+     * @dev Verifies the Groth16 proof with 9 public signals
+     * @param a Proof component A (pi_A)
+     * @param b Proof component B (pi_B)
+     * @param c Proof component C (pi_C)
      * @param input Array of 9 public signals:
-     *              [0] merkleRoot - The merkle root of the privacy pool
-     *              [1] nullifier - The nullifier to prevent double spending
-     *              [2] commitmentHash - The commitment being spent
-     *              [3] recipient - The withdrawal recipient (same-chain or cross-chain)
-     *              [4] relayer - The relayer address
-     *              [5] fee - The relay fee amount
-     *              [6] refund - The refund amount (for failed cross-chain intents)
-     *              [7] associationSetRoot - The association set root for compliance
-     *              [8] refundCommitmentHash - NEW: Hash of commitment for refund recovery
+     *              [0] newCommitmentHash - Hash of the new commitment (change)
+     *              [1] existingNullifierHash - Hash of the nullifier being spent
+     *              [2] refundCommitmentHash - Hash of commitment for refund recovery
+     *              [3] withdrawnValue - Amount being withdrawn
+     *              [4] stateRoot - State merkle root
+     *              [5] stateTreeDepth - State tree depth
+     *              [6] ASPRoot - ASP merkle root
+     *              [7] ASPTreeDepth - ASP tree depth
+     *              [8] context - Binding context hash
      * @return True if the proof is valid, false otherwise
      */
     function verifyProof(

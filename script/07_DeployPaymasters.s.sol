@@ -4,20 +4,27 @@ pragma solidity 0.8.28;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-// Paymasters
-import {CrossChainWithdrawalPaymaster} from "../src/paymaster/CrossChainWithdrawalPaymaster.sol";
+// Paymasters - Standard 1:1 withdrawals
 import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/SimpleShinobiCashPoolPaymaster.sol";
+import {CrossChainWithdrawalPaymaster} from "../src/paymaster/CrossChainWithdrawalPaymaster.sol";
+
+// Paymasters - Withdraw2 (2:1 withdrawals)
+import {Withdraw2Paymaster} from "../src/paymaster/Withdraw2Paymaster.sol";
+import {CrosschainWithdraw2Paymaster} from "../src/paymaster/CrosschainWithdraw2Paymaster.sol";
 
 // Interfaces
 import {IEntryPoint as IERC4337EntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {IShinobiCashEntrypoint} from "../src/core/interfaces/IShinobiCashEntrypoint.sol";
+import {IShinobiCashPool} from "../src/core/interfaces/IShinobiCashPool.sol";
 import {ShinobiCashPool} from "../src/core/ShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
+import {IWithdraw2Verifier} from "../src/core/interfaces/IWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 
 /**
  * @title 07_DeployPaymasters
  * @notice Deploy ERC-4337 Paymasters for gas sponsorship
- * @dev Requires: ENTRYPOINT, ETH_POOL env vars
+ * @dev Requires: SHINOBI_CASH_ENTRYPOINT_PROXY, SHINOBI_CASH_ETH_POOL, WITHDRAW2_VERIFIER, CROSSCHAIN_WITHDRAW2_VERIFIER env vars
  */
 contract DeployPaymasters is Script {
     // ERC-4337 EntryPoint (standard across networks)
@@ -30,6 +37,8 @@ contract DeployPaymasters is Script {
         // Get addresses from previous deployments
         address entrypoint = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
         address ethPool = vm.envAddress("SHINOBI_CASH_ETH_POOL");
+        address withdraw2Verifier = vm.envAddress("WITHDRAW2_VERIFIER");
+        address crosschainWithdraw2Verifier = vm.envAddress("CROSSCHAIN_WITHDRAW2_VERIFIER");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -37,19 +46,11 @@ contract DeployPaymasters is Script {
         console.log("Deployer:", deployer);
         console.log("ERC-4337 EntryPoint:", ERC4337_ENTRYPOINT);
         console.log("Shinobi Entrypoint:", entrypoint);
+        console.log("ETH Pool:", ethPool);
         console.log("");
 
-        // Deploy Cross-Chain Withdrawal Paymaster
-        console.log("1. Deploying Cross-Chain Withdrawal Paymaster...");
-        address payable crossChainPaymaster = payable(address(new CrossChainWithdrawalPaymaster(
-            IERC4337EntryPoint(ERC4337_ENTRYPOINT),
-            IShinobiCashEntrypoint(entrypoint),
-            ShinobiCashPool(ethPool)
-        )));
-        console.log("   Cross-Chain Paymaster:", crossChainPaymaster);
-
-        // Deploy Simple Privacy Pool Paymaster
-        console.log("2. Deploying Simple Privacy Pool Paymaster...");
+        // 1. Deploy Simple Privacy Pool Paymaster (1:1 same-chain)
+        console.log("1. Deploying Simple Privacy Pool Paymaster (1:1 same-chain)...");
         address payable simplePaymaster = payable(address(new SimpleShinobiCashPoolPaymaster(
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
             IShinobiCashEntrypoint(entrypoint),
@@ -57,25 +58,60 @@ contract DeployPaymasters is Script {
         )));
         console.log("   Simple Paymaster:", simplePaymaster);
 
-        // Fund paymasters for gas sponsorship
-        console.log("3. Funding Paymasters...");
-        CrossChainWithdrawalPaymaster(crossChainPaymaster).deposit{value: 0.01 ether}();
+        // 2. Deploy Cross-Chain Withdrawal Paymaster (1:1 cross-chain)
+        console.log("2. Deploying Cross-Chain Withdrawal Paymaster (1:1 cross-chain)...");
+        address payable crossChainPaymaster = payable(address(new CrossChainWithdrawalPaymaster(
+            IERC4337EntryPoint(ERC4337_ENTRYPOINT),
+            IShinobiCashEntrypoint(entrypoint),
+            ShinobiCashPool(ethPool)
+        )));
+        console.log("   Cross-Chain Paymaster:", crossChainPaymaster);
+
+        // 3. Deploy Withdraw2 Paymaster (2:1 same-chain)
+        console.log("3. Deploying Withdraw2 Paymaster (2:1 same-chain)...");
+        address payable withdraw2Paymaster = payable(address(new Withdraw2Paymaster(
+            IERC4337EntryPoint(ERC4337_ENTRYPOINT),
+            IShinobiCashEntrypoint(entrypoint),
+            IShinobiCashPool(ethPool),
+            IWithdraw2Verifier(withdraw2Verifier)
+        )));
+        console.log("   Withdraw2 Paymaster:", withdraw2Paymaster);
+
+        // 4. Deploy CrosschainWithdraw2 Paymaster (2:1 cross-chain)
+        console.log("4. Deploying CrosschainWithdraw2 Paymaster (2:1 cross-chain)...");
+        address payable crosschainWithdraw2Paymaster = payable(address(new CrosschainWithdraw2Paymaster(
+            IERC4337EntryPoint(ERC4337_ENTRYPOINT),
+            IShinobiCashEntrypoint(entrypoint),
+            IShinobiCashPool(ethPool),
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
+        )));
+        console.log("   CrosschainWithdraw2 Paymaster:", crosschainWithdraw2Paymaster);
+
+        // 5. Fund paymasters for gas sponsorship
+        console.log("5. Funding Paymasters...");
         SimpleShinobiCashPoolPaymaster(simplePaymaster).deposit{value: 0.01 ether}();
+        CrossChainWithdrawalPaymaster(crossChainPaymaster).deposit{value: 0.01 ether}();
+        Withdraw2Paymaster(withdraw2Paymaster).deposit{value: 0.01 ether}();
+        CrosschainWithdraw2Paymaster(crosschainWithdraw2Paymaster).deposit{value: 0.01 ether}();
         console.log("   Paymasters funded with 0.01 ETH each");
 
-        // Configure expected smart account (Rhinestone's Safe7579 factory default account)
-        console.log("4. Configuring Expected Smart Account...");
+        // 6. Configure expected smart account (Rhinestone's Safe7579 factory default account)
+        console.log("6. Configuring Expected Smart Account...");
         address expectedSmartAccount = 0xa3aBDC7f6334CD3EE466A115f30522377787c024;
-        CrossChainWithdrawalPaymaster(crossChainPaymaster).setExpectedSmartAccount(expectedSmartAccount);
         SimpleShinobiCashPoolPaymaster(simplePaymaster).setExpectedSmartAccount(expectedSmartAccount);
+        CrossChainWithdrawalPaymaster(crossChainPaymaster).setExpectedSmartAccount(expectedSmartAccount);
+        Withdraw2Paymaster(withdraw2Paymaster).setExpectedSmartAccount(expectedSmartAccount);
+        CrosschainWithdraw2Paymaster(crosschainWithdraw2Paymaster).setExpectedSmartAccount(expectedSmartAccount);
         console.log("   Expected Smart Account set:", expectedSmartAccount);
 
         vm.stopBroadcast();
 
         console.log("");
         console.log("=== Paymasters deployed and funded ===");
-        console.log("CROSS_CHAIN_PAYMASTER:", crossChainPaymaster);
-        console.log("SIMPLE_PAYMASTER:", simplePaymaster);
-        console.log("EXPECTED_SMART_ACCOUNT:", expectedSmartAccount);
+        console.log("SIMPLE_PAYMASTER=", simplePaymaster);
+        console.log("CROSS_CHAIN_PAYMASTER=", crossChainPaymaster);
+        console.log("WITHDRAW2_PAYMASTER=", withdraw2Paymaster);
+        console.log("CROSSCHAIN_WITHDRAW2_PAYMASTER=", crosschainWithdraw2Paymaster);
+        console.log("EXPECTED_SMART_ACCOUNT=", expectedSmartAccount);
     }
 }
