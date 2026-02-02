@@ -5,6 +5,7 @@ pragma solidity 0.8.28;
 import {Entrypoint} from "contracts/Entrypoint.sol";
 import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
 import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
+import {Withdraw2SameChainProofLib} from "./libraries/Withdraw2SameChainProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
@@ -26,6 +27,7 @@ import {ShinobiCashCrosschainState} from "./ShinobiCashCrosschainState.sol";
 contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrossChainHandler {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
+    using Withdraw2SameChainProofLib for Withdraw2SameChainProofLib.Withdraw2SameChainProof;
     using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
@@ -197,12 +199,12 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      * @notice Process a same-chain Withdraw2 (2 inputs -> 1 output + withdrawal)
      * @dev Combines 2 input notes into 1 change note with withdrawal to recipient
      * @param _withdrawal The withdrawal parameters
-     * @param _proof The Withdraw2 10-signal proof
+     * @param _proof The Withdraw2 9-signal proof (same-chain, no refund)
      * @param _scope The privacy pool scope identifier
      */
     function relay2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        Withdraw2SameChainProofLib.Withdraw2SameChainProof calldata _proof,
         uint256 _scope
     ) external nonReentrant {
         // Check withdrawn amount is non-zero
@@ -225,7 +227,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      */
     function _executeRelay2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        Withdraw2SameChainProofLib.Withdraw2SameChainProof calldata _proof,
         uint256 _scope,
         Withdraw2Nullifiers memory _nullifiers
     ) internal {

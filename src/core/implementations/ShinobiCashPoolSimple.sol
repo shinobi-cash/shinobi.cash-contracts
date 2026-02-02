@@ -7,6 +7,7 @@ import {Constants} from "contracts/lib/Constants.sol";
 import {ShinobiCashPool} from "../ShinobiCashPool.sol";
 import {ICrossChainWithdrawalProofVerifier} from "../interfaces/ICrossChainWithdrawalProofVerifier.sol";
 import {IWithdraw2Verifier} from "../interfaces/IWithdraw2Verifier.sol";
+import {IWithdraw2SameChainVerifier} from "../interfaces/IWithdraw2SameChainVerifier.sol";
 
 /**
  * @title ShinobiCashPoolSimple
@@ -35,21 +36,24 @@ contract ShinobiCashPoolSimple is ShinobiCashPool {
      * @param _withdrawalVerifier The standard withdrawal proof verifier (8 signals)
      * @param _ragequitVerifier The ragequit proof verifier
      * @param _crossChainVerifier The cross-chain withdrawal proof verifier (9 signals)
-     * @param _withdraw2Verifier The Withdraw2 proof verifier (10 signals)
+     * @param _withdraw2Verifier The Withdraw2 proof verifier (10 signals - cross-chain)
+     * @param _withdraw2SameChainVerifier The same-chain Withdraw2 proof verifier (9 signals)
      */
     constructor(
         address _entrypoint,
         address _withdrawalVerifier,
         address _ragequitVerifier,
         ICrossChainWithdrawalProofVerifier _crossChainVerifier,
-        IWithdraw2Verifier _withdraw2Verifier
+        IWithdraw2Verifier _withdraw2Verifier,
+        IWithdraw2SameChainVerifier _withdraw2SameChainVerifier
     ) ShinobiCashPool(
         _entrypoint,
         _withdrawalVerifier,
         _ragequitVerifier,
         Constants.NATIVE_ASSET,
         _crossChainVerifier,
-        _withdraw2Verifier
+        _withdraw2Verifier,
+        _withdraw2SameChainVerifier
     ) {}
 
     /*//////////////////////////////////////////////////////////////

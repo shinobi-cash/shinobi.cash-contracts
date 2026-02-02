@@ -6,6 +6,7 @@ pragma solidity 0.8.28;
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
 import {Withdraw2ProofLib} from "../libraries/Withdraw2ProofLib.sol";
+import {Withdraw2SameChainProofLib} from "../libraries/Withdraw2SameChainProofLib.sol";
 
 /**
  * @title IShinobiCashPool
@@ -98,8 +99,14 @@ interface IShinobiCashPool is IPrivacyPool {
     /// @notice Thrown when Withdraw2 verifier address is zero
     error InvalidWithdraw2Verifier();
 
-    /// @notice Thrown when Withdraw2 proof verification fails
+    /// @notice Thrown when same-chain Withdraw2 verifier address is zero
+    error InvalidWithdraw2SameChainVerifier();
+
+    /// @notice Thrown when cross-chain Withdraw2 proof verification fails
     error InvalidWithdraw2Proof();
+
+    /// @notice Thrown when same-chain Withdraw2 proof verification fails
+    error InvalidWithdraw2SameChainProof();
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
@@ -128,13 +135,13 @@ interface IShinobiCashPool is IPrivacyPool {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Process a Withdraw2 combining 2 inputs into 1 output (change) with withdrawal
+     * @notice Process a same-chain Withdraw2 combining 2 inputs into 1 output (change) with withdrawal
      * @param _withdrawal The withdrawal data
-     * @param _proof The Withdraw2 10-signal proof
+     * @param _proof The same-chain Withdraw2 9-signal proof (no refund commitment)
      */
     function withdraw2(
         Withdrawal memory _withdrawal,
-        Withdraw2ProofLib.Withdraw2Proof memory _proof
+        Withdraw2SameChainProofLib.Withdraw2SameChainProof memory _proof
     ) external;
 
     /**
