@@ -4,18 +4,18 @@
 pragma solidity 0.8.28;
 
 /**
- * @title JoinSplitProofLib
- * @notice Facilitates accessing the public signals of a Groth16 proof for JoinSplit withdrawals.
- * @dev JoinSplit 2:1 allows combining 2 input notes into 1 output note (change) with withdrawal.
+ * @title Withdraw2ProofLib
+ * @notice Facilitates accessing the public signals of a Groth16 proof for 2-input withdrawals.
+ * @dev Withdraw2 allows combining 2 input notes into 1 output note (change) with withdrawal.
  *      Optimized for withdrawal use case where user combines deposits and withdraws to an address.
  */
-library JoinSplitProofLib {
+library Withdraw2ProofLib {
     /*///////////////////////////////////////////////////////////////
-                         JOINSPLIT 2x1 PROOF
+                         WITHDRAW2 PROOF (2 inputs -> 1 output)
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Struct containing Groth16 proof elements and public signals for JoinSplit verification
+     * @notice Struct containing Groth16 proof elements and public signals for Withdraw2 verification
      * @dev The public signals array must match the order of public inputs/outputs in the circuit
      * @param pA First elliptic curve point (pi_A) of the Groth16 proof, encoded as two field elements
      * @param pB Second elliptic curve point (pi_B) of the Groth16 proof, encoded as 2x2 matrix of field elements
@@ -32,7 +32,7 @@ library JoinSplitProofLib {
      *        - [8] ASPTreeDepth: Current depth of the ASP tree (input)
      *        - [9] context: Context value for the withdrawal operation (input)
      */
-    struct JoinSplitProof {
+    struct Withdraw2Proof {
         uint256[2] pA;
         uint256[2][2] pB;
         uint256[2] pC;
@@ -48,7 +48,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of the change commitment
      */
-    function newCommitmentHash(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function newCommitmentHash(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[0];
     }
 
@@ -61,7 +61,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of input 0 nullifier being spent
      */
-    function nullifierHash0(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function nullifierHash0(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[1];
     }
 
@@ -70,7 +70,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of input 1 nullifier being spent
      */
-    function nullifierHash1(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function nullifierHash1(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[2];
     }
 
@@ -84,7 +84,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of the commitment for refund recovery
      */
-    function refundCommitmentHash(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function refundCommitmentHash(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[3];
     }
 
@@ -97,7 +97,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The amount being withdrawn from Privacy Pool
      */
-    function withdrawnValue(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function withdrawnValue(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[4];
     }
 
@@ -110,7 +110,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The root of the state tree at time of proof generation
      */
-    function stateRoot(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function stateRoot(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[5];
     }
 
@@ -119,7 +119,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The depth of the state tree at time of proof generation
      */
-    function stateTreeDepth(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function stateTreeDepth(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[6];
     }
 
@@ -132,7 +132,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The latest root of the ASP tree at time of proof generation
      */
-    function ASPRoot(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function ASPRoot(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[7];
     }
 
@@ -141,7 +141,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The depth of the ASP tree at time of proof generation
      */
-    function ASPTreeDepth(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function ASPTreeDepth(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[8];
     }
 
@@ -154,7 +154,7 @@ library JoinSplitProofLib {
      * @param _p The proof containing the public signals
      * @return The context value binding the proof to specific withdrawal data
      */
-    function context(JoinSplitProof memory _p) internal pure returns (uint256) {
+    function context(Withdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[9];
     }
 }

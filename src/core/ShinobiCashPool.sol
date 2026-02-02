@@ -5,10 +5,10 @@ pragma solidity 0.8.28;
 
 import {PrivacyPool} from "contracts/PrivacyPool.sol";
 import {ICrossChainWithdrawalProofVerifier} from "./interfaces/ICrossChainWithdrawalProofVerifier.sol";
-import {IJoinSplitVerifier} from "./interfaces/IJoinSplitVerifier.sol";
+import {IWithdraw2Verifier} from "./interfaces/IWithdraw2Verifier.sol";
 import {IShinobiCashPool} from "./interfaces/IShinobiCashPool.sol";
 import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
-import {JoinSplitProofLib} from "./libraries/JoinSplitProofLib.sol";
+import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
@@ -19,7 +19,7 @@ import {Constants} from "contracts/lib/Constants.sol";
  */
 abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
-    using JoinSplitProofLib for JoinSplitProofLib.JoinSplitProof;
+    using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN STATE VARIABLES
@@ -28,8 +28,8 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     /// @notice The cross-chain withdrawal proof verifier contract
     ICrossChainWithdrawalProofVerifier public immutable CROSS_CHAIN_WITHDRAWAL_VERIFIER;
 
-    /// @notice The JoinSplit proof verifier contract
-    IJoinSplitVerifier public immutable JOINSPLIT_VERIFIER;
+    /// @notice The Withdraw2 proof verifier contract
+    IWithdraw2Verifier public immutable WITHDRAW2_VERIFIER;
 
     /*//////////////////////////////////////////////////////////////
                               MODIFIERS
@@ -55,9 +55,9 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         _;
     }
 
-    modifier validJoinSplit(
+    modifier validWithdraw2(
         Withdrawal memory _withdrawal,
-        JoinSplitProofLib.JoinSplitProof memory _proof
+        Withdraw2ProofLib.Withdraw2Proof memory _proof
     ) {
         if (msg.sender != _withdrawal.processooor) revert InvalidProcessooor();
 
@@ -80,13 +80,13 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Initialize the Shinobi Cash Pool with cross-chain and JoinSplit capabilities
+     * @notice Initialize the Shinobi Cash Pool with cross-chain and Withdraw2 capabilities
      * @param _entrypoint The entrypoint contract address
      * @param _withdrawalVerifier The standard withdrawal proof verifier (8 signals)
      * @param _ragequitVerifier The ragequit proof verifier
      * @param _asset The asset address for this pool (native or ERC20)
      * @param _crossChainVerifier The cross-chain withdrawal proof verifier (9 signals)
-     * @param _joinSplitVerifier The JoinSplit proof verifier (10 signals)
+     * @param _withdraw2Verifier The Withdraw2 proof verifier (10 signals)
      */
     constructor(
         address _entrypoint,
@@ -94,12 +94,12 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         address _ragequitVerifier,
         address _asset,
         ICrossChainWithdrawalProofVerifier _crossChainVerifier,
-        IJoinSplitVerifier _joinSplitVerifier
+        IWithdraw2Verifier _withdraw2Verifier
     ) PrivacyPool(_entrypoint, _withdrawalVerifier, _ragequitVerifier, _asset) {
         if (address(_crossChainVerifier) == address(0)) revert InvalidCrosschainWithdrawalVerifier();
-        if (address(_joinSplitVerifier) == address(0)) revert InvalidJoinSplitVerifier();
+        if (address(_withdraw2Verifier) == address(0)) revert InvalidWithdraw2Verifier();
         CROSS_CHAIN_WITHDRAWAL_VERIFIER = _crossChainVerifier;
-        JOINSPLIT_VERIFIER = _joinSplitVerifier;
+        WITHDRAW2_VERIFIER = _withdraw2Verifier;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -151,21 +151,21 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        JOINSPLIT WITHDRAWAL
+                        WITHDRAW2 (2 inputs -> 1 output)
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Process a JoinSplit withdrawal combining 2 inputs into 1 output (change) with withdrawal
+     * @notice Process a Withdraw2 combining 2 inputs into 1 output (change) with withdrawal
      * @dev Spends 2 nullifiers and inserts 1 change commitment in a single transaction
      * @param _withdrawal The withdrawal data
-     * @param _proof The JoinSplit 10-signal proof
+     * @param _proof The Withdraw2 10-signal proof
      */
-    function joinSplitWithdraw(
+    function withdraw2(
         Withdrawal memory _withdrawal,
-        JoinSplitProofLib.JoinSplitProof memory _proof
-    ) external override validJoinSplit(_withdrawal, _proof) {
-        if (!JOINSPLIT_VERIFIER.verifyProof(_proof.pA, _proof.pB, _proof.pC, _proof.pubSignals)) {
-            revert InvalidJoinSplitProof();
+        Withdraw2ProofLib.Withdraw2Proof memory _proof
+    ) external override validWithdraw2(_withdrawal, _proof) {
+        if (!WITHDRAW2_VERIFIER.verifyProof(_proof.pA, _proof.pB, _proof.pC, _proof.pubSignals)) {
+            revert InvalidWithdraw2Proof();
         }
 
         // Spend both input nullifiers
@@ -178,27 +178,26 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         // Transfer withdrawn value
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
-        emit JoinSplitWithdrawn(
+        emit Withdraw2Executed(
             _withdrawal.processooor,
             _proof.withdrawnValue(),
-            _proof.nullifierHash0(),
-            _proof.nullifierHash1(),
+            Withdraw2Nullifiers(_proof.nullifierHash0(), _proof.nullifierHash1()),
             _proof.newCommitmentHash()
         );
     }
 
     /**
-     * @notice Process a cross-chain JoinSplit withdrawal
+     * @notice Process a cross-chain Withdraw2
      * @dev Combines 2 inputs, creates 1 change output, and includes refund commitment for cross-chain recovery
      * @param _withdrawal The cross-chain withdrawal data
-     * @param _proof The JoinSplit 10-signal proof with refund commitment
+     * @param _proof The Withdraw2 10-signal proof with refund commitment
      */
-    function crosschainJoinSplitWithdraw(
+    function crosschainWithdraw2(
         Withdrawal memory _withdrawal,
-        JoinSplitProofLib.JoinSplitProof memory _proof
-    ) external override validJoinSplit(_withdrawal, _proof) {
-        if (!JOINSPLIT_VERIFIER.verifyProof(_proof.pA, _proof.pB, _proof.pC, _proof.pubSignals)) {
-            revert InvalidJoinSplitProof();
+        Withdraw2ProofLib.Withdraw2Proof memory _proof
+    ) external override validWithdraw2(_withdrawal, _proof) {
+        if (!WITHDRAW2_VERIFIER.verifyProof(_proof.pA, _proof.pB, _proof.pC, _proof.pubSignals)) {
+            revert InvalidWithdraw2Proof();
         }
 
         // Spend both input nullifiers
@@ -211,11 +210,10 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         // Transfer withdrawn value to processooor (entrypoint for cross-chain)
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
-        emit CrosschainJoinSplitWithdrawn(
+        emit CrosschainWithdraw2Executed(
             _withdrawal.processooor,
             _proof.withdrawnValue(),
-            _proof.nullifierHash0(),
-            _proof.nullifierHash1(),
+            Withdraw2Nullifiers(_proof.nullifierHash0(), _proof.nullifierHash1()),
             _proof.newCommitmentHash(),
             _proof.refundCommitmentHash()
         );

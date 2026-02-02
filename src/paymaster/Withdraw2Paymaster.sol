@@ -11,18 +11,18 @@ import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperatio
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IShinobiCashEntrypoint} from "../core/interfaces/IShinobiCashEntrypoint.sol";
 import {IShinobiCashPool} from "../core/interfaces/IShinobiCashPool.sol";
-import {IJoinSplitVerifier} from "../core/interfaces/IJoinSplitVerifier.sol";
-import {JoinSplitProofLib} from "../core/libraries/JoinSplitProofLib.sol";
+import {IWithdraw2Verifier} from "../core/interfaces/IWithdraw2Verifier.sol";
+import {Withdraw2ProofLib} from "../core/libraries/Withdraw2ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
- * @title JoinSplitPaymaster
- * @notice ERC-4337 Paymaster for Shinobi Cash Pool JoinSplit withdrawals
- * @dev This paymaster validates JoinSplit proofs (2 inputs, 1 output) before sponsoring
+ * @title Withdraw2Paymaster
+ * @notice ERC-4337 Paymaster for Shinobi Cash Pool Withdraw2 (2 inputs) withdrawals
+ * @dev This paymaster validates Withdraw2 proofs (2 inputs, 1 output) before sponsoring
  *      UserOperations. It verifies both input nullifiers are unspent and the ZK proof is valid.
  */
-contract JoinSplitPaymaster is BasePaymaster {
-    using JoinSplitProofLib for JoinSplitProofLib.JoinSplitProof;
+contract Withdraw2Paymaster is BasePaymaster {
+    using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
     using UserOperationLib for PackedUserOperation;
 
     /*//////////////////////////////////////////////////////////////
@@ -32,7 +32,7 @@ contract JoinSplitPaymaster is BasePaymaster {
     /// @notice Estimated gas cost for postOp operations
     uint256 public constant POST_OP_GAS_LIMIT = 100_000;
 
-    /// @notice Minimum call gas limit to ensure JoinSplit execution completes
+    /// @notice Minimum call gas limit to ensure Withdraw2 execution completes
     uint256 public constant MIN_CALL_GAS_LIMIT = 650_000;
 
     /// @notice Minimum paymaster verification gas limit
@@ -44,8 +44,8 @@ contract JoinSplitPaymaster is BasePaymaster {
     /// @notice ETH Cash Pool contract
     IShinobiCashPool public immutable ETH_CASH_POOL;
 
-    /// @notice JoinSplit verifier contract
-    IJoinSplitVerifier public immutable JOINSPLIT_VERIFIER;
+    /// @notice Withdraw2 verifier contract
+    IWithdraw2Verifier public immutable WITHDRAW2_VERIFIER;
 
     /// @notice Expected smart account address for deterministic account pattern
     address public expectedSmartAccount;
@@ -54,7 +54,7 @@ contract JoinSplitPaymaster is BasePaymaster {
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event JoinSplitWithdrawalSponsored(
+    event Withdraw2Sponsored(
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
@@ -86,28 +86,28 @@ contract JoinSplitPaymaster is BasePaymaster {
     error UnauthorizedSmartAccount();
     error SmartAccountNotDeployed();
     error NullifierAlreadySpent();
-    error InvalidJoinSplitProof();
+    error InvalidWithdraw2Proof();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Deploy JoinSplit Paymaster
+     * @notice Deploy Withdraw2 Paymaster
      * @param _entryPoint ERC-4337 EntryPoint contract
      * @param _shinobiCashEntrypoint Shinobi Cash Entrypoint contract
      * @param _ethCashPool ETH Cash Pool contract (IShinobiCashPool)
-     * @param _joinSplitVerifier JoinSplit proof verifier
+     * @param _withdraw2Verifier Withdraw2 proof verifier
      */
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         IShinobiCashPool _ethCashPool,
-        IJoinSplitVerifier _joinSplitVerifier
+        IWithdraw2Verifier _withdraw2Verifier
     ) BasePaymaster(_entryPoint) {
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
         ETH_CASH_POOL = _ethCashPool;
-        JOINSPLIT_VERIFIER = _joinSplitVerifier;
+        WITHDRAW2_VERIFIER = _withdraw2Verifier;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -132,19 +132,19 @@ contract JoinSplitPaymaster is BasePaymaster {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        EMBEDDED JOINSPLIT VALIDATION
+                        EMBEDDED WITHDRAW2 VALIDATION
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Internal relay method for JoinSplit validation
-     * @dev Called internally to validate JoinSplit proofs before sponsoring
+     * @notice Internal relay method for Withdraw2 validation
+     * @dev Called internally to validate Withdraw2 proofs before sponsoring
      * @param withdrawal The withdrawal parameters
-     * @param proof The JoinSplit proof (10 signals)
+     * @param proof The Withdraw2 proof (10 signals)
      * @param scope The scope identifier for the privacy pool
      */
-    function relayJoinSplit(
+    function relayWithdraw2(
         IPrivacyPool.Withdrawal calldata withdrawal,
-        JoinSplitProofLib.JoinSplitProof calldata proof,
+        Withdraw2ProofLib.Withdraw2Proof calldata proof,
         uint256 scope
     ) external {
         if (msg.sender != address(this)) {
@@ -157,7 +157,6 @@ contract JoinSplitPaymaster is BasePaymaster {
         }
 
         // Decode relay data
-        // Note: JoinSplit uses same RelayData structure
         (address feeRecipient, uint256 relayFeeBPS, address recipient) = _decodeRelayData(withdrawal.data);
 
         // Ensure this paymaster receives the relay fees
@@ -170,8 +169,8 @@ contract JoinSplitPaymaster is BasePaymaster {
             revert InvalidScope();
         }
 
-        // Validate the JoinSplit proof
-        if (!_validateJoinSplitProof(withdrawal, proof)) {
+        // Validate the Withdraw2 proof
+        if (!_validateWithdraw2Proof(withdrawal, proof)) {
             revert WithdrawalValidationFailed();
         }
 
@@ -218,7 +217,7 @@ contract JoinSplitPaymaster is BasePaymaster {
             entryPoint.depositTo{value: actualWithdrawalCost}(address(this));
         }
 
-        emit JoinSplitWithdrawalSponsored(
+        emit Withdraw2Sponsored(
             withdrawalRecipient,
             userOpHash,
             actualWithdrawalCost,
@@ -269,8 +268,8 @@ contract JoinSplitPaymaster is BasePaymaster {
         // 5. Extract execute call data
         (address target, uint256 value, bytes memory data) = _extractExecuteCall(userOp.callData);
 
-        // 6. Validate JoinSplit withdrawal
-        if (!_validateJoinSplitWithdrawal(target, value, data)) {
+        // 6. Validate Withdraw2 withdrawal
+        if (!_validateWithdraw2Withdrawal(target, value, data)) {
             revert WithdrawalValidationFailed();
         }
 
@@ -301,10 +300,10 @@ contract JoinSplitPaymaster is BasePaymaster {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        JOINSPLIT VALIDATION
+                        WITHDRAW2 VALIDATION
     //////////////////////////////////////////////////////////////*/
 
-    function _validateJoinSplitWithdrawal(
+    function _validateWithdraw2Withdrawal(
         address target,
         uint256 value,
         bytes memory data
@@ -317,14 +316,14 @@ contract JoinSplitPaymaster is BasePaymaster {
             return false;
         }
 
-        // Call internal relayJoinSplit method
+        // Call internal relayWithdraw2 method
         (bool success, ) = address(this).call(data);
         return success;
     }
 
-    function _validateJoinSplitProof(
+    function _validateWithdraw2Proof(
         IPrivacyPool.Withdrawal memory withdrawal,
-        JoinSplitProofLib.JoinSplitProof memory proof
+        Withdraw2ProofLib.Withdraw2Proof memory proof
     ) internal view returns (bool) {
         // 1. Validate context
         uint256 expectedContext = uint256(
@@ -353,7 +352,7 @@ contract JoinSplitPaymaster is BasePaymaster {
             return false;
         }
 
-        // 5. Check BOTH nullifiers haven't been spent (JoinSplit specific)
+        // 5. Check BOTH nullifiers haven't been spent (Withdraw2 specific)
         if (ETH_CASH_POOL.nullifierHashes(proof.nullifierHash0())) {
             return false;
         }
@@ -361,8 +360,8 @@ contract JoinSplitPaymaster is BasePaymaster {
             return false;
         }
 
-        // 6. Verify JoinSplit Groth16 proof
-        if (!JOINSPLIT_VERIFIER.verifyProof(
+        // 6. Verify Withdraw2 Groth16 proof
+        if (!WITHDRAW2_VERIFIER.verifyProof(
             proof.pA,
             proof.pB,
             proof.pC,

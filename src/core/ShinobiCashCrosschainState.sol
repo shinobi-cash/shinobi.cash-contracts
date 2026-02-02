@@ -6,6 +6,11 @@ import {IERC20} from "@oz/interfaces/IERC20.sol";
 
 contract ShinobiCashCrosschainState {
 
+    /// @notice Nullifier hashes for Withdraw2 operations
+    struct Withdraw2Nullifiers {
+        uint256 nullifierHash0;
+        uint256 nullifierHash1;
+    }
 
     /// @notice Configuration for destination chains
     struct WithdrawalChainConfig {
@@ -32,7 +37,7 @@ contract ShinobiCashCrosschainState {
      /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Emitted when the ShinobiInputSettler address is updated
     /// @param _previous The previous ShinobiInputSettler address
     /// @param _new The new ShinobiInputSettler address
@@ -46,11 +51,11 @@ contract ShinobiCashCrosschainState {
     /// @notice Emitted when a destination chain configuration is updated
     event WithdrawalChainConfigured(
         uint256 indexed chainId,
-        uint32 fillDeadline, 
-        uint32 expiry,     
-        address withdrawalOutputSettler,      
-        address withdrawalFillOracle,  
-        address fillOracle  
+        uint32 fillDeadline,
+        uint32 expiry,
+        address withdrawalOutputSettler,
+        address withdrawalFillOracle,
+        address fillOracle
     );
 
     /// @notice Emitted when a user initiates a cross-chain withdrawal
@@ -85,6 +90,28 @@ contract ShinobiCashCrosschainState {
     event Refunded(
         uint256 amount,
         uint256 indexed refundCommitmentHash
+    );
+
+    /// @notice Emitted when a same-chain Withdraw2 is relayed
+    event Withdraw2Relayed(
+        address indexed _relayer,
+        address indexed _recipient,
+        IERC20 indexed _asset,
+        uint256 _amount,
+        uint256 _feeAmount,
+        Withdraw2Nullifiers _nullifiers
+    );
+
+    /// @notice Emitted when a cross-chain Withdraw2 intent is created
+    event CrossChainWithdraw2IntentRelayed(
+        address indexed _relayer,
+        bytes32 indexed _crosschainRecipient,
+        IERC20 indexed _asset,
+        uint256 _amount,
+        uint256 _relayFee,
+        uint256 _solverFee,
+        bytes32 orderId,
+        Withdraw2Nullifiers _nullifiers
     );
 
     /*//////////////////////////////////////////////////////////////

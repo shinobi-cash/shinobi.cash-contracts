@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
-import {JoinSplitProofLib} from "../libraries/JoinSplitProofLib.sol";
+import {Withdraw2ProofLib} from "../libraries/Withdraw2ProofLib.sol";
 
 /**
  * @title IShinobiCashPool
@@ -13,7 +13,13 @@ import {JoinSplitProofLib} from "../libraries/JoinSplitProofLib.sol";
  * @dev Extends IPrivacyPool with cross-chain withdrawal functionality
  */
 interface IShinobiCashPool is IPrivacyPool {
-    
+
+    /// @notice Nullifier hashes for Withdraw2 operations
+    struct Withdraw2Nullifiers {
+        uint256 nullifierHash0;
+        uint256 nullifierHash1;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -47,35 +53,31 @@ interface IShinobiCashPool is IPrivacyPool {
     );
 
     /**
-     * @notice Emitted when a JoinSplit withdrawal is executed from the pool
+     * @notice Emitted when a Withdraw2 (2 inputs) is executed from the pool
      * @param processooor The processor contract handling the withdrawal
      * @param withdrawnValue The amount withdrawn
-     * @param nullifierHash0 The first nullifier hash that was spent
-     * @param nullifierHash1 The second nullifier hash that was spent
+     * @param nullifiers The nullifier hashes that were spent
      * @param newCommitmentHash The change commitment hash that was inserted
      */
-    event JoinSplitWithdrawn(
+    event Withdraw2Executed(
         address indexed processooor,
         uint256 withdrawnValue,
-        uint256 indexed nullifierHash0,
-        uint256 nullifierHash1,
+        Withdraw2Nullifiers nullifiers,
         uint256 indexed newCommitmentHash
     );
 
     /**
-     * @notice Emitted when a cross-chain JoinSplit withdrawal is executed
+     * @notice Emitted when a cross-chain Withdraw2 is executed
      * @param processooor The processor contract handling the cross-chain logic
      * @param withdrawnValue The amount withdrawn
-     * @param nullifierHash0 The first nullifier hash that was spent
-     * @param nullifierHash1 The second nullifier hash that was spent
+     * @param nullifiers The nullifier hashes that were spent
      * @param newCommitmentHash The change commitment hash that was inserted
      * @param refundCommitmentHash The commitment hash for potential refunds
      */
-    event CrosschainJoinSplitWithdrawn(
+    event CrosschainWithdraw2Executed(
         address indexed processooor,
         uint256 withdrawnValue,
-        uint256 indexed nullifierHash0,
-        uint256 nullifierHash1,
+        Withdraw2Nullifiers nullifiers,
         uint256 indexed newCommitmentHash,
         uint256 refundCommitmentHash
     );
@@ -93,11 +95,11 @@ interface IShinobiCashPool is IPrivacyPool {
     /// @notice Thrown when ETH amount doesn't match expected amount
     error AmountMismatch();
 
-    /// @notice Thrown when JoinSplit verifier address is zero
-    error InvalidJoinSplitVerifier();
+    /// @notice Thrown when Withdraw2 verifier address is zero
+    error InvalidWithdraw2Verifier();
 
-    /// @notice Thrown when JoinSplit proof verification fails
-    error InvalidJoinSplitProof();
+    /// @notice Thrown when Withdraw2 proof verification fails
+    error InvalidWithdraw2Proof();
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
@@ -122,27 +124,27 @@ interface IShinobiCashPool is IPrivacyPool {
     function handleRefund(uint256 _refundCommitmentHash, uint256 _amount) external payable;
 
     /*//////////////////////////////////////////////////////////////
-                        JOINSPLIT FUNCTIONS
+                        WITHDRAW2 FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Process a JoinSplit withdrawal combining 2 inputs into 1 output (change) with withdrawal
+     * @notice Process a Withdraw2 combining 2 inputs into 1 output (change) with withdrawal
      * @param _withdrawal The withdrawal data
-     * @param _proof The JoinSplit 10-signal proof
+     * @param _proof The Withdraw2 10-signal proof
      */
-    function joinSplitWithdraw(
+    function withdraw2(
         Withdrawal memory _withdrawal,
-        JoinSplitProofLib.JoinSplitProof memory _proof
+        Withdraw2ProofLib.Withdraw2Proof memory _proof
     ) external;
 
     /**
-     * @notice Process a cross-chain JoinSplit withdrawal
+     * @notice Process a cross-chain Withdraw2
      * @param _withdrawal The cross-chain withdrawal data
-     * @param _proof The JoinSplit 10-signal proof with refund commitment
+     * @param _proof The Withdraw2 10-signal proof with refund commitment
      */
-    function crosschainJoinSplitWithdraw(
+    function crosschainWithdraw2(
         Withdrawal memory _withdrawal,
-        JoinSplitProofLib.JoinSplitProof memory _proof
+        Withdraw2ProofLib.Withdraw2Proof memory _proof
     ) external;
 
 }

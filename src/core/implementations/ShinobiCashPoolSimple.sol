@@ -6,7 +6,7 @@ pragma solidity 0.8.28;
 import {Constants} from "contracts/lib/Constants.sol";
 import {ShinobiCashPool} from "../ShinobiCashPool.sol";
 import {ICrossChainWithdrawalProofVerifier} from "../interfaces/ICrossChainWithdrawalProofVerifier.sol";
-import {IJoinSplitVerifier} from "../interfaces/IJoinSplitVerifier.sol";
+import {IWithdraw2Verifier} from "../interfaces/IWithdraw2Verifier.sol";
 
 /**
  * @title ShinobiCashPoolSimple
@@ -14,7 +14,7 @@ import {IJoinSplitVerifier} from "../interfaces/IJoinSplitVerifier.sol";
  * @dev Extends ShinobiCashPool for native ETH with cross-chain withdrawal support
  */
 contract ShinobiCashPoolSimple is ShinobiCashPool {
-    
+
     /*//////////////////////////////////////////////////////////////
                                ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -35,21 +35,21 @@ contract ShinobiCashPoolSimple is ShinobiCashPool {
      * @param _withdrawalVerifier The standard withdrawal proof verifier (8 signals)
      * @param _ragequitVerifier The ragequit proof verifier
      * @param _crossChainVerifier The cross-chain withdrawal proof verifier (9 signals)
-     * @param _joinSplitVerifier The JoinSplit proof verifier (10 signals)
+     * @param _withdraw2Verifier The Withdraw2 proof verifier (10 signals)
      */
     constructor(
         address _entrypoint,
         address _withdrawalVerifier,
         address _ragequitVerifier,
         ICrossChainWithdrawalProofVerifier _crossChainVerifier,
-        IJoinSplitVerifier _joinSplitVerifier
+        IWithdraw2Verifier _withdraw2Verifier
     ) ShinobiCashPool(
         _entrypoint,
         _withdrawalVerifier,
         _ragequitVerifier,
         Constants.NATIVE_ASSET,
         _crossChainVerifier,
-        _joinSplitVerifier
+        _withdraw2Verifier
     ) {}
 
     /*//////////////////////////////////////////////////////////////

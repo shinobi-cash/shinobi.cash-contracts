@@ -4,13 +4,13 @@
 pragma solidity 0.8.28;
 
 /**
- * @title IJoinSplitVerifier
- * @notice Interface for verifying JoinSplit 2x1 Groth16 proofs
+ * @title IWithdraw2Verifier
+ * @notice Interface for verifying Withdraw2 (2 inputs -> 1 output) Groth16 proofs
  * @dev Verifies proofs for combining 2 input notes into 1 output note (change) with withdrawal
  */
-interface IJoinSplitVerifier {
+interface IWithdraw2Verifier {
     /**
-     * @notice Verifies a JoinSplit 2x1 Groth16 proof
+     * @notice Verifies a Withdraw2 Groth16 proof
      * @param _pA First elliptic curve point (pi_A) of the Groth16 proof
      * @param _pB Second elliptic curve point (pi_B) of the Groth16 proof
      * @param _pC Third elliptic curve point (pi_C) of the Groth16 proof

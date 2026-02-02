@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 
 import {Entrypoint} from "contracts/Entrypoint.sol";
 import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
+import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
@@ -24,6 +25,7 @@ import {ShinobiCashCrosschainState} from "./ShinobiCashCrosschainState.sol";
  */
 contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrossChainHandler {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
+    using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
     using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
@@ -55,7 +57,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     /*//////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Set the ShinobiInputSettler address for withdrawals
     /// @param _inputSettler The address of the ShinobiInputSettler contract
     function setWithdrawalInputSettler(address _inputSettler) external onlyRole(_OWNER_ROLE) {
@@ -120,13 +122,13 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Handle a cross-chain deposit with verified depositor address
     function crosschainDeposit(address _depositor,
         uint256 _amount,
         uint256 _precommitment
         ) external override payable nonReentrant onlyDepositOutputSettler()  returns (uint256 _commitment) {
-       
+
         if(msg.value != _amount) revert AmountMismatch();
         // Handle deposit as native asset
         _commitment = _handleCrosschainDeposit(IERC20(Constants.NATIVE_ASSET), _depositor, msg.value, _precommitment);
@@ -172,7 +174,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             _data,
             _scope,
             bytes32(_proof.existingNullifierHash()),
-            bytes32(_proof.pubSignals[8])
+            bytes32(_proof.refundCommitmentHash())
         );
 
         // Check pool balance has not been reduced
@@ -189,7 +191,166 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             result.orderId
         );
     }
-    
+
+
+    /**
+     * @notice Process a same-chain Withdraw2 (2 inputs -> 1 output + withdrawal)
+     * @dev Combines 2 input notes into 1 change note with withdrawal to recipient
+     * @param _withdrawal The withdrawal parameters
+     * @param _proof The Withdraw2 10-signal proof
+     * @param _scope The privacy pool scope identifier
+     */
+    function relay2(
+        IPrivacyPool.Withdrawal calldata _withdrawal,
+        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        uint256 _scope
+    ) external nonReentrant {
+        // Check withdrawn amount is non-zero
+        if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
+        // Check allowed processooor is this Entrypoint
+        if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
+
+        // Create nullifiers struct early to reduce stack pressure
+        Withdraw2Nullifiers memory nullifiers = Withdraw2Nullifiers(
+            _proof.nullifierHash0(),
+            _proof.nullifierHash1()
+        );
+
+        // Execute via internal function to reduce stack
+        _executeRelay2(_withdrawal, _proof, _scope, nullifiers);
+    }
+
+    /**
+     * @dev Internal function to execute same-chain Withdraw2 (reduces stack depth)
+     */
+    function _executeRelay2(
+        IPrivacyPool.Withdrawal calldata _withdrawal,
+        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        uint256 _scope,
+        Withdraw2Nullifiers memory _nullifiers
+    ) internal {
+        // Fetch pool by scope
+        ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
+        if (address(_shinobiPool) == address(0)) revert PoolNotFound();
+
+        // Store pool asset and balance
+        IERC20 _asset = IERC20(_shinobiPool.ASSET());
+        uint256 _balanceBefore = _assetBalance(_asset);
+
+        // Process Withdraw2 (validates ZK proof, spends 2 nullifiers)
+        _shinobiPool.withdraw2(_withdrawal, _proof);
+
+        // Decode relay data
+        RelayData memory _data = abi.decode(_withdrawal.data, (RelayData));
+
+        if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
+        uint256 _withdrawnAmount = _proof.withdrawnValue();
+
+        // Deduct fees
+        uint256 _amountAfterFees = _deductFee(_withdrawnAmount, _data.relayFeeBPS);
+        uint256 _feeAmount = _withdrawnAmount - _amountAfterFees;
+
+        // Transfer withdrawn funds to recipient
+        _transfer(_asset, _data.recipient, _amountAfterFees);
+        // Transfer fees to fee recipient
+        _transfer(_asset, _data.feeRecipient, _feeAmount);
+
+        // Check pool balance has not been reduced
+        if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
+
+        emit Withdraw2Relayed(
+            msg.sender,
+            _data.recipient,
+            _asset,
+            _withdrawnAmount,
+            _feeAmount,
+            _nullifiers
+        );
+    }
+
+    /**
+     * @notice Process a cross-chain Withdraw2 (2 inputs -> 1 output + OIF intent)
+     * @dev Combines 2 input notes, creates OIF intent for cross-chain delivery
+     * @param _withdrawal The withdrawal parameters
+     * @param _proof The Withdraw2 10-signal proof
+     * @param _scope The privacy pool scope identifier
+     */
+    function crosschainWithdrawal2(
+        IPrivacyPool.Withdrawal calldata _withdrawal,
+        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        uint256 _scope
+    ) external nonReentrant {
+        // CRITICAL: Validate ShinobiInputSettler is configured
+        if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
+
+        // Check withdrawn amount is non-zero
+        if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
+        // Check allowed processooor is this Entrypoint
+        if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
+
+        // Create nullifiers struct early to reduce stack pressure
+        Withdraw2Nullifiers memory nullifiers = Withdraw2Nullifiers(
+            _proof.nullifierHash0(),
+            _proof.nullifierHash1()
+        );
+
+        // Execute and emit via internal function to reduce stack
+        _executeCrosschainWithdraw2(_withdrawal, _proof, _scope, nullifiers);
+    }
+
+    /**
+     * @dev Internal function to execute cross-chain Withdraw2 (reduces stack depth)
+     */
+    function _executeCrosschainWithdraw2(
+        IPrivacyPool.Withdrawal calldata _withdrawal,
+        Withdraw2ProofLib.Withdraw2Proof calldata _proof,
+        uint256 _scope,
+        Withdraw2Nullifiers memory _nullifiers
+    ) internal {
+        // Fetch pool by scope
+        ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
+        if (address(_shinobiPool) == address(0)) revert PoolNotFound();
+
+        // Store pool asset and balance
+        IERC20 _asset = IERC20(_shinobiPool.ASSET());
+        uint256 _balanceBefore = _assetBalance(_asset);
+
+        CrossChainRelayData memory _data = abi.decode(_withdrawal.data, (CrossChainRelayData));
+
+        // SECURITY: Validate destination chain is supported and configured
+        if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) revert DestinationChainNotConfigured();
+
+        if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
+        // Execute privacy pool cross-chain Withdraw2 (validates ZK proof, spends 2 nullifiers)
+        _shinobiPool.crosschainWithdraw2(_withdrawal, _proof);
+
+        // Open withdrawal intent and get event data
+        WithdrawalResult memory result = _openWithdrawalIntent(
+            _asset,
+            _proof.withdrawnValue(),
+            _data,
+            _scope,
+            bytes32(_nullifiers.nullifierHash0),
+            bytes32(_proof.refundCommitmentHash())
+        );
+
+        // Check pool balance has not been reduced
+        if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
+
+        // Emit event for indexers to track withdrawal initiation
+        emit CrossChainWithdraw2IntentRelayed(
+            msg.sender,
+            _data.encodedDestination,
+            _asset,
+            result.netAmount,
+            result.relayFee,
+            result.solverFee,
+            result.orderId,
+            _nullifiers
+        );
+    }
 
     /**
      * @notice Handle refund for failed cross-chain withdrawal
