@@ -4,6 +4,8 @@
 pragma solidity 0.8.28;
 
 import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
+import {IHyperlaneOracle} from "../oif/interfaces/IHyperlaneOracle.sol";
+import {IPayloadCreator} from "../oif/interfaces/IPayloadCreator.sol";
 import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
@@ -18,7 +20,7 @@ import {Constants} from "contracts/lib/Constants.sol";
  * @dev Deployed on origin chains (e.g., Arbitrum) where users have funds.
  * @dev Provides simple deposit/refund interface and calls ShinobiInputSettler.
  */
-contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
+contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloadCreator {
     using ShinobiIntentLib for ShinobiIntent;
     using SafeCast for uint256;
 
@@ -59,6 +61,26 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     /// @notice Mapping of asset address to destination pool address
     /// @dev Use Constants.NATIVE_ASSET for native ETH
     mapping(address => address) public assetToPool;
+
+    /*//////////////////////////////////////////////////////////////
+                        HYPERLANE CONFIGURATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice HyperlaneOracle contract on origin chain for submitting intent proofs
+    IHyperlaneOracle public hyperlaneOracle;
+
+    /// @notice Hyperlane domain ID of the destination chain
+    uint32 public destinationHyperlaneDomain;
+
+    /// @notice HyperlaneOracle address on destination chain
+    address public destinationHyperlaneOracle;
+
+    /// @notice Gas limit for Hyperlane message execution on destination
+    uint256 public hyperlaneGasLimit = 200_000;
+
+    /// @notice Tracks valid intent orderIds for IPayloadCreator validation
+    /// @dev Set to true when intent is created, checked by HyperlaneOracle
+    mapping(bytes32 => bool) public validIntentPayloads;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -103,6 +125,17 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
 
     /// @notice Emitted when an asset-to-pool mapping is removed
     event AssetPoolRemoved(address indexed asset);
+
+    /// @notice Emitted when Hyperlane configuration is updated
+    event HyperlaneConfigUpdated(
+        address indexed hyperlaneOracle,
+        uint32 destinationDomain,
+        address indexed destinationOracle,
+        uint256 gasLimit
+    );
+
+    /// @notice Emitted when intent proof is submitted to Hyperlane
+    event IntentProofSubmitted(bytes32 indexed orderId, uint256 hyperlaneGasPayment);
 
     /// @notice Emitted when a user initiates a cross-chain deposit
     event CrossChainDepositIntent(
@@ -150,6 +183,12 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
     /// @notice Thrown when asset is not configured with a destination pool
     error AssetNotSupported(address asset);
 
+    /// @notice Thrown when Hyperlane oracle is not configured
+    error HyperlaneNotConfigured();
+
+    /// @notice Thrown when deposit amount is insufficient to cover Hyperlane gas
+    error InsufficientFundsForHyperlane(uint256 available, uint256 required);
+
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -194,89 +233,36 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         // --- 1. Basic Validations ---
         uint256 totalPaid = msg.value;
         if (totalPaid == 0) revert InvalidAmount();
-        if (totalPaid < minimumDepositAmount) {
-            revert MinimumDepositAmount(totalPaid, minimumDepositAmount);
-        }
         if (destinationChainId == 0) revert ConfigurationNotSet();
-
-        // Validate asset pool is configured (lookup again before emit to avoid stack depth)
         if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
 
-        // --- 2. Fee Calculation ---
-        uint256 solverFee = (totalPaid * _solverFeeBPS) / 10000;
-        uint256 netDepositAmount = totalPaid - solverFee;
+        // --- 2. Quote Hyperlane & Calculate Fees ---
+        uint256 hyperlaneGasPayment = _quoteHyperlaneGasPayment();
 
-        // Validate deposit amount is still above minimum after solver fee deduction
+        // Validate sufficient funds for Hyperlane
+        if (hyperlaneGasPayment > 0 && totalPaid <= hyperlaneGasPayment) {
+            revert InsufficientFundsForHyperlane(totalPaid, hyperlaneGasPayment);
+        }
+
+        uint256 depositFunds = totalPaid - hyperlaneGasPayment;
+        uint256 solverFee = (depositFunds * _solverFeeBPS) / 10000;
+        uint256 netDepositAmount = depositFunds - solverFee;
+
+        // Validate netDepositAmount (amount going to pool) meets minimum
+        // This is the critical check - pool will reject deposits below its minimum
         if (netDepositAmount < minimumDepositAmount) {
             revert DepositAmountBelowMinimumAfterFee(netDepositAmount, minimumDepositAmount);
         }
 
-        // --- 3. Intent Construction (Stack Reduction Applied Here) ---
-        // Generate global unique nonce
-        uint256 intentNonce = ++nonce;
+        // --- 3. Create Intent and Execute ---
+        bytes32 orderId = _createAndExecuteIntent(precommitment, depositFunds, netDepositAmount);
 
-        // Calculate deadlines using SafeCast for uint256 to uint32 conversion
-        uint32 currentTimestamp = block.timestamp.toUint32();
-        uint32 fillDeadline = currentTimestamp + defaultFillDeadline;
-        uint32 expires = currentTimestamp + defaultExpiry;
+        // --- 4. Submit Intent Proof to Hyperlane (if configured) ---
+        if (hyperlaneGasPayment > 0) {
+            _submitIntentProofToHyperlane(orderId, hyperlaneGasPayment);
+        }
 
-        // --- Inputs Construction (Reduced Local Variables) ---
-        uint256[2][] memory inputs = new uint256[2][](1);
-        inputs[0] = [uint256(0), totalPaid]; // Native ETH is token 0
-
-        // --- Outputs Construction (Isolated in block to free stack space) ---
-        bytes32 orderId; // Declare orderId early
-        bytes memory refundCalldata = "";
-
-        { // Start nested block to reduce stack depth
-            // CRITICAL: Construct output.call
-            bytes memory outputCall = abi.encodeWithSignature(
-                "crosschainDeposit(address,uint256,uint256)",
-                msg.sender,         // VERIFIED depositor
-                netDepositAmount,   // Amount to deposit in pool (after solver fee)
-                precommitment
-            );
-
-            // Construct output: Amount solver must fill on destination (AFTER solver fee)
-            MandateOutput[] memory outputs = new MandateOutput[](1);
-            outputs[0] = MandateOutput({
-                oracle: bytes32(uint256(uint160(destinationOracle))),
-                settler: bytes32(uint256(uint160(destinationOutputSettler))),
-                chainId: destinationChainId,
-                token: bytes32(0), // Native ETH
-                amount: netDepositAmount, // Solver fills net deposit amount
-                recipient: bytes32(uint256(uint160(destinationEntrypoint))),
-                call: outputCall,
-                context: ""
-            });
-
-            // Construct ShinobiIntent with msg.sender as depositor
-            ShinobiIntent memory intent = ShinobiIntent({
-                user: msg.sender, // CRITICAL: Verified depositor
-                nonce: intentNonce,
-                originChainId: block.chainid,
-                expires: expires,
-                fillDeadline: fillDeadline,
-                fillOracle: fillOracle,
-                inputs: inputs,
-                outputs: outputs,
-                intentOracle: intentOracle,
-                refundCalldata: refundCalldata
-            });
-
-            // Calculate orderId for event emission
-            orderId = intent.orderIdentifier();
-
-            // --- 4. Call Settler ---
-            // Call ShinobiInputSettler to open intent and escrow funds
-            // This is the last action before the block ends, freeing up intent/outputs/outputCall
-            IShinobiInputSettler(inputSettler).open{value: totalPaid}(intent);
-        } // End nested block. outputs, intent, outputCall are now freed from the stack.
-
-        // --- 5. Emit Event (Using previously calculated values) ---
-        // Emit event for indexers to track deposit initiation
-        // orderId was declared outside the block and is safe to use.
-        // Lookup pool here to avoid stack depth issues (already validated above)
+        // --- 5. Emit Event ---
         emit CrossChainDepositIntent(
             msg.sender,
             precommitment,
@@ -288,6 +274,121 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
             assetToPool[Constants.NATIVE_ASSET],
             orderId
         );
+    }
+
+    /**
+     * @notice Quote Hyperlane gas payment if configured
+     * @return gasPayment The required gas payment, or 0 if Hyperlane not configured
+     */
+    function _quoteHyperlaneGasPayment() internal view returns (uint256 gasPayment) {
+        if (address(hyperlaneOracle) == address(0)) {
+            return 0;
+        }
+
+        bytes[] memory tempPayloads = new bytes[](1);
+        tempPayloads[0] = abi.encode(bytes32(0)); // Placeholder, actual orderId doesn't affect gas quote
+
+        return hyperlaneOracle.quoteGasPayment(
+            destinationHyperlaneDomain,
+            destinationHyperlaneOracle,
+            hyperlaneGasLimit,
+            "",
+            address(this),
+            tempPayloads
+        );
+    }
+
+    /**
+     * @notice Create intent and execute on InputSettler
+     * @param precommitment The deposit precommitment
+     * @param depositFunds Amount to escrow in InputSettler
+     * @param netDepositAmount Amount solver will fill (after fees)
+     * @return orderId The unique order identifier
+     */
+    function _createAndExecuteIntent(
+        uint256 precommitment,
+        uint256 depositFunds,
+        uint256 netDepositAmount
+    ) internal returns (bytes32 orderId) {
+        uint256 intentNonce = ++nonce;
+        uint32 currentTimestamp = block.timestamp.toUint32();
+
+        // Build intent in nested block to manage stack
+        {
+            uint256[2][] memory inputs = new uint256[2][](1);
+            inputs[0] = [uint256(0), depositFunds];
+
+            MandateOutput[] memory outputs = new MandateOutput[](1);
+            outputs[0] = _buildOutput(netDepositAmount, precommitment);
+
+            ShinobiIntent memory intent = ShinobiIntent({
+                user: msg.sender,
+                nonce: intentNonce,
+                originChainId: block.chainid,
+                expires: currentTimestamp + defaultExpiry,
+                fillDeadline: currentTimestamp + defaultFillDeadline,
+                fillOracle: fillOracle,
+                inputs: inputs,
+                outputs: outputs,
+                intentOracle: intentOracle,
+                refundCalldata: ""
+            });
+
+            orderId = intent.orderIdentifier();
+            validIntentPayloads[orderId] = true;
+
+            IShinobiInputSettler(inputSettler).open{value: depositFunds}(intent);
+        }
+    }
+
+    /**
+     * @notice Build MandateOutput for deposit intent
+     * @param netDepositAmount Amount to deposit in pool
+     * @param precommitment The deposit precommitment
+     * @return output The constructed MandateOutput
+     */
+    function _buildOutput(
+        uint256 netDepositAmount,
+        uint256 precommitment
+    ) internal view returns (MandateOutput memory output) {
+        bytes memory outputCall = abi.encodeWithSignature(
+            "crosschainDeposit(address,uint256,uint256)",
+            msg.sender,
+            netDepositAmount,
+            precommitment
+        );
+
+        output = MandateOutput({
+            oracle: bytes32(uint256(uint160(destinationOracle))),
+            settler: bytes32(uint256(uint160(destinationOutputSettler))),
+            chainId: destinationChainId,
+            token: bytes32(0),
+            amount: netDepositAmount,
+            recipient: bytes32(uint256(uint160(destinationEntrypoint))),
+            call: outputCall,
+            context: ""
+        });
+    }
+
+    /**
+     * @notice Submit intent proof to Hyperlane for relay to destination chain
+     * @param orderId The unique order identifier to prove
+     * @param gasPayment The pre-quoted gas payment for Hyperlane
+     */
+    function _submitIntentProofToHyperlane(bytes32 orderId, uint256 gasPayment) internal {
+        bytes[] memory payloads = new bytes[](1);
+        payloads[0] = abi.encode(orderId);
+
+        hyperlaneOracle.submit{value: gasPayment}(
+            destinationHyperlaneDomain,
+            destinationHyperlaneOracle,
+            hyperlaneGasLimit,
+            "",
+            address(this),
+            payloads
+        );
+
+        emit IntentProofSubmitted(orderId, gasPayment);
     }
 
     /**
@@ -443,5 +544,63 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable {
         uint256 previousMaxFeeBPS = maxSolverFeeBPS;
         maxSolverFeeBPS = _maxFeeBPS;
         emit MaxSolverFeeBPSUpdated(previousMaxFeeBPS, _maxFeeBPS);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    HYPERLANE CONFIGURATION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Configure Hyperlane oracle for intent proof relay
+     * @param _hyperlaneOracle Address of HyperlaneOracle on this chain
+     * @param _destinationDomain Hyperlane domain ID of destination chain
+     * @param _destinationOracle Address of HyperlaneOracle on destination chain
+     * @param _gasLimit Gas limit for message execution on destination
+     */
+    function setHyperlaneConfig(
+        address _hyperlaneOracle,
+        uint32 _destinationDomain,
+        address _destinationOracle,
+        uint256 _gasLimit
+    ) external onlyOwner {
+        if (_hyperlaneOracle == address(0)) revert InvalidAddress(_hyperlaneOracle);
+        if (_destinationOracle == address(0)) revert InvalidAddress(_destinationOracle);
+        if (_gasLimit == 0) revert InvalidAmount();
+
+        hyperlaneOracle = IHyperlaneOracle(_hyperlaneOracle);
+        destinationHyperlaneDomain = _destinationDomain;
+        destinationHyperlaneOracle = _destinationOracle;
+        hyperlaneGasLimit = _gasLimit;
+
+        emit HyperlaneConfigUpdated(_hyperlaneOracle, _destinationDomain, _destinationOracle, _gasLimit);
+    }
+
+    /**
+     * @notice Disable Hyperlane integration (revert to MockOracle behavior)
+     * @dev Sets hyperlaneOracle to address(0), disabling proof relay
+     */
+    function disableHyperlane() external onlyOwner {
+        hyperlaneOracle = IHyperlaneOracle(address(0));
+        emit HyperlaneConfigUpdated(address(0), 0, address(0), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    IPAYLOADCREATOR IMPLEMENTATION
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Validate that payloads were created by this contract
+     * @dev Called by HyperlaneOracle before relaying payloads
+     * @param payloads Array of encoded orderIds to validate
+     * @return valid True if all payloads are valid intent orderIds
+     */
+    function arePayloadsValid(bytes[] calldata payloads) external view override returns (bool valid) {
+        for (uint256 i = 0; i < payloads.length; i++) {
+            bytes32 orderId = abi.decode(payloads[i], (bytes32));
+            if (!validIntentPayloads[orderId]) {
+                return false;
+            }
+        }
+        return true;
     }
 }
