@@ -160,21 +160,16 @@ contract ShinobiWithdrawalOutputSettler is BaseShinobiOutputSettler {
      *
      * @dev Process:
      *      1. Validate output is for current chain
-     *      2. Compute output hash
-     *      3. Check output not already filled
-     *      4. Store fill record
-     *      5. Validate native ETH
-     *      6. Transfer ETH to recipient (simple transfer, no callback)
+     *      2. Create and store fill record (includes IPayloadCreator validation data)
+     *      3. Validate native ETH
+     *      4. Transfer ETH to recipient (simple transfer, no callback)
      */
     function _fillOutput(bytes32 orderId, MandateOutput calldata output, address solver) internal {
         // Validate output (chain and asset)
         _validateOutput(output);
 
-        // Compute output hash for fill tracking
-        bytes32 outputHash = output.getMandateOutputHash();
-
-        // Create and store fill record (checks for duplicates)
-        _createAndStoreFillRecord(orderId, outputHash, solver);
+        // Create and store fill record (checks for duplicates, stores fill payload hash)
+        _createAndStoreFillRecord(orderId, output, solver);
 
         // Extract recipient and amount
         address recipient = address(uint160(uint256(output.recipient)));
