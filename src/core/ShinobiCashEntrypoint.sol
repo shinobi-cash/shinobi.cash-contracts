@@ -509,7 +509,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             chainId: destinationChainId,
             token: bytes32(0),                                                  // Native ETH
             amount: netAmount,                                                  // User receives this
-            recipient: encodedRecipient,
+            recipient: bytes32(uint256(uint160(uint256(encodedRecipient)))),    // Extract address from encoded destination
             call: "",
             context: ""
         });
