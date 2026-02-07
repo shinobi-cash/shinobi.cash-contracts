@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Mock Oracle
-import {MockOracle} from "../src/mocks/MockOracle.sol";
+import {MockOracle} from "../../src/mocks/MockOracle.sol";
 
 /**
  * @title 00_DeployMockOracles

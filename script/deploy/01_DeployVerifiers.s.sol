@@ -7,11 +7,11 @@ import {console} from "forge-std/console.sol";
 // ZK Verifiers - Standard withdrawal (1:1)
 import {WithdrawalVerifier} from "contracts/verifiers/WithdrawalVerifier.sol";
 import {CommitmentVerifier} from "contracts/verifiers/CommitmentVerifier.sol";
-import {CrossChainWithdrawalVerifier} from "../src/core/verifiers/CrossChainWithdrawalVerifier.sol";
+import {CrossChainWithdrawalVerifier} from "../../src/core/verifiers/CrossChainWithdrawalVerifier.sol";
 
 // ZK Verifiers - Withdraw2 (2:1)
-import {Withdraw2Verifier} from "../src/core/verifiers/Withdraw2Verifier.sol";
-import {CrossChainWithdraw2Verifier} from "../src/core/verifiers/CrossChainWithdraw2Verifier.sol";
+import {Withdraw2Verifier} from "../../src/core/verifiers/Withdraw2Verifier.sol";
+import {CrossChainWithdraw2Verifier} from "../../src/core/verifiers/CrossChainWithdraw2Verifier.sol";
 
 /**
  * @title 01_DeployVerifiers

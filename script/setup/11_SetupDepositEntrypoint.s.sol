@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Deposit Entrypoint
-import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainDepositEntrypoint.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../../src/core/ShinobiCrosschainDepositEntrypoint.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**

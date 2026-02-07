@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // OIF Settlers
-import {ShinobiWithdrawalOutputSettler} from "../src/oif/ShinobiWithdrawalOutputSettler.sol";
+import {ShinobiWithdrawalOutputSettler} from "../../src/oif/ShinobiWithdrawalOutputSettler.sol";
 
 /**
  * @title 09_DeployWithdrawalOutputSettlerBase

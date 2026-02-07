@@ -5,21 +5,21 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Paymasters - Standard 1:1 withdrawals
-import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/SimpleShinobiCashPoolPaymaster.sol";
-import {CrossChainWithdrawalPaymaster} from "../src/paymaster/CrossChainWithdrawalPaymaster.sol";
+import {SimpleShinobiCashPoolPaymaster} from "../../src/paymaster/SimpleShinobiCashPoolPaymaster.sol";
+import {CrossChainWithdrawalPaymaster} from "../../src/paymaster/CrossChainWithdrawalPaymaster.sol";
 
 // Paymasters - Withdraw2 (2:1 withdrawals)
-import {Withdraw2Paymaster} from "../src/paymaster/Withdraw2Paymaster.sol";
-import {CrossChainWithdraw2Paymaster} from "../src/paymaster/CrossChainWithdraw2Paymaster.sol";
+import {Withdraw2Paymaster} from "../../src/paymaster/Withdraw2Paymaster.sol";
+import {CrossChainWithdraw2Paymaster} from "../../src/paymaster/CrossChainWithdraw2Paymaster.sol";
 
 // Interfaces
 import {IEntryPoint as IERC4337EntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {IShinobiCashEntrypoint} from "../src/core/interfaces/IShinobiCashEntrypoint.sol";
-import {IShinobiCashPool} from "../src/core/interfaces/IShinobiCashPool.sol";
-import {ShinobiCashPool} from "../src/core/ShinobiCashPool.sol";
+import {IShinobiCashEntrypoint} from "../../src/core/interfaces/IShinobiCashEntrypoint.sol";
+import {IShinobiCashPool} from "../../src/core/interfaces/IShinobiCashPool.sol";
+import {ShinobiCashPool} from "../../src/core/ShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {IWithdraw2Verifier} from "../src/core/interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "../src/core/interfaces/ICrossChainWithdraw2Verifier.sol";
+import {IWithdraw2Verifier} from "../../src/core/interfaces/IWithdraw2Verifier.sol";
+import {ICrossChainWithdraw2Verifier} from "../../src/core/interfaces/ICrossChainWithdraw2Verifier.sol";
 
 /**
  * @title 13_DeployPaymasters

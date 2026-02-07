@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {ShinobiDepositOutputSettler} from "../src/oif/ShinobiDepositOutputSettler.sol";
+import {ShinobiDepositOutputSettler} from "../../src/oif/ShinobiDepositOutputSettler.sol";
 
 /**
  * @title 12_SetupDepositOutputSettler

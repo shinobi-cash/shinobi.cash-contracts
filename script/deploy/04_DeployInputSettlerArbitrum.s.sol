@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // OIF Settlers
-import {ShinobiInputSettler} from "../src/oif/ShinobiInputSettler.sol";
+import {ShinobiInputSettler} from "../../src/oif/ShinobiInputSettler.sol";
 
 /**
  * @title 04_DeployInputSettlerArbitrum
