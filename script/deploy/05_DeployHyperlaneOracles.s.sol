@@ -6,26 +6,27 @@ import {console} from "forge-std/console.sol";
 import {HyperlaneOracle} from "../src/oif/hyperlane/HyperlaneOracle.sol";
 
 /**
- * @title 08_DeployHyperlaneOracles
+ * @title 05_DeployHyperlaneOracles
  * @notice Deploy HyperlaneOracle contracts on Base Sepolia and Arbitrum Sepolia
- * @dev Run this script twice - once on each chain with the appropriate RPC URL
+ * @dev Run this script TWICE - once on each chain with the appropriate RPC URL
+ * @dev IMPORTANT: Deploy these BEFORE scripts 06 and 09 (output settlers need oracle addresses)
  *
  * DEPLOYMENT:
  * ===========
  *
  * 1. Deploy on BASE SEPOLIA (origin chain):
- *    forge script script/08_DeployHyperlaneOracles.s.sol:DeployHyperlaneOracles \
- *      --rpc-url https://sepolia.base.org \
+ *    forge script script/05_DeployHyperlaneOracles.s.sol:DeployHyperlaneOracles \
+ *      --rpc-url base-sepolia \
  *      --broadcast \
  *      --verify
  *
  * 2. Deploy on ARBITRUM SEPOLIA (destination chain):
- *    forge script script/08_DeployHyperlaneOracles.s.sol:DeployHyperlaneOracles \
- *      --rpc-url $ARBITRUM_SEPOLIA_RPC \
+ *    forge script script/05_DeployHyperlaneOracles.s.sol:DeployHyperlaneOracles \
+ *      --rpc-url arbitrum-sepolia \
  *      --broadcast \
  *      --verify
  *
- * 3. Save deployed addresses and run 06_SetupDepositEntrypoint.s.sol
+ * 3. Save deployed addresses to .env and continue with step 06
  *
  * HYPERLANE CONTRACT ADDRESSES:
  * =============================
@@ -88,6 +89,8 @@ contract DeployHyperlaneOracles is Script {
         console.log("");
         console.log("Next steps:");
         console.log("1. Deploy on the other chain if not done yet");
-        console.log("2. Run 06_SetupDepositEntrypoint.s.sol to configure Hyperlane");
+        console.log("2. Update .env with HYPERLANE_ORACLE_<CHAIN> addresses");
+        console.log("3. Deploy DepositOutputSettler (step 06) and WithdrawalOutputSettler (step 09)");
+        console.log("4. Run setup scripts (steps 10, 11, 12)");
     }
 }

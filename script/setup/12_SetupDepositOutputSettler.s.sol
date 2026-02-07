@@ -6,7 +6,7 @@ import {console} from "forge-std/console.sol";
 import {ShinobiDepositOutputSettler} from "../src/oif/ShinobiDepositOutputSettler.sol";
 
 /**
- * @title 09_SetupDepositOutputSettler
+ * @title 12_SetupDepositOutputSettler
  * @notice Configure DepositOutputSettler on Arbitrum Sepolia with origin chain configs
  * @dev Run this script on Arbitrum Sepolia (destination chain) after deploying DepositOutputSettler
  *
@@ -16,8 +16,8 @@ import {ShinobiDepositOutputSettler} from "../src/oif/ShinobiDepositOutputSettle
  *      - SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA: DepositEntrypoint address on Base Sepolia
  *
  * Usage:
- *      forge script script/09_SetupDepositOutputSettler.s.sol:SetupDepositOutputSettler \
- *        --rpc-url $ARBITRUM_SEPOLIA_RPC \
+ *      forge script script/12_SetupDepositOutputSettler.s.sol:SetupDepositOutputSettler \
+ *        --rpc-url arbitrum-sepolia \
  *        --broadcast
  */
 contract SetupDepositOutputSettler is Script {
@@ -33,7 +33,7 @@ contract SetupDepositOutputSettler is Script {
         address hyperlaneOracleBaseSepolia = vm.envAddress("HYPERLANE_ORACLE_BASE_SEPOLIA");
         address depositEntrypointBaseSepolia = vm.envAddress("SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA");
 
-        console.log("=== Step 9: Setup DepositOutputSettler ===");
+        console.log("=== Step 12: Setup DepositOutputSettler ===");
         console.log("Deployer:", deployer);
         console.log("DepositOutputSettler:", depositOutputSettlerAddr);
         console.log("");

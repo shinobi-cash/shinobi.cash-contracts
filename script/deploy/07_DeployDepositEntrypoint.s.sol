@@ -8,7 +8,7 @@ import {console} from "forge-std/console.sol";
 import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainDepositEntrypoint.sol";
 
 /**
- * @title 04b_DeployDepositEntrypoint
+ * @title 07_DeployDepositEntrypoint
  * @notice Deploy Deposit Entrypoint on Base Sepolia (User Chain)
  * @dev This should be deployed on Base Sepolia for users to initiate cross-chain deposits
  * @dev The main ShinobiCashEntrypoint (step 02) is deployed on Arbitrum Sepolia (Pool Chain)
@@ -22,7 +22,7 @@ contract DeployDepositEntrypoint is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 4c: Deploy Deposit Entrypoint (for L2) ===");
+        console.log("=== Step 7: Deploy Deposit Entrypoint (Base Sepolia) ===");
         console.log("Deployer:", deployer);
 
         // Deploy with immutable inputSettler
@@ -34,9 +34,12 @@ contract DeployDepositEntrypoint is Script {
 
         console.log("");
         console.log("=== Save this address for configuration ===");
-        console.log("NOTE: This needs to be configured in step 06 with:");
+        console.log("SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA=", depositEntrypoint);
+        console.log("");
+        console.log("NOTE: This needs to be configured in step 11 with:");
         console.log("  - Oracle addresses (fillOracle, intentOracle)");
         console.log("  - Destination chain ID and entrypoint");
         console.log("  - Fee configuration (minimumDepositAmount, solverFeeBPS)");
+        console.log("  - Hyperlane configuration");
     }
 }

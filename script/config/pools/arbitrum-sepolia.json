@@ -1,0 +1,12 @@
+{
+  "name": "Arbitrum Sepolia",
+  "chainId": 421614,
+  "hyperlaneDomainId": 421614,
+  "hyperlaneMailbox": "0x598facE78a4302f11E3de0bee1894Da0b2Cb71F8",
+  "erc4337Entrypoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+  "config": {
+    "minimumDeposit": "1000000000000000",
+    "vettingFeeBPS": 100,
+    "maxRelayFeeBPS": 1500
+  }
+}

@@ -8,12 +8,16 @@ import {console} from "forge-std/console.sol";
 import {ShinobiDepositOutputSettler} from "../src/oif/ShinobiDepositOutputSettler.sol";
 
 /**
- * @title 04b_DeployDepositOutputSettlerArbitrum
+ * @title 06_DeployDepositOutputSettlerArbitrum
  * @notice Deploy Deposit Output Settler on Arbitrum Sepolia (Pool Chain)
  * @dev This script deploys the Deposit Output Settler for receiving cross-chain deposits from Base
  *
  * @dev Required env vars (Arbitrum Sepolia):
- *      - INTENT_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum for deposit validation
+ *      - INTENT_ORACLE_ARBITRUM_SEPOLIA: HyperlaneOracle on Arbitrum for intent proof validation
+ *        (This oracle validates that deposit intents came from Base Sepolia)
+ *
+ * @dev ⚠️ IMPORTANT: For production, deploy HyperlaneOracle (step 05) BEFORE this script
+ *      and set INTENT_ORACLE_ARBITRUM_SEPOLIA to the HyperlaneOracle address.
  *
  * @dev Architecture:
  *      Arbitrum Sepolia (Pool Chain):
@@ -34,7 +38,7 @@ contract DeployDepositOutputSettlerArbitrum is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 4b: Deploy Deposit Output Settler (Arbitrum Sepolia - Pool Chain) ===");
+        console.log("=== Step 6: Deploy Deposit Output Settler (Arbitrum Sepolia - Pool Chain) ===");
         console.log("Deployer:", deployer);
         console.log("Intent Oracle:", intentOracle);
         console.log("");
@@ -53,6 +57,7 @@ contract DeployDepositOutputSettlerArbitrum is Script {
         console.log("DEPOSIT_OUTPUT_SETTLER_ARBITRUM_SEPOLIA=", depositOutputSettler);
         console.log("");
         console.log("NEXT STEPS:");
-        console.log("Configure this settler in step 05 (ShinobiCashEntrypoint)");
+        console.log("1. Deploy DepositEntrypoint on Base (step 07)");
+        console.log("2. Configure in step 10 (SetupEntrypoint) and step 12 (SetupDepositOutputSettler)");
     }
 }

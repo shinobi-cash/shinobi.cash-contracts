@@ -9,7 +9,7 @@ import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainD
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
- * @title 06_SetupDepositEntrypoint
+ * @title 11_SetupDepositEntrypoint
  * @notice Configure Deposit Entrypoint for L2 deposits (Base Sepolia -> Arbitrum Sepolia)
  * @dev Required env vars:
  *      - SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA: Deposit entrypoint on Base Sepolia
@@ -53,7 +53,7 @@ contract SetupDepositEntrypoint is Script {
         
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 6: Setup Deposit Entrypoint (L2) ===");
+        console.log("=== Step 11: Setup Deposit Entrypoint (Base Sepolia) ===");
         console.log("Deployer:", deployer);
         console.log("Deposit Entrypoint:", depositEntrypointAddr);
         console.log("");

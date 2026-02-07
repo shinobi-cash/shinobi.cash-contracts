@@ -11,7 +11,7 @@ import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
- * @title 05_SetupEntrypoint
+ * @title 10_SetupEntrypoint
  * @notice Configure Shinobi Cash Entrypoint with pool, settlers, and supported chains
  * @dev Requires: ENTRYPOINT, ETH_POOL, WITHDRAWAL_INPUT_SETTLER, DEPOSIT_OUTPUT_SETTLER env vars
  * @dev Note: Intent oracle is NOT configured here - it's set immutably in ShinobiDepositOutputSettler constructor
@@ -36,7 +36,7 @@ contract SetupEntrypoint is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 5: Setup Entrypoint Configuration ===");
+        console.log("=== Step 10: Setup Entrypoint Configuration ===");
         console.log("Deployer:", deployer);
         console.log("Entrypoint:", entrypointAddr);
         console.log("");
