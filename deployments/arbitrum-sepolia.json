@@ -1,0 +1,71 @@
+{
+  "chainName": "arbitrum-sepolia",
+  "chainId": 421614,
+  "deployer": "0x0000000000000000000000000000000000000000",
+  "deployedAt": 0,
+  "verifiers": {
+    "_initialized": "true",
+    "withdrawal": {
+      "address": "0x1A6ffA02c307A1856D5ffA9432545012eb929aad",
+      "blockNumber": 0
+    },
+    "commitment": {
+      "address": "0x020507eAb83152E19c5B8A3234385d4423Ed3185",
+      "blockNumber": 0
+    },
+    "crossChainWithdrawal": {
+      "address": "0x0cd36b4d2ff17F08200F5E07871E8D796de57896",
+      "blockNumber": 0
+    },
+    "withdraw2": {
+      "address": "0x11Ce8937b38487CDeec8C5c4a08792b58dCd41d6",
+      "blockNumber": 0
+    },
+    "crosschainWithdraw2": {
+      "address": "0x7706fAa188aee2DC828A0a431121bD8864993AcC",
+      "blockNumber": 0
+    }
+  },
+  "contracts": {
+    "_initialized": "true",
+    "entrypoint": {
+      "address": "0x4ea45C13D8993BA019407e092711dD13e498008C",
+      "blockNumber": 240003515
+    },
+    "ethPool": {
+      "address": "0x4922F245F26942004603254c18CD3107A1Fd5412",
+      "blockNumber": 240004086
+    },
+    "hyperlaneOracle": {
+      "address": "0xfc4A359c86aC70f9c11dF86E9a98d70748F7f059",
+      "blockNumber": 240004334
+    },
+    "inputSettler": {
+      "address": "0xcDca2d2aef8e4bCb611268CcB0987Cd1357580CA",
+      "blockNumber": 240004343
+    },
+    "depositOutputSettler": {
+      "address": "0x176241f658bdf87A210f842b3e5F0920FD547D62",
+      "blockNumber": 240004351
+    }
+  },
+  "paymasters": {
+    "_initialized": "true",
+    "simple": {
+      "address": "0x28A356e139e96174A0B3FEA74fc35dD304d5C22f",
+      "blockNumber": 240004753
+    },
+    "crossChain": {
+      "address": "0xE635C5D6413B309b3437DF3Dc14FDEC36Aa232a0",
+      "blockNumber": 240004774
+    },
+    "withdraw2": {
+      "address": "0x9E9724ED265a92910e33fD80534B67550c78eF04",
+      "blockNumber": 240004797
+    },
+    "crosschainWithdraw2": {
+      "address": "0xd8db909569A3d0EF0f9b6Be6eF5CcC7c161652EA",
+      "blockNumber": 240004815
+    }
+  }
+}
