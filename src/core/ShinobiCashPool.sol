@@ -15,9 +15,9 @@ import {Constants} from "contracts/lib/Constants.sol";
 
 /**
  * @title ShinobiCashPool
- * @notice Abstract Cash Pool with cross-chain withdrawal capabilities
- * @dev Extends PrivacyPool with additional cross-chain withdrawal support
- *      Concrete implementations handle asset-specific transfer logic
+ * @author Karandeep Singh
+ * @notice Abstract privacy pool with cross-chain and Withdraw2 capabilities
+ * @dev Extends PrivacyPool with cross-chain withdrawal and 2:1 merge support
  */
 abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
@@ -25,16 +25,11 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     using CrossChainWithdraw2ProofLib for CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof;
 
     /*//////////////////////////////////////////////////////////////
-                        CROSS-CHAIN STATE VARIABLES
+                            STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice The cross-chain withdrawal proof verifier contract
     ICrossChainWithdrawalProofVerifier public immutable CROSS_CHAIN_WITHDRAWAL_VERIFIER;
-
-    /// @notice The same-chain Withdraw2 proof verifier contract (9 signals - no refund)
     IWithdraw2Verifier public immutable WITHDRAW2_VERIFIER;
-
-    /// @notice The cross-chain Withdraw2 proof verifier contract (10 signals - with refund)
     ICrossChainWithdraw2Verifier public immutable CROSSCHAIN_WITHDRAW2_VERIFIER;
 
     /*//////////////////////////////////////////////////////////////
@@ -105,16 +100,6 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Initialize the Shinobi Cash Pool with cross-chain and Withdraw2 capabilities
-     * @param _entrypoint The entrypoint contract address
-     * @param _withdrawalVerifier The standard withdrawal proof verifier (8 signals)
-     * @param _ragequitVerifier The ragequit proof verifier
-     * @param _asset The asset address for this pool (native or ERC20)
-     * @param _crossChainVerifier The cross-chain withdrawal proof verifier (9 signals)
-     * @param _withdraw2Verifier The same-chain Withdraw2 proof verifier (9 signals)
-     * @param _crossChainWithdraw2Verifier The cross-chain Withdraw2 proof verifier (10 signals)
-     */
     constructor(
         address _entrypoint,
         address _withdrawalVerifier,
@@ -127,6 +112,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         if (address(_crossChainVerifier) == address(0)) revert InvalidCrossChainWithdrawalVerifier();
         if (address(_withdraw2Verifier) == address(0)) revert InvalidWithdraw2Verifier();
         if (address(_crossChainWithdraw2Verifier) == address(0)) revert InvalidCrossChainWithdraw2Verifier();
+
         CROSS_CHAIN_WITHDRAWAL_VERIFIER = _crossChainVerifier;
         WITHDRAW2_VERIFIER = _withdraw2Verifier;
         CROSSCHAIN_WITHDRAW2_VERIFIER = _crossChainWithdraw2Verifier;
@@ -136,12 +122,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
                         CROSS-CHAIN WITHDRAWAL
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Process a cross-chain withdrawal with enhanced 9-signal proof
-     * @dev Follows the same pattern as standard withdraw() but with cross-chain verifier and additional refund logic
-     * @param _withdrawal The cross-chain withdrawal data
-     * @param _proof The enhanced 9-signal cross-chain proof
-     */
+    /// @inheritdoc IShinobiCashPool
     function crosschainWithdraw(
         Withdrawal memory _withdrawal,
         CrossChainProofLib.CrossChainWithdrawProof memory _proof
@@ -151,9 +132,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         }
 
         _spend(_proof.existingNullifierHash());
-
         _insert(_proof.newCommitmentHash());
-
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
         emit CrosschainWithdrawn(
@@ -165,31 +144,18 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         );
     }
 
-    /**
-     * @notice Handle refund for failed cross-chain withdrawal
-     * @dev Can only be called by the entrypoint with ETH for refund commitment creation
-     * @param _refundCommitmentHash The commitment hash for refund
-     * @param _amount The amount being refunded (for validation)
-     */
+    /// @inheritdoc IShinobiCashPool
     function handleRefund(uint256 _refundCommitmentHash, uint256 _amount) external payable override onlyEntrypoint {
         if (msg.value != _amount) revert AmountMismatch();
-
-        // Insert the refund commitment into the merkle tree
         _insert(_refundCommitmentHash);
-
-        emit RefundCommitmentInserted(msg.sender,_refundCommitmentHash, _amount);
+        emit RefundCommitmentInserted(msg.sender, _refundCommitmentHash, _amount);
     }
 
     /*//////////////////////////////////////////////////////////////
                         WITHDRAW2 (2 inputs -> 1 output)
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Process a same-chain Withdraw2 combining 2 inputs into 1 output (change) with withdrawal
-     * @dev Spends 2 nullifiers and inserts 1 change commitment in a single transaction
-     * @param _withdrawal The withdrawal data
-     * @param _proof The same-chain Withdraw2 9-signal proof (no refund commitment)
-     */
+    /// @inheritdoc IShinobiCashPool
     function withdraw2(
         Withdrawal memory _withdrawal,
         Withdraw2ProofLib.Withdraw2Proof memory _proof
@@ -198,14 +164,9 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
             revert InvalidWithdraw2Proof();
         }
 
-        // Spend both input nullifiers
         _spend(_proof.nullifierHash0());
         _spend(_proof.nullifierHash1());
-
-        // Insert change commitment
         _insert(_proof.newCommitmentHash());
-
-        // Transfer withdrawn value
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
         emit Withdraw2Executed(
@@ -216,12 +177,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         );
     }
 
-    /**
-     * @notice Process a cross-chain Withdraw2
-     * @dev Combines 2 inputs, creates 1 change output, and includes refund commitment for cross-chain recovery
-     * @param _withdrawal The cross-chain withdrawal data
-     * @param _proof The cross-chain Withdraw2 10-signal proof with refund commitment
-     */
+    /// @inheritdoc IShinobiCashPool
     function crossChainWithdraw2(
         Withdrawal memory _withdrawal,
         CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory _proof
@@ -230,14 +186,9 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
             revert InvalidCrossChainWithdraw2Proof();
         }
 
-        // Spend both input nullifiers
         _spend(_proof.nullifierHash0());
         _spend(_proof.nullifierHash1());
-
-        // Insert change commitment
         _insert(_proof.newCommitmentHash());
-
-        // Transfer withdrawn value to processooor (entrypoint for cross-chain)
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
         emit CrossChainWithdraw2Executed(
@@ -252,12 +203,8 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    /**
-     * @notice Check if this pool supports cross-chain withdrawals
-     * @return True, as this pool supports cross-chain functionality
-     */
+
     function supportsCrossChain() external pure returns (bool) {
         return true;
     }
-
 }

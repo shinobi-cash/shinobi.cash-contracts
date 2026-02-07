@@ -11,6 +11,12 @@ bytecode_hash = "none"
 cbor_metadata = false
 auto_detect_remappings = false
 
+# File system permissions for deployment scripts
+fs_permissions = [
+  { access = "read", path = "script/config" },
+  { access = "read-write", path = "deployments" }
+]
+
 # Network configurations
 [rpc_endpoints]
 base-sepolia = "https://sepolia.base.org"
