@@ -12,8 +12,8 @@ import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IShinobiCashEntrypoint} from "../core/interfaces/IShinobiCashEntrypoint.sol";
 import {IShinobiCashCrossChainHandler} from "../core/interfaces/IShinobiCashCrossChainHandler.sol";
 import {IShinobiCashPool} from "../core/interfaces/IShinobiCashPool.sol";
-import {ICrosschainWithdraw2Verifier} from "../core/interfaces/ICrosschainWithdraw2Verifier.sol";
-import {CrosschainWithdraw2ProofLib} from "../core/libraries/CrosschainWithdraw2ProofLib.sol";
+import {ICrossChainWithdraw2Verifier} from "../core/interfaces/ICrossChainWithdraw2Verifier.sol";
+import {CrossChainWithdraw2ProofLib} from "../core/libraries/CrossChainWithdraw2ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
@@ -23,8 +23,8 @@ import {Constants} from "contracts/lib/Constants.sol";
  *      before sponsoring UserOperations. It verifies both input nullifiers are unspent
  *      and the 10-signal ZK proof is valid.
  */
-contract CrosschainWithdraw2Paymaster is BasePaymaster {
-    using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
+contract CrossChainWithdraw2Paymaster is BasePaymaster {
+    using CrossChainWithdraw2ProofLib for CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof;
     using UserOperationLib for PackedUserOperation;
 
     /*//////////////////////////////////////////////////////////////
@@ -46,8 +46,8 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
     /// @notice ETH Cash Pool contract
     IShinobiCashPool public immutable ETH_CASH_POOL;
 
-    /// @notice CrosschainWithdraw2 verifier contract (10 signals)
-    ICrosschainWithdraw2Verifier public immutable CROSSCHAIN_WITHDRAW2_VERIFIER;
+    /// @notice CrossChainWithdraw2 verifier contract (10 signals)
+    ICrossChainWithdraw2Verifier public immutable CROSSCHAIN_WITHDRAW2_VERIFIER;
 
     /// @notice Expected smart account address for deterministic account pattern
     address public expectedSmartAccount;
@@ -56,7 +56,7 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event CrosschainWithdraw2Sponsored(
+    event CrossChainWithdraw2Sponsored(
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
@@ -77,7 +77,7 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
     error InsufficientPostOpGasLimit();
     error InsufficientCallGasLimit();
     error InsufficientPaymasterVerificationGas();
-    error CrosschainWithdraw2ValidationFailed();
+    error CrossChainWithdraw2ValidationFailed();
     error InsufficientPaymasterCost();
     error WrongFeeRecipient();
     error UnauthorizedCaller();
@@ -88,28 +88,28 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
     error UnauthorizedSmartAccount();
     error SmartAccountNotDeployed();
     error NullifierAlreadySpent();
-    error InvalidCrosschainWithdraw2Proof();
+    error InvalidCrossChainWithdraw2Proof();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Deploy CrosschainWithdraw2 Paymaster
+     * @notice Deploy CrossChainWithdraw2 Paymaster
      * @param _entryPoint ERC-4337 EntryPoint contract
      * @param _shinobiCashEntrypoint Shinobi Cash Entrypoint contract
      * @param _ethCashPool ETH Cash Pool contract (IShinobiCashPool)
-     * @param _crosschainWithdraw2Verifier CrosschainWithdraw2 proof verifier (10 signals)
+     * @param _crossChainWithdraw2Verifier CrossChainWithdraw2 proof verifier (10 signals)
      */
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         IShinobiCashPool _ethCashPool,
-        ICrosschainWithdraw2Verifier _crosschainWithdraw2Verifier
+        ICrossChainWithdraw2Verifier _crossChainWithdraw2Verifier
     ) BasePaymaster(_entryPoint) {
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
         ETH_CASH_POOL = _ethCashPool;
-        CROSSCHAIN_WITHDRAW2_VERIFIER = _crosschainWithdraw2Verifier;
+        CROSSCHAIN_WITHDRAW2_VERIFIER = _crossChainWithdraw2Verifier;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -138,15 +138,15 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Internal relay method for CrosschainWithdraw2 validation
-     * @dev Called internally to validate CrosschainWithdraw2 proofs before sponsoring
+     * @notice Internal relay method for CrossChainWithdraw2 validation
+     * @dev Called internally to validate CrossChainWithdraw2 proofs before sponsoring
      * @param withdrawal The withdrawal parameters
-     * @param proof The CrosschainWithdraw2 proof (10 signals)
+     * @param proof The CrossChainWithdraw2 proof (10 signals)
      * @param scope The scope identifier for the privacy pool
      */
-    function crosschainWithdrawal2(
+    function crossChainWithdrawal2(
         IPrivacyPool.Withdrawal calldata withdrawal,
-        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata proof,
+        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof calldata proof,
         uint256 scope
     ) external {
         if (msg.sender != address(this)) {
@@ -174,9 +174,9 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
             revert InvalidScope();
         }
 
-        // Validate the CrosschainWithdraw2 proof
-        if (!_validateCrosschainWithdraw2Proof(withdrawal, proof)) {
-            revert CrosschainWithdraw2ValidationFailed();
+        // Validate the CrossChainWithdraw2 proof
+        if (!_validateCrossChainWithdraw2Proof(withdrawal, proof)) {
+            revert CrossChainWithdraw2ValidationFailed();
         }
 
         // Store values in transient storage for economic validation
@@ -218,7 +218,7 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
             entryPoint.depositTo{value: expectedFeeAmount}(address(this));
         }
 
-        emit CrosschainWithdraw2Sponsored(
+        emit CrossChainWithdraw2Sponsored(
             withdrawalRecipient,
             userOpHash,
             actualWithdrawalCost,
@@ -269,9 +269,9 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
         // 5. Extract execute call data
         (address target, uint256 value, bytes memory data) = _extractExecuteCall(userOp.callData);
 
-        // 6. Validate CrosschainWithdraw2 withdrawal
-        if (!_validateCrosschainWithdraw2Withdrawal(target, value, data)) {
-            revert CrosschainWithdraw2ValidationFailed();
+        // 6. Validate CrossChainWithdraw2 withdrawal
+        if (!_validateCrossChainWithdraw2Withdrawal(target, value, data)) {
+            revert CrossChainWithdraw2ValidationFailed();
         }
 
         // 7. Validate economics using transient storage
@@ -304,7 +304,7 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
                     CROSSCHAIN WITHDRAW2 VALIDATION
     //////////////////////////////////////////////////////////////*/
 
-    function _validateCrosschainWithdraw2Withdrawal(
+    function _validateCrossChainWithdraw2Withdrawal(
         address target,
         uint256 value,
         bytes memory data
@@ -322,9 +322,9 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
         return success;
     }
 
-    function _validateCrosschainWithdraw2Proof(
+    function _validateCrossChainWithdraw2Proof(
         IPrivacyPool.Withdrawal memory withdrawal,
-        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof
+        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory proof
     ) internal view returns (bool) {
         // 1. Validate context
         uint256 expectedContext = uint256(

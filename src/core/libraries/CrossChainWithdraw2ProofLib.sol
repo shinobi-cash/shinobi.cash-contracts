@@ -4,12 +4,12 @@
 pragma solidity 0.8.28;
 
 /**
- * @title CrosschainWithdraw2ProofLib
+ * @title CrossChainWithdraw2ProofLib
  * @notice Facilitates accessing the public signals of a Groth16 proof for cross-chain 2-input withdrawals.
- * @dev CrosschainWithdraw2 allows combining 2 input notes into 1 output note (change) with withdrawal.
+ * @dev CrossChainWithdraw2 allows combining 2 input notes into 1 output note (change) with withdrawal.
  *      Cross-chain version includes refundCommitmentHash for recovery (10 signals).
  */
-library CrosschainWithdraw2ProofLib {
+library CrossChainWithdraw2ProofLib {
     /*///////////////////////////////////////////////////////////////
                          CROSSCHAIN WITHDRAW2 PROOF (2 inputs -> 1 output)
     //////////////////////////////////////////////////////////////*/
@@ -32,7 +32,7 @@ library CrosschainWithdraw2ProofLib {
      *        - [8] ASPTreeDepth: Current depth of the ASP tree (input)
      *        - [9] context: Context value for the withdrawal operation (input)
      */
-    struct CrosschainWithdraw2Proof {
+    struct CrossChainWithdraw2Proof {
         uint256[2] pA;
         uint256[2][2] pB;
         uint256[2] pC;
@@ -48,7 +48,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of the change commitment
      */
-    function newCommitmentHash(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function newCommitmentHash(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[0];
     }
 
@@ -61,7 +61,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of input 0 nullifier being spent
      */
-    function nullifierHash0(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function nullifierHash0(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[1];
     }
 
@@ -70,7 +70,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of input 1 nullifier being spent
      */
-    function nullifierHash1(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function nullifierHash1(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[2];
     }
 
@@ -84,7 +84,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The hash of the commitment for refund recovery
      */
-    function refundCommitmentHash(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function refundCommitmentHash(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[3];
     }
 
@@ -97,7 +97,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The amount being withdrawn from Privacy Pool
      */
-    function withdrawnValue(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function withdrawnValue(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[4];
     }
 
@@ -110,7 +110,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The root of the state tree at time of proof generation
      */
-    function stateRoot(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function stateRoot(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[5];
     }
 
@@ -119,7 +119,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The depth of the state tree at time of proof generation
      */
-    function stateTreeDepth(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function stateTreeDepth(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[6];
     }
 
@@ -132,7 +132,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The latest root of the ASP tree at time of proof generation
      */
-    function ASPRoot(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function ASPRoot(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[7];
     }
 
@@ -141,7 +141,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The depth of the ASP tree at time of proof generation
      */
-    function ASPTreeDepth(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function ASPTreeDepth(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[8];
     }
 
@@ -154,7 +154,7 @@ library CrosschainWithdraw2ProofLib {
      * @param _p The proof containing the public signals
      * @return The context value binding the proof to specific withdrawal data
      */
-    function context(CrosschainWithdraw2Proof memory _p) internal pure returns (uint256) {
+    function context(CrossChainWithdraw2Proof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[9];
     }
 }

@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 import {Entrypoint} from "contracts/Entrypoint.sol";
 import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
 import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
-import {CrosschainWithdraw2ProofLib} from "./libraries/CrosschainWithdraw2ProofLib.sol";
+import {CrossChainWithdraw2ProofLib} from "./libraries/CrossChainWithdraw2ProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
@@ -27,7 +27,7 @@ import {ShinobiCashCrosschainState} from "./ShinobiCashCrosschainState.sol";
 contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrossChainHandler {
     using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
-    using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
+    using CrossChainWithdraw2ProofLib for CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof;
     using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
@@ -278,9 +278,9 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      * @param _proof The Withdraw2 10-signal proof
      * @param _scope The privacy pool scope identifier
      */
-    function crosschainWithdrawal2(
+    function crossChainWithdrawal2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
+        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof calldata _proof,
         uint256 _scope
     ) external nonReentrant {
         // CRITICAL: Validate ShinobiInputSettler is configured
@@ -298,15 +298,15 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         );
 
         // Execute and emit via internal function to reduce stack
-        _executeCrosschainWithdraw2(_withdrawal, _proof, _scope, nullifiers);
+        _executeCrossChainWithdraw2(_withdrawal, _proof, _scope, nullifiers);
     }
 
     /**
      * @dev Internal function to execute cross-chain Withdraw2 (reduces stack depth)
      */
-    function _executeCrosschainWithdraw2(
+    function _executeCrossChainWithdraw2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
+        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof calldata _proof,
         uint256 _scope,
         Withdraw2Nullifiers memory _nullifiers
     ) internal {
@@ -326,7 +326,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
 
         // Execute privacy pool cross-chain Withdraw2 (validates ZK proof, spends 2 nullifiers)
-        _shinobiPool.crosschainWithdraw2(_withdrawal, _proof);
+        _shinobiPool.crossChainWithdraw2(_withdrawal, _proof);
 
         // Open withdrawal intent and get event data
         WithdrawalResult memory result = _openWithdrawalIntent(

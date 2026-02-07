@@ -6,7 +6,7 @@ pragma solidity 0.8.28;
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
 import {Withdraw2ProofLib} from "../libraries/Withdraw2ProofLib.sol";
-import {CrosschainWithdraw2ProofLib} from "../libraries/CrosschainWithdraw2ProofLib.sol";
+import {CrossChainWithdraw2ProofLib} from "../libraries/CrossChainWithdraw2ProofLib.sol";
 
 /**
  * @title IShinobiCashPool
@@ -75,7 +75,7 @@ interface IShinobiCashPool is IPrivacyPool {
      * @param newCommitmentHash The change commitment hash that was inserted
      * @param refundCommitmentHash The commitment hash for potential refunds
      */
-    event CrosschainWithdraw2Executed(
+    event CrossChainWithdraw2Executed(
         address indexed processooor,
         uint256 withdrawnValue,
         Withdraw2Nullifiers nullifiers,
@@ -88,7 +88,7 @@ interface IShinobiCashPool is IPrivacyPool {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Thrown when cross-chain verifier address is zero
-    error InvalidCrosschainWithdrawalVerifier();
+    error InvalidCrossChainWithdrawalVerifier();
 
     /// @notice Thrown when cross-chain proof verification fails
     error InvalidCrosschainWithdrawalProof();
@@ -100,13 +100,13 @@ interface IShinobiCashPool is IPrivacyPool {
     error InvalidWithdraw2Verifier();
 
     /// @notice Thrown when cross-chain Withdraw2 verifier address is zero
-    error InvalidCrosschainWithdraw2Verifier();
+    error InvalidCrossChainWithdraw2Verifier();
 
     /// @notice Thrown when same-chain Withdraw2 proof verification fails
     error InvalidWithdraw2Proof();
 
     /// @notice Thrown when cross-chain Withdraw2 proof verification fails
-    error InvalidCrosschainWithdraw2Proof();
+    error InvalidCrossChainWithdraw2Proof();
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
@@ -149,9 +149,9 @@ interface IShinobiCashPool is IPrivacyPool {
      * @param _withdrawal The cross-chain withdrawal data
      * @param _proof The cross-chain Withdraw2 10-signal proof with refund commitment
      */
-    function crosschainWithdraw2(
+    function crossChainWithdraw2(
         Withdrawal memory _withdrawal,
-        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory _proof
+        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory _proof
     ) external;
 
 }
