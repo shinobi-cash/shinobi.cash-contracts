@@ -6,11 +6,11 @@ import {LibAddress} from "oif-contracts/libs/LibAddress.sol";
 import {MessageEncodingLib} from "oif-contracts/libs/MessageEncodingLib.sol";
 import {BaseInputOracle} from "oif-contracts/oracles/BaseInputOracle.sol";
 
-import {MailboxClient} from "./external/hyperlane/MailboxClient.sol";
+import {MailboxClient} from "./external/MailboxClient.sol";
 
-import {IMessageRecipient} from "./external/hyperlane/interfaces/IMessageRecipient.sol";
-import {IPostDispatchHook} from "./external/hyperlane/interfaces/hooks/IPostDispatchHook.sol";
-import {StandardHookMetadata} from "./external/hyperlane/libs/StandardHookMetadata.sol";
+import {IMessageRecipient} from "./external/interfaces/IMessageRecipient.sol";
+import {IPostDispatchHook} from "./external/interfaces/hooks/IPostDispatchHook.sol";
+import {StandardHookMetadata} from "./external/libs/StandardHookMetadata.sol";
 
 /**
  * @notice Hyperlane Oracle.
