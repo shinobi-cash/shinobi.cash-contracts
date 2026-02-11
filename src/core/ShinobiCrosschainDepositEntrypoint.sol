@@ -305,12 +305,14 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     }
 
     function setFillOracle(address _fillOracle) external onlyOwner {
+        if (_fillOracle == address(0)) revert InvalidAddress(_fillOracle);
         address previousFillOracle = fillOracle;
         fillOracle = _fillOracle;
         emit FillOracleUpdated(previousFillOracle, _fillOracle);
     }
 
     function setIntentOracle(address _intentOracle) external onlyOwner {
+        if (_intentOracle == address(0)) revert InvalidAddress(_intentOracle);
         address previousIntentOracle = intentOracle;
         intentOracle = _intentOracle;
         emit IntentOracleUpdated(previousIntentOracle, _intentOracle);
