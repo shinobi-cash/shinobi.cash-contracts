@@ -1,0 +1,71 @@
+{
+  "chainName": "arbitrum-sepolia",
+  "chainId": 421614,
+  "deployer": "0x0000000000000000000000000000000000000000",
+  "deployedAt": 0,
+  "verifiers": {
+    "_initialized": "true",
+    "withdrawal": {
+      "address": "0x1A6ffA02c307A1856D5ffA9432545012eb929aad",
+      "blockNumber": 0
+    },
+    "commitment": {
+      "address": "0x020507eAb83152E19c5B8A3234385d4423Ed3185",
+      "blockNumber": 0
+    },
+    "crossChainWithdrawal": {
+      "address": "0x0cd36b4d2ff17F08200F5E07871E8D796de57896",
+      "blockNumber": 0
+    },
+    "withdraw2": {
+      "address": "0x11Ce8937b38487CDeec8C5c4a08792b58dCd41d6",
+      "blockNumber": 0
+    },
+    "crossChainWithdraw2": {
+      "address": "0xB79b5aD1ff40e5b9b69f2134c2434B6C745B1Aa3",
+      "blockNumber": 241517817
+    }
+  },
+  "contracts": {
+    "_initialized": "true",
+    "entrypoint": {
+      "address": "0x547F23a61887d8FD28004eae513C93C8ae9c6374",
+      "blockNumber": 241576784
+    },
+    "ethPool": {
+      "address": "0x3Fc2D9Ad2862b805d4423418fde731AFeafb9E3d",
+      "blockNumber": 241577003
+    },
+    "hyperlaneOracle": {
+      "address": "0x532372596b24ACe728B40A9B38D882403a803023",
+      "blockNumber": 241577428
+    },
+    "inputSettler": {
+      "address": "0x553B589e3712eBA9d6E20bD1173Bef3678fA01b7",
+      "blockNumber": 241577438
+    },
+    "depositOutputSettler": {
+      "address": "0xa16eBd6719a908e98a3A73713da227A26a437114",
+      "blockNumber": 241577447
+    }
+  },
+  "paymasters": {
+    "_initialized": "true",
+    "simple": {
+      "address": "0x4712A579a18c5641138cb885c51bBD2aE4F45dE1",
+      "blockNumber": 241577745
+    },
+    "crossChain": {
+      "address": "0x038E12114A2D86eEB807e009Dd31EEDe21613A7E",
+      "blockNumber": 241577760
+    },
+    "withdraw2": {
+      "address": "0x7AcB47597BAE71A2F4fA3931DE01D9bEBd4e4818",
+      "blockNumber": 241577779
+    },
+    "crossChainWithdraw2": {
+      "address": "0x5fe6A4E0E861126ef3eA0993DC6c4155c5ac36a9",
+      "blockNumber": 241577796
+    }
+  }
+}

@@ -5,31 +5,12 @@ pragma solidity 0.8.28;
 
 /**
  * @title CrossChainProofLib
- * @notice Facilitates accessing the public signals of a Groth16 proof for cross-chain withdrawals.
- * @dev Extends ProofLib pattern with 9th public signal for refund commitment hash
+ * @notice Groth16 proof signal extraction for cross-chain 1:1 withdrawals (9 signals)
+ * @dev Public signals: [newCommitment, nullifier, refundCommitment, withdrawnValue,
+ *      stateRoot, stateTreeDepth, ASPRoot, ASPTreeDepth, context]
  */
 library CrossChainProofLib {
-    /*///////////////////////////////////////////////////////////////
-                     CROSS-CHAIN WITHDRAWAL PROOF 
-    //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Struct containing Groth16 proof elements and public signals for cross-chain withdrawal verification
-     * @dev The public signals array must match the order of public inputs/outputs in the circuit
-     * @param pA First elliptic curve point (π_A) of the Groth16 proof, encoded as two field elements
-     * @param pB Second elliptic curve point (π_B) of the Groth16 proof, encoded as 2x2 matrix of field elements
-     * @param pC Third elliptic curve point (π_C) of the Groth16 proof, encoded as two field elements
-     * @param pubSignals Array of public inputs and outputs (actual circuit order):
-     *        - [0] newCommitmentHash: Hash of the new commitment being created (output)
-     *        - [1] existingNullifierHash: Hash of the nullifier being spent (output)
-     *        - [2] refundCommitmentHash: Hash of commitment for refund recovery (output)
-     *        - [3] withdrawnValue: Amount being withdrawn (input)
-     *        - [4] stateRoot: Current state root of the privacy pool (input)
-     *        - [5] stateTreeDepth: Current depth of the state tree (input)
-     *        - [6] ASPRoot: Current root of the Association Set Provider tree (input)
-     *        - [7] ASPTreeDepth: Current depth of the ASP tree (input)
-     *        - [8] context: Context value for the withdrawal operation (input)
-     */
     struct CrossChainWithdrawProof {
         uint256[2] pA;
         uint256[2][2] pB;
@@ -37,93 +18,39 @@ library CrossChainProofLib {
         uint256[9] pubSignals;
     }
 
-    /*///////////////////////////////////////////////////////////////
-                        STANDARD SIGNAL EXTRACTORS (0-7)
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Retrieves the new commitment hash from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The hash of the new commitment being created
-     */
     function newCommitmentHash(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[0];
     }
 
-    /**
-     * @notice Retrieves the existing nullifier hash from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The hash of the nullifier being spent in this withdrawal
-     */
     function existingNullifierHash(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[1];
     }
 
-    /**
-     * @notice Retrieves the withdrawn value from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The amount being withdrawn from Privacy Pool
-     */
+    function refundCommitmentHash(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
+        return _p.pubSignals[2];
+    }
+
     function withdrawnValue(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[3];
     }
 
-    /**
-     * @notice Retrieves the state root from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The root of the state tree at time of proof generation
-     */
     function stateRoot(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[4];
     }
 
-    /**
-     * @notice Retrieves the state tree depth from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The depth of the state tree at time of proof generation
-     */
     function stateTreeDepth(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[5];
     }
 
-    /**
-     * @notice Retrieves the ASP root from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The latest root of the ASP tree at time of proof generation
-     */
     function ASPRoot(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[6];
     }
 
-    /**
-     * @notice Retrieves the ASP tree depth from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The depth of the ASP tree at time of proof generation
-     */
     function ASPTreeDepth(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[7];
     }
 
-    /**
-     * @notice Retrieves the context value from the proof's public signals
-     * @param _p The proof containing the public signals
-     * @return The context value binding the proof to specific withdrawal data
-     */
     function context(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[8];
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                     CROSS-CHAIN SPECIFIC SIGNAL EXTRACTOR (8)
-    //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @notice Retrieves the refund commitment hash from the proof's public signals
-     * @dev This is the 3rd signal (index 2), unique to cross-chain withdrawals
-     * @param _p The proof containing the public signals
-     * @return The hash of the commitment for refund recovery in case of failed cross-chain execution
-     */
-    function refundCommitmentHash(CrossChainWithdrawProof memory _p) internal pure returns (uint256) {
-        return _p.pubSignals[2];
     }
 }

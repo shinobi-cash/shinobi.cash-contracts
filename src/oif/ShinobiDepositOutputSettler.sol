@@ -14,71 +14,82 @@ import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncoding
  * @title ShinobiDepositOutputSettler
  * @author Karandeep Singh
  * @notice Output settler for cross-chain deposits on destination chain (pool chain)
- * @dev This contract handles fills for deposit intents on the pool chain (e.g., Arbitrum Sepolia)
- *
- * @dev Flow: Base Sepolia (user) → Arbitrum Sepolia (pool)
- *      1. User creates deposit intent on Base Sepolia via ShinobiCrosschainDepositEntrypoint
- *      2. Intent includes intentOracle for validation
- *      3. Solver fills on Arbitrum Sepolia via this contract
- *      4. This contract VALIDATES intent proof via intentOracle (MANDATORY)
- *      5. Validates intent uses the configured intentOracle (security)
- *      6. Calls processCrossChainDeposit() on pool entrypoint with verified depositor
- *
- * @dev Security model:
- *      - Configured intentOracle prevents use of malicious/fake oracles
- *      - MANDATORY intentOracle validation prevents depositor spoofing
- *      - Without oracle validation, attacker could create fake deposit intent
- *      - Oracle cryptographically proves intent came from legitimate user
- *      - ReentrancyGuard protects against reentrancy attacks
- *      - Fill records prevent double-filling same intent
+ * @dev Validates intent proof via intentOracle before filling deposit intents
  */
 contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
     using ShinobiIntentLib for ShinobiIntent;
     using MandateOutputEncodingLib for MandateOutput;
 
     /*//////////////////////////////////////////////////////////////
-                            IMMUTABLE STATE
+                                STATE
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Configured intent oracle that must be used for all deposits
-     * @dev Set immutably in constructor for security
-     * @dev All deposit intents must use this oracle, preventing oracle substitution attacks
-     */
     address public immutable intentOracle;
+
+    struct OriginChainConfig {
+        address hyperlaneOracle;
+        address depositEntrypoint;
+        bool isConfigured;
+    }
+
+    mapping(uint256 => OriginChainConfig) public originChainConfigs;
+
+    /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    event OriginChainConfigSet(
+        uint256 indexed chainId,
+        address indexed hyperlaneOracle,
+        address indexed depositEntrypoint
+    );
+    event OriginChainConfigRemoved(uint256 indexed chainId);
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Thrown when intentOracle address is zero in constructor
     error InvalidIntentOracle();
-
-    /// @notice Thrown when intent uses wrong intentOracle (doesn't match configured)
     error IntentOracleMismatch();
-
-    /// @notice Thrown when intent proof validation fails
     error IntentNotProven();
-
-    /// @notice Thrown when deposit output has no callback data (deposits require callback)
     error EmptyCallbackData();
-
-    /// @notice Thrown when callback execution fails
     error CallbackFailed();
+    error OriginChainNotConfigured(uint256 chainId);
+    error InvalidAddress();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Initialize the DepositOutputSettler with immutable intentOracle
-     * @dev IntentOracle address is set once and cannot be changed (security feature)
-     * @param _owner Address of the contract owner
-     * @param _intentOracle Address of the intent oracle (validates deposit intents)
-     */
     constructor(address _owner, address _intentOracle) BaseShinobiOutputSettler(_owner) {
         if (_intentOracle == address(0)) revert InvalidIntentOracle();
         intentOracle = _intentOracle;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        CONFIGURATION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function setOriginChainConfig(
+        uint256 _chainId,
+        address _hyperlaneOracle,
+        address _depositEntrypoint
+    ) external onlyOwner {
+        if (_hyperlaneOracle == address(0)) revert InvalidAddress();
+        if (_depositEntrypoint == address(0)) revert InvalidAddress();
+
+        originChainConfigs[_chainId] = OriginChainConfig({
+            hyperlaneOracle: _hyperlaneOracle,
+            depositEntrypoint: _depositEntrypoint,
+            isConfigured: true
+        });
+
+        emit OriginChainConfigSet(_chainId, _hyperlaneOracle, _depositEntrypoint);
+    }
+
+    function removeOriginChainConfig(uint256 _chainId) external onlyOwner {
+        delete originChainConfigs[_chainId];
+        emit OriginChainConfigRemoved(_chainId);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -87,65 +98,30 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
 
     /**
      * @notice Fill a deposit intent on pool chain (destination)
-     * @dev CRITICAL: Always validates intent proof via configured intentOracle
-     * @dev Solver provides ETH and calls processCrossChainDeposit with verified depositor
-     *
-     * @param intent The deposit intent from origin chain (Base Sepolia), containing:
-     *               - user: The verified depositor address
-     *               - originChainId: Origin chain where intent was created
-     *               - fillDeadline: Solver must fill before this timestamp
-     *               - intentOracle: MUST match configured intentOracle
-     *               - outputs: Array of outputs to fill
-     *
-     * @dev Process:
-     *      1. Validate intent structure (has outputs, correct chain)
-     *      2. Check fill deadline hasn't passed
-     *      3. CRITICAL: Validate intent uses configured intentOracle
-     *      4. CRITICAL: Validate intent proof via oracle
-     *      5. Fill each output (execute callback)
-     *
-     * @dev Requirements:
-     *      - intent.outputs.length == 1 (deposits have exactly one output)
-     *      - intent.outputs[0].chainId == block.chainid
-     *      - block.timestamp <= intent.fillDeadline
-     *      - intent.intentOracle == configured intentOracle (MANDATORY)
-     *      - Oracle must attest to valid intent
-     *      - msg.value must match output amounts
-     *      - Output not already filled
+     * @dev Validates intent proof via configured intentOracle before filling
      */
     function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
-        // SECURITY: Deposits must have exactly one output
-        // This prevents complex multi-output attacks and ensures clean accounting
         if (intent.outputs.length != 1) revert InvalidOutput();
-
-        // Validate this is the correct destination chain
         if (intent.outputs[0].chainId != block.chainid) revert InvalidChain();
-
-        // Validate fill deadline hasn't passed
         if (block.timestamp > intent.fillDeadline) revert FillDeadlinePassed();
-
-        // CRITICAL: Validate intent uses the configured intentOracle
-        // This prevents oracle substitution attacks where attacker uses malicious oracle
         if (intent.intentOracle != intentOracle) revert IntentOracleMismatch();
 
-        // Compute unique order identifier
+        OriginChainConfig memory originConfig = originChainConfigs[intent.originChainId];
+        if (!originConfig.isConfigured) revert OriginChainNotConfigured(intent.originChainId);
+
         bytes32 orderId = intent.orderIdentifier();
 
-        // CRITICAL: Validate intent proof via configured oracle
-        // Oracle must attest that this intent was legitimately created on origin chain
-        // Params: (originChainId, oracleOnOrigin, settlerOnDestination, orderId)
         if (
             !IInputOracle(intentOracle).isProven(
                 intent.originChainId,
-                bytes32(uint256(uint160(intentOracle))),
-                bytes32(uint256(uint160(address(this)))),
-                orderId
+                bytes32(uint256(uint160(originConfig.hyperlaneOracle))),
+                bytes32(uint256(uint160(originConfig.depositEntrypoint))),
+                keccak256(abi.encode(orderId))
             )
         ) {
             revert IntentNotProven();
         }
 
-        // Fill the single deposit output
         _fillOutput(orderId, intent.outputs[0], msg.sender);
     }
 
@@ -153,42 +129,15 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
                         INTERNAL FILL LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Fill a single output by transferring ETH and executing callback
-     * @dev Stores fill record and executes processCrossChainDeposit callback
-     *
-     * @param orderId The unique order identifier
-     * @param output The output to fill (contains recipient, amount, callback)
-     * @param solver The solver providing liquidity
-     *
-     * @dev Process:
-     *      1. Validate output is for current chain
-     *      2. Compute output hash
-     *      3. Check output not already filled
-     *      4. Store fill record
-     *      5. Validate native ETH
-     *      6. Execute callback (processCrossChainDeposit)
-     */
     function _fillOutput(bytes32 orderId, MandateOutput calldata output, address solver) internal {
-        // Validate output (chain and asset)
         _validateOutput(output);
+        _createAndStoreFillRecord(orderId, output, solver);
 
-        // Compute output hash for fill tracking
-        bytes32 outputHash = output.getMandateOutputHash();
-
-        // Create and store fill record (checks for duplicates)
-        _createAndStoreFillRecord(orderId, outputHash, solver);
-
-        // Extract recipient and amount
         address recipient = address(uint160(uint256(output.recipient)));
         uint256 amount = output.amount;
 
-        // SECURITY: Deposits MUST have callback data (processCrossChainDeposit call)
-        // Without callback, deposit cannot be processed into privacy pool
         if (output.call.length == 0) revert EmptyCallbackData();
 
-        // For deposits, output.call contains processCrossChainDeposit(depositor, amount, precommitment)
-        // Execute callback with ETH payment
         (bool success,) = recipient.call{value: amount}(output.call);
         if (!success) revert CallbackFailed();
 

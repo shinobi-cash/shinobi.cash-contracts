@@ -5,18 +5,19 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // OIF Settlers
-import {ShinobiWithdrawalOutputSettler} from "../src/oif/ShinobiWithdrawalOutputSettler.sol";
+import {ShinobiWithdrawalOutputSettler} from "../../src/oif/ShinobiWithdrawalOutputSettler.sol";
 
 /**
- * @title 04e_DeployWithdrawalOutputSettlerBase
+ * @title 09_DeployWithdrawalOutputSettlerBase
  * @notice Deploy Withdrawal Output Settler on Base Sepolia (User Chain)
  * @dev This script deploys the Withdrawal Output Settler for receiving cross-chain withdrawals
  *      from Arbitrum Sepolia (Pool Chain) to Base Sepolia (User Chain)
  *
  * @dev ⚠️ IMPORTANT: This must be deployed on Base Sepolia (destination chain for withdrawals)
  *
- * @dev Required env vars (Base Sepolia):
- *      - FILL_ORACLE_BASE_SEPOLIA: Oracle on Base for withdrawal fill validation
+ * @dev Required env vars:
+ *      - FILL_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum (origin) for fill proof validation
+ *        (This is the HyperlaneOracle on Arb that validates fills happened on Base)
  *
  * @dev Architecture:
  *      Arbitrum Sepolia (Pool Chain):
@@ -36,7 +37,7 @@ contract DeployWithdrawalOutputSettler is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 4e: Deploy Withdrawal Output Settler (Base Sepolia - User Chain) ===");
+        console.log("=== Step 9: Deploy Withdrawal Output Settler (Base Sepolia - User Chain) ===");
         console.log("Deployer:", deployer);
         console.log("Fill Oracle:", fillOracle);
         console.log("");
@@ -55,6 +56,8 @@ contract DeployWithdrawalOutputSettler is Script {
         console.log("WITHDRAWAL_OUTPUT_SETTLER_BASE_SEPOLIA=", withdrawalOutputSettler);
         console.log("");
         console.log("NEXT STEPS:");
-        console.log("This settler will be used when users receive withdrawals on Base Sepolia");
+        console.log("1. Run SetupEntrypoint on Arb (step 10)");
+        console.log("2. Run SetupDepositEntrypoint on Base (step 11)");
+        console.log("3. Run SetupDepositOutputSettler on Arb (step 12)");
     }
 }

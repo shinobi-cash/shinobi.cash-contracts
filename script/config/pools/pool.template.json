@@ -1,0 +1,12 @@
+{
+  "name": "Chain Name",
+  "chainId": 0,
+  "hyperlaneDomainId": 0,
+  "hyperlaneMailbox": "0x0000000000000000000000000000000000000000",
+  "erc4337Entrypoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+  "config": {
+    "minimumDeposit": "1000000000000000",
+    "vettingFeeBPS": 100,
+    "maxRelayFeeBPS": 1500
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "chainName": "base-sepolia",
+  "chainId": 84532,
+  "deployer": "0xF892dc5bBef591D61dD6d75Dfc963c371E723bA4",
+  "deployedAt": 0,
+  "contracts": {
+    "_initialized": "true",
+    "hyperlaneOracle": {
+      "address": "0x1B342aeD691E0F6D41847518E5EB6E5b32636C53",
+      "blockNumber": 37492190
+    },
+    "depositEntrypoint": {
+      "address": "0xE61178cE0ea5F812a41dC3A4AF8786683AF0039A",
+      "blockNumber": 37492190
+    },
+    "inputSettler": {
+      "address": "0x427A8EdE03571e494B4113e839af0A473C1d0988",
+      "blockNumber": 37492190
+    },
+    "withdrawalOutputSettler": {
+      "address": "0x4443fAc13eEfe823dD4544E2f2415C5D42047887",
+      "blockNumber": 37492190
+    }
+  }
+}

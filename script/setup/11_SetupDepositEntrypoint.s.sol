@@ -5,11 +5,11 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Deposit Entrypoint
-import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainDepositEntrypoint.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../../src/core/ShinobiCrosschainDepositEntrypoint.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
- * @title 06_SetupDepositEntrypoint
+ * @title 11_SetupDepositEntrypoint
  * @notice Configure Deposit Entrypoint for L2 deposits (Base Sepolia -> Arbitrum Sepolia)
  * @dev Required env vars:
  *      - SHINOBI_CASH_DEPOSIT_ENTRYPOINT_BASE_SEPOLIA: Deposit entrypoint on Base Sepolia
@@ -21,6 +21,11 @@ import {Constants} from "contracts/lib/Constants.sol";
  *      - DESTINATION_ORACLE_ARBITRUM_SEPOLIA: Oracle on Arbitrum Sepolia (validates outputs)
  *      - INPUT_SETTLER_BASE_SEPOLIA: Input settler on Base Sepolia
  *      - SHINOBI_CASH_ETH_POOL: Destination pool on Arbitrum Sepolia (for asset->pool mapping)
+ *
+ *      Hyperlane Configuration (optional - only if using Hyperlane for intent verification):
+ *      - HYPERLANE_ORACLE_BASE_SEPOLIA: HyperlaneOracle on Base Sepolia (origin)
+ *      - HYPERLANE_ORACLE_ARBITRUM_SEPOLIA: HyperlaneOracle on Arbitrum Sepolia (destination)
+ *      - HYPERLANE_GAS_LIMIT: Gas limit for Hyperlane message (default: 200000)
  */
 contract SetupDepositEntrypoint is Script {
     function run() external {
@@ -48,7 +53,7 @@ contract SetupDepositEntrypoint is Script {
         
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 6: Setup Deposit Entrypoint (L2) ===");
+        console.log("=== Step 11: Setup Deposit Entrypoint (Base Sepolia) ===");
         console.log("Deployer:", deployer);
         console.log("Deposit Entrypoint:", depositEntrypointAddr);
         console.log("");
@@ -108,6 +113,31 @@ contract SetupDepositEntrypoint is Script {
         depositEntrypoint.setAssetPool(Constants.NATIVE_ASSET, destinationPool);
         console.log("   Asset: Native ETH (", Constants.NATIVE_ASSET, ")");
         console.log("   Destination Pool:", destinationPool);
+
+        // 7. (Optional) Configure Hyperlane for intent verification
+        // Only configure if Hyperlane oracles are deployed
+        try vm.envAddress("HYPERLANE_ORACLE_BASE_SEPOLIA") returns (address hyperlaneOracleOrigin) {
+            address hyperlaneOracleDest = vm.envAddress("HYPERLANE_ORACLE_ARBITRUM_SEPOLIA");
+            uint256 hyperlaneGasLimit = vm.envOr("HYPERLANE_GAS_LIMIT", uint256(200_000));
+
+            // Hyperlane domain IDs
+            uint32 destinationDomainId = 421614; // Arbitrum Sepolia
+
+            console.log("7. Configuring Hyperlane for intent verification...");
+            depositEntrypoint.setHyperlaneConfig(
+                hyperlaneOracleOrigin, // Origin HyperlaneOracle (Base Sepolia)
+                destinationDomainId, // Destination Hyperlane domain ID
+                hyperlaneOracleDest, // Destination HyperlaneOracle (Arbitrum Sepolia)
+                hyperlaneGasLimit // Gas limit for handle() on destination
+            );
+            console.log("   Hyperlane Oracle (Origin):", hyperlaneOracleOrigin);
+            console.log("   Hyperlane Oracle (Destination):", hyperlaneOracleDest);
+            console.log("   Destination Domain ID:", destinationDomainId);
+            console.log("   Gas Limit:", hyperlaneGasLimit);
+        } catch {
+            console.log("7. Hyperlane configuration skipped (env vars not set)");
+            console.log("   Set HYPERLANE_ORACLE_BASE_SEPOLIA and HYPERLANE_ORACLE_ARBITRUM_SEPOLIA to enable");
+        }
 
         vm.stopBroadcast();
 

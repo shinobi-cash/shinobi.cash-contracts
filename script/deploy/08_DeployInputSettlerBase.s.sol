@@ -5,10 +5,10 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // OIF Settlers
-import {ShinobiInputSettler} from "../src/oif/ShinobiInputSettler.sol";
+import {ShinobiInputSettler} from "../../src/oif/ShinobiInputSettler.sol";
 
 /**
- * @title 04d_DeployInputSettlerBase
+ * @title 08_DeployInputSettlerBase
  * @notice Deploy Shinobi Input Settler on Base Sepolia (User Chain)
  * @dev This script deploys the Input Settler for the USER CHAIN (Base Sepolia):
  *      - Input Settler (for deposit intents originating from Base → Arbitrum)
@@ -31,7 +31,7 @@ contract DeployInputSettlerBase is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("=== Step 4d: Deploy Input Settler (Base Sepolia - User Chain) ===");
+        console.log("=== Step 8: Deploy Input Settler (Base Sepolia - User Chain) ===");
         console.log("Deployer:", deployer);
         console.log("Deposit Entrypoint:", depositEntrypoint);
         console.log("");
@@ -50,6 +50,7 @@ contract DeployInputSettlerBase is Script {
         console.log("INPUT_SETTLER_BASE_SEPOLIA=", inputSettler);
         console.log("");
         console.log("NEXT STEPS:");
-        console.log("Configure this settler in step 06b (ShinobiCrosschainDepositEntrypoint)");
+        console.log("1. Deploy WithdrawalOutputSettler on Base (step 09)");
+        console.log("2. Configure in step 11 (SetupDepositEntrypoint)");
     }
 }
