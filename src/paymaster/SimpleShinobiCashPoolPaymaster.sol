@@ -74,6 +74,7 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     error ExpectedSmartAccountNotSet();
     error UnauthorizedSmartAccount();
     error SmartAccountNotDeployed();
+    error InvalidAddress();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -84,6 +85,8 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         IPrivacyPool _ethPrivacyPool
     ) BasePaymaster(_entryPoint) {
+        if (address(_shinobiCashEntrypoint) == address(0)) revert InvalidAddress();
+        if (address(_ethPrivacyPool) == address(0)) revert InvalidAddress();
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
         ETH_CASH_POOL = _ethPrivacyPool;
     }

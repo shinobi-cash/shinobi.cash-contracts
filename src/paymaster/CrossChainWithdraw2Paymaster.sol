@@ -72,6 +72,7 @@ contract CrossChainWithdraw2Paymaster is BasePaymaster {
     error SmartAccountNotDeployed();
     error NullifierAlreadySpent();
     error InvalidCrossChainWithdraw2Proof();
+    error InvalidAddress();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -83,6 +84,9 @@ contract CrossChainWithdraw2Paymaster is BasePaymaster {
         IShinobiCashPool _ethCashPool,
         ICrossChainWithdraw2Verifier _crossChainWithdraw2Verifier
     ) BasePaymaster(_entryPoint) {
+        if (address(_shinobiCashEntrypoint) == address(0)) revert InvalidAddress();
+        if (address(_ethCashPool) == address(0)) revert InvalidAddress();
+        if (address(_crossChainWithdraw2Verifier) == address(0)) revert InvalidAddress();
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
         ETH_CASH_POOL = _ethCashPool;
         CROSSCHAIN_WITHDRAW2_VERIFIER = _crossChainWithdraw2Verifier;

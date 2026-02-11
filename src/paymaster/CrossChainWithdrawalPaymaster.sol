@@ -74,6 +74,7 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
     error ExpectedSmartAccountNotSet();
     error UnauthorizedSmartAccount();
     error SmartAccountNotDeployed();
+    error InvalidAddress();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -84,6 +85,8 @@ contract CrossChainWithdrawalPaymaster is BasePaymaster {
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         ShinobiCashPool _ethShinobiCashPool
     ) BasePaymaster(_entryPoint) {
+        if (address(_shinobiCashEntrypoint) == address(0)) revert InvalidAddress();
+        if (address(_ethShinobiCashPool) == address(0)) revert InvalidAddress();
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
         ETH_POOL = _ethShinobiCashPool;
     }
