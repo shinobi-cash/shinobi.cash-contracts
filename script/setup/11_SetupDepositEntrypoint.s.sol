@@ -88,8 +88,7 @@ contract SetupDepositEntrypoint is Script {
 
         // 4. Set default deadlines
         console.log("4. Setting default deadlines...");
-        depositEntrypoint.setDefaultFillDeadline(23 hours);
-        depositEntrypoint.setDefaultExpiry(24 hours);
+        depositEntrypoint.setDefaultDeadlines(23 hours, 24 hours);
         console.log("   Fill Deadline: 23 hours");
         console.log("   Expiry: 24 hours");
 

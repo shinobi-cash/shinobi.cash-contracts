@@ -31,7 +31,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     address public inputSettler;
     bool private inputSettlerSet;
 
-    uint32 public defaultFillDeadline = 1 hours;
+    uint32 public defaultFillDeadline = 30 minutes;
     uint32 public defaultExpiry = 24 hours;
     address public fillOracle;
     address public intentOracle;
@@ -65,8 +65,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     //////////////////////////////////////////////////////////////*/
 
     event InputSettlerSet(address indexed inputSettlerAddress);
-    event DefaultFillDeadlineUpdated(uint32 previousFillDeadline, uint32 newFillDeadline);
-    event DefaultExpiryUpdated(uint32 previousExpiry, uint32 newExpiry);
+    event DefaultDeadlinesUpdated(uint32 newFillDeadline, uint32 newExpiry);
     event FillOracleUpdated(address indexed previousFillOracle, address indexed newFillOracle);
     event IntentOracleUpdated(address indexed previousIntentOracle, address indexed newIntentOracle);
     event DestinationConfigUpdated(
@@ -115,6 +114,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     error HyperlaneNotConfigured();
     error InsufficientFundsForHyperlane(uint256 available, uint256 required);
     error PrecommitmentAlreadyUsed();
+    error ExpiryBeforeFillDeadline();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -297,16 +297,11 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
         emit InputSettlerSet(_inputSettler);
     }
 
-    function setDefaultFillDeadline(uint32 _fillDeadline) external onlyOwner {
-        uint32 previousFillDeadline = defaultFillDeadline;
+    function setDefaultDeadlines(uint32 _fillDeadline, uint32 _expiry) external onlyOwner {
+        if (_expiry <= _fillDeadline) revert ExpiryBeforeFillDeadline();
         defaultFillDeadline = _fillDeadline;
-        emit DefaultFillDeadlineUpdated(previousFillDeadline, _fillDeadline);
-    }
-
-    function setDefaultExpiry(uint32 _expiry) external onlyOwner {
-        uint32 previousExpiry = defaultExpiry;
         defaultExpiry = _expiry;
-        emit DefaultExpiryUpdated(previousExpiry, _expiry);
+        emit DefaultDeadlinesUpdated(_fillDeadline, _expiry);
     }
 
     function setFillOracle(address _fillOracle) external onlyOwner {

@@ -173,17 +173,14 @@ contract AddChain_03_ConfigureOriginChain is Script {
         ChainConfig.OriginConfig memory originConfig
     ) internal {
         console.log("5. Setting Deadlines...");
-        if (entrypoint.defaultFillDeadline() == originConfig.fillDeadline) {
-            console.log("   Fill Deadline already set, skipping.");
+        if (
+            entrypoint.defaultFillDeadline() == originConfig.fillDeadline
+                && entrypoint.defaultExpiry() == originConfig.expiry
+        ) {
+            console.log("   Deadlines already set, skipping.");
         } else {
-            entrypoint.setDefaultFillDeadline(originConfig.fillDeadline);
+            entrypoint.setDefaultDeadlines(originConfig.fillDeadline, originConfig.expiry);
             console.log("   Fill Deadline:", originConfig.fillDeadline, "seconds");
-        }
-
-        if (entrypoint.defaultExpiry() == originConfig.expiry) {
-            console.log("   Expiry already set, skipping.");
-        } else {
-            entrypoint.setDefaultExpiry(originConfig.expiry);
             console.log("   Expiry:", originConfig.expiry, "seconds");
         }
 
