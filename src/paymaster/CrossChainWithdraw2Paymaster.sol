@@ -30,7 +30,7 @@ contract CrossChainWithdraw2Paymaster is BasePaymaster {
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    uint256 public constant POST_OP_GAS_LIMIT = 100_000;
+    uint256 public constant MIN_POST_OP_GAS_LIMIT = 50_000;
     uint256 public constant MIN_CALL_GAS_LIMIT = 750_000;
     uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 550_000;
 
@@ -160,7 +160,7 @@ contract CrossChainWithdraw2Paymaster is BasePaymaster {
         (bytes32 userOpHash, address withdrawalRecipient, uint256 expectedFeeAmount) = abi
             .decode(context, (bytes32, address, uint256));
 
-        uint256 postOpCost = POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
+        uint256 postOpCost = MIN_POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
         uint256 actualWithdrawalCost = actualGasCost + postOpCost;
 
         if (expectedFeeAmount > 0) {
@@ -192,7 +192,7 @@ contract CrossChainWithdraw2Paymaster is BasePaymaster {
         if (expectedSmartAccount == address(0)) revert ExpectedSmartAccountNotSet();
         if (userOp.sender != expectedSmartAccount) revert UnauthorizedSmartAccount();
         if (userOp.initCode.length > 0) revert SmartAccountNotDeployed();
-        if (userOp.unpackPostOpGasLimit() < POST_OP_GAS_LIMIT) revert InsufficientPostOpGasLimit();
+        if (userOp.unpackPostOpGasLimit() < MIN_POST_OP_GAS_LIMIT) revert InsufficientPostOpGasLimit();
         if (userOp.unpackCallGasLimit() < MIN_CALL_GAS_LIMIT) revert InsufficientCallGasLimit();
         if (userOp.unpackPaymasterVerificationGasLimit() < MIN_PAYMASTER_VERIFICATION_GAS) {
             revert InsufficientPaymasterVerificationGas();

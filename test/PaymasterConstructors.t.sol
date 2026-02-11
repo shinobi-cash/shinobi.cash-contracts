@@ -136,7 +136,7 @@ contract PaymasterConstructorsTest is Test {
             IPrivacyPool(ethPool)
         );
 
-        assertEq(paymaster.POST_OP_GAS_LIMIT(), 100_000);
+        assertEq(paymaster.MIN_POST_OP_GAS_LIMIT(), 80_000);
         assertEq(paymaster.MIN_CALL_GAS_LIMIT(), 550_000);
         assertEq(paymaster.MIN_PAYMASTER_VERIFICATION_GAS(), 400_000);
     }
@@ -232,7 +232,7 @@ contract PaymasterConstructorsTest is Test {
             ShinobiCashPool(ethPool)
         );
 
-        assertEq(paymaster.POST_OP_GAS_LIMIT(), 100_000);
+        assertEq(paymaster.MIN_POST_OP_GAS_LIMIT(), 50_000);
         assertEq(paymaster.MIN_CALL_GAS_LIMIT(), 687_500);
         assertEq(paymaster.MIN_PAYMASTER_VERIFICATION_GAS(), 500_000);
     }
@@ -347,7 +347,7 @@ contract PaymasterConstructorsTest is Test {
             IWithdraw2Verifier(withdraw2Verifier)
         );
 
-        assertEq(paymaster.POST_OP_GAS_LIMIT(), 100_000);
+        assertEq(paymaster.MIN_POST_OP_GAS_LIMIT(), 80_000);
         assertEq(paymaster.MIN_CALL_GAS_LIMIT(), 650_000);
         assertEq(paymaster.MIN_PAYMASTER_VERIFICATION_GAS(), 500_000);
     }
@@ -462,7 +462,7 @@ contract PaymasterConstructorsTest is Test {
             ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
         );
 
-        assertEq(paymaster.POST_OP_GAS_LIMIT(), 100_000);
+        assertEq(paymaster.MIN_POST_OP_GAS_LIMIT(), 50_000);
         assertEq(paymaster.MIN_CALL_GAS_LIMIT(), 750_000);
         assertEq(paymaster.MIN_PAYMASTER_VERIFICATION_GAS(), 550_000);
     }
