@@ -29,7 +29,6 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     //////////////////////////////////////////////////////////////*/
 
     address public inputSettler;
-    bool private inputSettlerSet;
 
     uint32 public defaultFillDeadline = 30 minutes;
     uint32 public defaultExpiry = 24 hours;
@@ -319,7 +318,6 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     function setInputSettler(address _inputSettler) external onlyOwner {
         if (_inputSettler == address(0)) revert InvalidAddress(_inputSettler);
         inputSettler = _inputSettler;
-        inputSettlerSet = true;
         emit InputSettlerSet(_inputSettler);
     }
 
