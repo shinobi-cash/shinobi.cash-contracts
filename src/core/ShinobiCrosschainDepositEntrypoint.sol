@@ -10,7 +10,7 @@ import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@oz/access/Ownable2Step.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
@@ -20,7 +20,7 @@ import {Constants} from "contracts/lib/Constants.sol";
  * @notice Lightweight entrypoint for cross-chain deposits on origin chains
  * @dev Deployed on origin chains where users have funds. Provides deposit/refund interface.
  */
-contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloadCreator {
+contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IPayloadCreator {
     using ShinobiIntentLib for ShinobiIntent;
     using SafeCast for uint256;
 
