@@ -29,9 +29,7 @@ import {ICrossChainWithdraw2Verifier} from "../../src/core/interfaces/ICrossChai
  * Output: deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia EXPECTED_SMART_ACCOUNT=0x... forge script \
- *     script/pool/DeployPool_05_Paymasters.s.sol:DeployPool_05_Paymasters \
- *     --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_05_Paymasters.s.sol:DeployPool_05_Paymasters --rpc-url arbitrum-sepolia --broadcast --verify
  */
 contract DeployPool_05_Paymasters is Script {
     function run() external {

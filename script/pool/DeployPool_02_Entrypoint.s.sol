@@ -18,8 +18,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
  * Output: deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_02_Entrypoint.s.sol:DeployPool_02_Entrypoint \
- *     --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_02_Entrypoint.s.sol:DeployPool_02_Entrypoint --rpc-url arbitrum-sepolia --broadcast --verify
  */
 contract DeployPool_02_Entrypoint is Script {
     function run() external {

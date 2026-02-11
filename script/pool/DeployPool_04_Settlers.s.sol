@@ -19,8 +19,7 @@ import {HyperlaneOracle} from "../../src/oif/hyperlane/HyperlaneOracle.sol";
  * Output: deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_04_Settlers.s.sol:DeployPool_04_Settlers \
- *     --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_04_Settlers.s.sol:DeployPool_04_Settlers --rpc-url arbitrum-sepolia --broadcast --verify
  */
 contract DeployPool_04_Settlers is Script {
     function run() external {

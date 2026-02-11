@@ -21,8 +21,7 @@ interface IPaymasterWithdraw {
  * Input:  deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/WithdrawPaymasterDeposits.s.sol:WithdrawPaymasterDeposits \
- *     --rpc-url arbitrum-sepolia --broadcast
+ *   POOL_KEY=arbitrum-sepolia forge script script/utils/WithdrawPaymasterDeposits.s.sol:WithdrawPaymasterDeposits --rpc-url arbitrum-sepolia --broadcast
  */
 contract WithdrawPaymasterDeposits is Script {
     function run() external {

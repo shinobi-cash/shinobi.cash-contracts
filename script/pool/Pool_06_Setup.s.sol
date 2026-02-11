@@ -21,8 +21,7 @@ import {IERC20} from "@oz/interfaces/IERC20.sol";
  * Reads:  deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/Pool_06_Setup.s.sol:Pool_06_Setup \
- *     --rpc-url arbitrum-sepolia --broadcast
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/Pool_06_Setup.s.sol:Pool_06_Setup --rpc-url arbitrum-sepolia --broadcast
  */
 contract Pool_06_Setup is Script {
     function run() external {

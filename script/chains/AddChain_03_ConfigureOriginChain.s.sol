@@ -20,8 +20,7 @@ import {IHyperlaneOracle} from "../../src/oif/interfaces/IHyperlaneOracle.sol";
  * Reads:  deployments/{pool-key}.json, deployments/{origin-name}.json
  *
  * Usage:
- *   ORIGIN_KEY=base-sepolia forge script script/chains/AddChain_03_ConfigureOriginChain.s.sol \
- *     --rpc-url base-sepolia --broadcast
+ *   ORIGIN_KEY=base-sepolia forge script script/chains/AddChain_03_ConfigureOriginChain.s.sol --rpc-url base-sepolia --broadcast
  */
 contract AddChain_03_ConfigureOriginChain is Script {
     struct PoolAddresses {

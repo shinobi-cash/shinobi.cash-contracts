@@ -20,8 +20,7 @@ import {ICrossChainWithdraw2Verifier} from "../../src/core/interfaces/ICrossChai
  * Output: deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_03_PrivacyPool.s.sol:DeployPool_03_PrivacyPool \
- *     --rpc-url arbitrum-sepolia --broadcast --verify
+ *    POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_03_PrivacyPool.s.sol:DeployPool_03_PrivacyPool --rpc-url arbitrum-sepolia --broadcast --verify
  */
 contract DeployPool_03_PrivacyPool is Script {
     function run() external {

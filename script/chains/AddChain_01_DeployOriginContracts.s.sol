@@ -31,8 +31,7 @@ import {ShinobiWithdrawalOutputSettler} from "../../src/oif/ShinobiWithdrawalOut
  *   - Pool chain HyperlaneOracle must be deployed (in deployments/{pool-key}.json)
  *
  * Usage:
- *   ORIGIN_KEY=base-sepolia forge script script/chains/AddChain_01_DeployOriginContracts.s.sol \
- *     --rpc-url base-sepolia --broadcast --verify
+ *   ORIGIN_KEY=base-sepolia forge script script/chains/AddChain_01_DeployOriginContracts.s.sol --rpc-url base-sepolia --broadcast --verify
  */
 contract AddChain_01_DeployOriginContracts is Script {
     function run() external {

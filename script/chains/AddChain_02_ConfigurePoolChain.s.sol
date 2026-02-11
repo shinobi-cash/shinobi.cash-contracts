@@ -19,8 +19,7 @@ import {ShinobiDepositOutputSettler} from "../../src/oif/ShinobiDepositOutputSet
  * Reads:  deployments/{pool-key}.json, deployments/{origin-name}.json
  *
  * Usage:
- *   ORIGIN_KEY=base-sepolia forge script script/chains/AddChain_02_ConfigurePoolChain.s.sol \
- *     --rpc-url arbitrum-sepolia --broadcast
+ *   ORIGIN_KEY=base-sepolia forge script script/chains/AddChain_02_ConfigurePoolChain.s.sol --rpc-url arbitrum-sepolia --broadcast
  */
 contract AddChain_02_ConfigurePoolChain is Script {
     struct PoolAddresses {
