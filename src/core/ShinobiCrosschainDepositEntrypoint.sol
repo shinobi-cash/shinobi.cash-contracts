@@ -47,6 +47,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
 
     mapping(address => address) public assetToPool;
 
+    /// @notice Tracks used precommitments to prevent duplicate deposits on this chain
+    mapping(uint256 => bool) public usedPrecommitments;
+
     /*//////////////////////////////////////////////////////////////
                         HYPERLANE CONFIGURATION
     //////////////////////////////////////////////////////////////*/
@@ -111,6 +114,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     error AssetNotSupported(address asset);
     error HyperlaneNotConfigured();
     error InsufficientFundsForHyperlane(uint256 available, uint256 required);
+    error PrecommitmentAlreadyUsed();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -148,6 +152,10 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
         if (totalPaid == 0) revert InvalidAmount();
         if (destinationChainId == 0) revert ConfigurationNotSet();
         if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
+
+        // Prevent duplicate precommitment usage on this chain
+        if (usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
+        usedPrecommitments[precommitment] = true;
 
         uint256 hyperlaneGasPayment = _quoteHyperlaneGasPayment();
         if (hyperlaneGasPayment > 0 && totalPaid <= hyperlaneGasPayment) {
