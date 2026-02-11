@@ -120,7 +120,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
                         CROSS-CHAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Handle a cross-chain deposit with verified depositor address
+    /// @notice Handle a cross-chain deposit with verified depositor address (native ETH)
     function crosschainDeposit(
         address _depositor,
         uint256 _amount,
@@ -128,6 +128,18 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     ) external payable override nonReentrant onlyDepositOutputSettler returns (uint256 _commitment) {
         if (msg.value != _amount) revert AmountMismatch();
         _commitment = _handleCrosschainDeposit(IERC20(Constants.NATIVE_ASSET), _depositor, msg.value, _precommitment);
+    }
+
+    /// @notice Handle a cross-chain deposit with verified depositor address (ERC20)
+    /// @dev Tokens must be transferred to this contract before calling
+    function crosschainDepositERC20(
+        IERC20 _asset,
+        address _depositor,
+        uint256 _amount,
+        uint256 _precommitment
+    ) external nonReentrant onlyDepositOutputSettler returns (uint256 _commitment) {
+        if (address(_asset) == Constants.NATIVE_ASSET) revert InvalidAsset();
+        _commitment = _handleCrosschainDeposit(_asset, _depositor, _amount, _precommitment);
     }
 
 
@@ -382,7 +394,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
         uint256 _amountAfterFees = _deductFee(_amount, config.vettingFeeBPS);
         uint256 _nativeAssetValue = address(_asset) == Constants.NATIVE_ASSET ? _amountAfterFees : 0;
-        _commitment = pool.deposit{value: _nativeAssetValue}(_depositor, _nativeAssetValue, _precommitment);
+        _commitment = pool.deposit{value: _nativeAssetValue}(_depositor, _amountAfterFees, _precommitment);
 
         emit CrosschainDeposited(_depositor, address(pool), _precommitment, _commitment, _amountAfterFees);
     }

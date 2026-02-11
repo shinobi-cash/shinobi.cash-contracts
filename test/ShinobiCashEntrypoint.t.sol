@@ -516,6 +516,43 @@ contract ShinobiCashEntrypointTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                    CROSSCHAIN DEPOSIT ERC20 TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_crosschainDepositERC20_revertsUnauthorized() public {
+        vm.prank(owner);
+        entrypoint.setDepositOutputSettler(depositOutputSettler);
+
+        address mockToken = makeAddr("mockToken");
+
+        vm.expectRevert(ShinobiCashCrosschainState.OnlyDepositOutputSettler.selector);
+        vm.prank(user);
+        entrypoint.crosschainDepositERC20(IERC20(mockToken), user, 1 ether, 12345);
+    }
+
+    function test_crosschainDepositERC20_revertsInvalidAsset() public {
+        vm.prank(owner);
+        entrypoint.setDepositOutputSettler(depositOutputSettler);
+
+        // Cannot use native asset address with ERC20 function
+        vm.expectRevert(ShinobiCashCrosschainState.InvalidAsset.selector);
+        vm.prank(depositOutputSettler);
+        entrypoint.crosschainDepositERC20(IERC20(Constants.NATIVE_ASSET), user, 1 ether, 12345);
+    }
+
+    function test_crosschainDepositERC20_revertsPoolNotFound() public {
+        vm.prank(owner);
+        entrypoint.setDepositOutputSettler(depositOutputSettler);
+
+        address mockToken = makeAddr("mockToken");
+
+        // No pool registered for the ERC20 token
+        vm.expectRevert(IEntrypoint.PoolNotFound.selector);
+        vm.prank(depositOutputSettler);
+        entrypoint.crosschainDepositERC20(IERC20(mockToken), user, 1 ether, 12345);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         HANDLE REFUND TESTS
     //////////////////////////////////////////////////////////////*/
 

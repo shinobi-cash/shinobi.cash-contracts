@@ -111,4 +111,5 @@ contract ShinobiCashCrosschainState {
     error InvalidChainId();
     error SolverFeeGreaterThanMax();
     error MaxSolverFeeBPSNotSet();
+    error InvalidAsset();
 }
