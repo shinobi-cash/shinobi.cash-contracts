@@ -115,6 +115,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     error InsufficientFundsForHyperlane(uint256 available, uint256 required);
     error PrecommitmentAlreadyUsed();
     error ExpiryBeforeFillDeadline();
+    error DeadlineTooShort();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -127,27 +128,40 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Deposit funds for cross-chain transfer to pool (uses default solver fee)
+     * @notice Deposit funds for cross-chain transfer to pool (uses all defaults)
      * @param precommitment The precommitment for the pool deposit
      */
     function deposit(uint256 precommitment) external payable nonReentrant {
-        _deposit(precommitment, defaultSolverFeeBPS);
+        _deposit(precommitment, defaultSolverFeeBPS, defaultFillDeadline, defaultExpiry);
     }
 
     /**
-     * @notice Deposit funds for cross-chain transfer to pool with custom solver fee
+     * @notice Deposit funds with custom parameters for solver fee and deadlines
      * @param precommitment The precommitment for the pool deposit
      * @param customSolverFeeBPS Custom solver fee in basis points (e.g., 700 = 7%)
+     * @param customFillDeadline Custom fill deadline in seconds from now
+     * @param customExpiry Custom expiry in seconds from now
      */
-    // Function signature updated
-    function depositWithCustomFee(uint256 precommitment, uint256 customSolverFeeBPS) external payable nonReentrant {
+    function depositWithCustomParams(
+        uint256 precommitment,
+        uint256 customSolverFeeBPS,
+        uint32 customFillDeadline,
+        uint32 customExpiry
+    ) external payable nonReentrant {
         if (customSolverFeeBPS > maxSolverFeeBPS) {
             revert SolverFeeExceedsMax(customSolverFeeBPS, maxSolverFeeBPS);
         }
-        _deposit(precommitment, customSolverFeeBPS);
+        if (customExpiry <= customFillDeadline) revert ExpiryBeforeFillDeadline();
+        if (customFillDeadline < 60) revert DeadlineTooShort();
+        _deposit(precommitment, customSolverFeeBPS, customFillDeadline, customExpiry);
     }
 
-    function _deposit(uint256 precommitment, uint256 _solverFeeBPS) internal {
+    function _deposit(
+        uint256 precommitment,
+        uint256 _solverFeeBPS,
+        uint32 _fillDeadline,
+        uint32 _expiry
+    ) internal {
         uint256 totalPaid = msg.value;
         if (totalPaid == 0) revert InvalidAmount();
         _validateConfiguration();
@@ -169,7 +183,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
             revert DepositAmountBelowMinimumAfterFee(netDepositAmount, minimumDepositAmount);
         }
 
-        bytes32 orderId = _createAndExecuteIntent(precommitment, depositFunds, netDepositAmount);
+        bytes32 orderId = _createAndExecuteIntent(precommitment, depositFunds, netDepositAmount, _fillDeadline, _expiry);
 
         if (hyperlaneGasPayment > 0) {
             _submitIntentProofToHyperlane(orderId, hyperlaneGasPayment);
@@ -218,7 +232,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     function _createAndExecuteIntent(
         uint256 precommitment,
         uint256 depositFunds,
-        uint256 netDepositAmount
+        uint256 netDepositAmount,
+        uint32 _fillDeadline,
+        uint32 _expiry
     ) internal returns (bytes32 orderId) {
         uint256 intentNonce = ++nonce;
         uint32 currentTimestamp = block.timestamp.toUint32();
@@ -234,8 +250,8 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
                 user: msg.sender,
                 nonce: intentNonce,
                 originChainId: block.chainid,
-                expires: currentTimestamp + defaultExpiry,
-                fillDeadline: currentTimestamp + defaultFillDeadline,
+                expires: currentTimestamp + _expiry,
+                fillDeadline: currentTimestamp + _fillDeadline,
                 fillOracle: fillOracle,
                 inputs: inputs,
                 outputs: outputs,
