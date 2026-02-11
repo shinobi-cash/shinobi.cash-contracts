@@ -51,6 +51,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
     error ETHTransferFailed();
     error InvalidRefundCalldataLength();
     error InvalidRefundTarget();
+    error DirtyUpperBits();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -233,6 +234,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
     }
 
     function _bytes32ToAddress(bytes32 b) internal pure returns (address addr) {
+        if (uint256(b) > type(uint160).max) revert DirtyUpperBits();
         assembly { addr := b }
     }
 
