@@ -150,8 +150,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     function _deposit(uint256 precommitment, uint256 _solverFeeBPS) internal {
         uint256 totalPaid = msg.value;
         if (totalPaid == 0) revert InvalidAmount();
-        if (destinationChainId == 0) revert ConfigurationNotSet();
-        if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
+        _validateConfiguration();
 
         // Prevent duplicate precommitment usage on this chain
         if (usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
@@ -187,6 +186,17 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
             assetToPool[Constants.NATIVE_ASSET],
             orderId
         );
+    }
+
+    function _validateConfiguration() internal view {
+        if (inputSettler == address(0)) revert ConfigurationNotSet();
+        if (destinationChainId == 0) revert ConfigurationNotSet();
+        if (destinationEntrypoint == address(0)) revert ConfigurationNotSet();
+        if (destinationOutputSettler == address(0)) revert ConfigurationNotSet();
+        if (destinationOracle == address(0)) revert ConfigurationNotSet();
+        if (fillOracle == address(0)) revert ConfigurationNotSet();
+        if (intentOracle == address(0)) revert ConfigurationNotSet();
+        if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
     }
 
     function _quoteHyperlaneGasPayment() internal view returns (uint256 gasPayment) {
