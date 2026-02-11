@@ -35,6 +35,7 @@ contract ShinobiCashCrosschainState {
 
     address public withdrawalInputSettler;
     address public depositOutputSettler;
+    uint256 public maxSolverFeeBPS;
     mapping(uint256 chainId => WithdrawalChainConfig config) public withdrawalChainConfig;
 
     /*//////////////////////////////////////////////////////////////
@@ -43,6 +44,7 @@ contract ShinobiCashCrosschainState {
 
     event WithdrawalInputSettlerUpdated(address indexed _previous, address indexed _new);
     event DepositOutputSettlerUpdated(address indexed _previous, address indexed _new);
+    event MaxSolverFeeBPSUpdated(uint256 _previous, uint256 _new);
 
     event WithdrawalChainConfigured(
         uint256 indexed chainId,
@@ -106,4 +108,7 @@ contract ShinobiCashCrosschainState {
     error OnlyDepositOutputSettler();
     error DeadlineTooShort();
     error ExpiryBeforeFillDeadline();
+    error InvalidChainId();
+    error SolverFeeGreaterThanMax();
+    error MaxSolverFeeBPSNotSet();
 }

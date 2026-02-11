@@ -76,6 +76,14 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         emit DepositOutputSettlerUpdated(previous, _outputSettler);
     }
 
+    /// @notice Configure the maximum solver fee in basis points
+    function setMaxSolverFeeBPS(uint256 _maxSolverFeeBPS) external onlyRole(_OWNER_ROLE) {
+        if (_maxSolverFeeBPS > 10000) revert InvalidFeeBPS();
+        uint256 previous = maxSolverFeeBPS;
+        maxSolverFeeBPS = _maxSolverFeeBPS;
+        emit MaxSolverFeeBPSUpdated(previous, _maxSolverFeeBPS);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     WITHDRAWAL CONFIGURATION
     //////////////////////////////////////////////////////////////*/
@@ -89,6 +97,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint32 _fillDeadline,
         uint32 _expiry
     ) external onlyRole(_OWNER_ROLE) {
+        if (_chainId == 0) revert InvalidChainId();
         if (_outputSettler == address(0) || _outputOracle == address(0) || _fillOracle == address(0)) {
             revert InvalidAddress();
         }
@@ -129,6 +138,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint256 _scope
     ) external override nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
+        if (maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
         if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
         if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
 
@@ -144,6 +154,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             revert DestinationChainNotConfigured();
         }
         if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+        if (_data.solverFeeBPS > maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
 
         _shinobiPool.crosschainWithdraw(_withdrawal, _proof);
 
@@ -240,6 +251,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint256 _scope
     ) external nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
+        if (maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
         if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
         if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
 
@@ -269,6 +281,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             revert DestinationChainNotConfigured();
         }
         if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+        if (_data.solverFeeBPS > maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
 
         _shinobiPool.crossChainWithdraw2(_withdrawal, _proof);
 
