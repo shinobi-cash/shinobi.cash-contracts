@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {Test, console} from "forge-std/Test.sol";
 import {ShinobiCashEntrypoint} from "../src/core/ShinobiCashEntrypoint.sol";
 import {ShinobiCashCrosschainState} from "../src/core/ShinobiCashCrosschainState.sol";
-import {IShinobiCashCrossChainHandler} from "../src/core/interfaces/IShinobiCashCrossChainHandler.sol";
+import {IShinobiCashCrosschainHandler} from "../src/core/interfaces/IShinobiCashCrosschainHandler.sol";
 import {IEntrypoint} from "interfaces/IEntrypoint.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IERC20} from "@oz/interfaces/IERC20.sol";
@@ -500,7 +500,7 @@ contract ShinobiCashEntrypointTest is Test {
         vm.prank(owner);
         entrypoint.setDepositOutputSettler(depositOutputSettler);
 
-        vm.expectRevert(IShinobiCashCrossChainHandler.AmountMismatch.selector);
+        vm.expectRevert(IShinobiCashCrosschainHandler.AmountMismatch.selector);
         vm.prank(depositOutputSettler);
         entrypoint.crosschainDeposit{value: 0.5 ether}(user, 1 ether, 12345);
     }
@@ -560,7 +560,7 @@ contract ShinobiCashEntrypointTest is Test {
         vm.prank(owner);
         entrypoint.setWithdrawalInputSettler(withdrawalInputSettler);
 
-        vm.expectRevert(IShinobiCashCrossChainHandler.AmountMismatch.selector);
+        vm.expectRevert(IShinobiCashCrosschainHandler.AmountMismatch.selector);
         vm.prank(withdrawalInputSettler);
         entrypoint.handleRefund{value: 0.5 ether}(12345, 1 ether, 1);
     }
@@ -582,7 +582,7 @@ contract ShinobiCashEntrypointTest is Test {
     function test_crosschainWithdrawal_revertsWithdrawalInputSettlerNotSet() public {
         // Don't set withdrawal input settler
         IPrivacyPool.Withdrawal memory withdrawal;
-        CrossChainProofLib.CrossChainWithdrawProof memory proof;
+        CrosschainProofLib.CrosschainWithdrawProof memory proof;
 
         vm.expectRevert(ShinobiCashCrosschainState.WithdrawalInputSettlerNotSet.selector);
         entrypoint.crosschainWithdrawal(withdrawal, proof, 1);
@@ -594,7 +594,7 @@ contract ShinobiCashEntrypointTest is Test {
 
         // Don't set maxSolverFeeBPS
         IPrivacyPool.Withdrawal memory withdrawal;
-        CrossChainProofLib.CrossChainWithdrawProof memory proof;
+        CrosschainProofLib.CrosschainWithdrawProof memory proof;
         proof.pubSignals[3] = 1 ether; // withdrawnValue
 
         vm.expectRevert(ShinobiCashCrosschainState.MaxSolverFeeBPSNotSet.selector);
@@ -608,7 +608,7 @@ contract ShinobiCashEntrypointTest is Test {
         entrypoint.setMaxSolverFeeBPS(MAX_SOLVER_FEE_BPS);
 
         IPrivacyPool.Withdrawal memory withdrawal;
-        CrossChainProofLib.CrossChainWithdrawProof memory proof;
+        CrosschainProofLib.CrosschainWithdrawProof memory proof;
         proof.pubSignals[3] = 0; // withdrawnValue = 0
 
         vm.expectRevert(IEntrypoint.InvalidWithdrawalAmount.selector);
@@ -623,7 +623,7 @@ contract ShinobiCashEntrypointTest is Test {
 
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = user; // Wrong processooor
-        CrossChainProofLib.CrossChainWithdrawProof memory proof;
+        CrosschainProofLib.CrosschainWithdrawProof memory proof;
         proof.pubSignals[3] = 1 ether; // withdrawnValue
 
         vm.expectRevert(IEntrypoint.InvalidProcessooor.selector);
@@ -638,7 +638,7 @@ contract ShinobiCashEntrypointTest is Test {
 
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = address(entrypoint);
-        CrossChainProofLib.CrossChainWithdrawProof memory proof;
+        CrosschainProofLib.CrosschainWithdrawProof memory proof;
         proof.pubSignals[3] = 1 ether; // withdrawnValue
 
         vm.expectRevert(IEntrypoint.PoolNotFound.selector);
@@ -684,7 +684,7 @@ contract ShinobiCashEntrypointTest is Test {
 
     function test_crossChainWithdrawal2_revertsWithdrawalInputSettlerNotSet() public {
         IPrivacyPool.Withdrawal memory withdrawal;
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory proof;
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof;
 
         vm.expectRevert(ShinobiCashCrosschainState.WithdrawalInputSettlerNotSet.selector);
         entrypoint.crossChainWithdrawal2(withdrawal, proof, 1);
@@ -695,7 +695,7 @@ contract ShinobiCashEntrypointTest is Test {
         entrypoint.setWithdrawalInputSettler(withdrawalInputSettler);
 
         IPrivacyPool.Withdrawal memory withdrawal;
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory proof;
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof;
         proof.pubSignals[4] = 1 ether; // withdrawnValue
 
         vm.expectRevert(ShinobiCashCrosschainState.MaxSolverFeeBPSNotSet.selector);
@@ -709,7 +709,7 @@ contract ShinobiCashEntrypointTest is Test {
         entrypoint.setMaxSolverFeeBPS(MAX_SOLVER_FEE_BPS);
 
         IPrivacyPool.Withdrawal memory withdrawal;
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory proof;
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof;
         proof.pubSignals[4] = 0; // withdrawnValue = 0
 
         vm.expectRevert(IEntrypoint.InvalidWithdrawalAmount.selector);
@@ -724,7 +724,7 @@ contract ShinobiCashEntrypointTest is Test {
 
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = user; // Wrong processooor
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory proof;
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof;
         proof.pubSignals[4] = 1 ether; // withdrawnValue
 
         vm.expectRevert(IEntrypoint.InvalidProcessooor.selector);
@@ -739,7 +739,7 @@ contract ShinobiCashEntrypointTest is Test {
 
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = address(entrypoint);
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory proof;
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof;
         proof.pubSignals[4] = 1 ether; // withdrawnValue
 
         vm.expectRevert(IEntrypoint.PoolNotFound.selector);
@@ -846,6 +846,6 @@ contract ShinobiCashEntrypointTest is Test {
 }
 
 // Import proof libraries for type definitions
-import {CrossChainProofLib} from "../src/core/libraries/CrossChainProofLib.sol";
+import {CrosschainProofLib} from "../src/core/libraries/CrosschainProofLib.sol";
 import {Withdraw2ProofLib} from "../src/core/libraries/Withdraw2ProofLib.sol";
-import {CrossChainWithdraw2ProofLib} from "../src/core/libraries/CrossChainWithdraw2ProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "../src/core/libraries/CrosschainWithdraw2ProofLib.sol";

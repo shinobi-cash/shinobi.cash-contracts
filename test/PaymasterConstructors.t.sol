@@ -3,15 +3,15 @@ pragma solidity 0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/SimpleShinobiCashPoolPaymaster.sol";
-import {CrossChainWithdrawalPaymaster} from "../src/paymaster/CrossChainWithdrawalPaymaster.sol";
-import {Withdraw2Paymaster} from "../src/paymaster/Withdraw2Paymaster.sol";
-import {CrossChainWithdraw2Paymaster} from "../src/paymaster/CrossChainWithdraw2Paymaster.sol";
+import {ShinobiNativeWithdrawalPaymaster} from "../src/paymaster/ShinobiNativeWithdrawalPaymaster.sol";
+import {ShinobiNativeCrosschainWithdrawalPaymaster} from "../src/paymaster/ShinobiNativeCrosschainWithdrawalPaymaster.sol";
+import {ShinobiNativeWithdraw2Paymaster} from "../src/paymaster/ShinobiNativeWithdraw2Paymaster.sol";
+import {ShinobiNativeCrosschainWithdraw2Paymaster} from "../src/paymaster/ShinobiNativeCrosschainWithdraw2Paymaster.sol";
 import {IShinobiCashEntrypoint} from "../src/core/interfaces/IShinobiCashEntrypoint.sol";
 import {IShinobiCashPool} from "../src/core/interfaces/IShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IWithdraw2Verifier} from "../src/core/interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "../src/core/interfaces/ICrossChainWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 import {ShinobiCashPool} from "../src/core/ShinobiCashPool.sol";
 
 /**
@@ -29,7 +29,7 @@ contract PaymasterConstructorsTest is Test {
     address public shinobiCashEntrypoint = makeAddr("shinobiCashEntrypoint");
     address public ethPool = makeAddr("ethPool");
     address public withdraw2Verifier = makeAddr("withdraw2Verifier");
-    address public crossChainWithdraw2Verifier = makeAddr("crossChainWithdraw2Verifier");
+    address public crosschainWithdraw2Verifier = makeAddr("crosschainWithdraw2Verifier");
     address public owner = makeAddr("owner");
     address public user = makeAddr("user");
     address public smartAccount = makeAddr("smartAccount");
@@ -49,8 +49,8 @@ contract PaymasterConstructorsTest is Test {
                 SIMPLE SHINOBI CASH POOL PAYMASTER TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_SimpleShinobiCashPoolPaymaster_constructor_success() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_constructor_success() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
@@ -60,26 +60,26 @@ contract PaymasterConstructorsTest is Test {
         assertEq(address(paymaster.ETH_CASH_POOL()), ethPool);
     }
 
-    function test_SimpleShinobiCashPoolPaymaster_constructor_revertsZeroEntrypoint() public {
-        vm.expectRevert(SimpleShinobiCashPoolPaymaster.InvalidAddress.selector);
-        new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_constructor_revertsZeroEntrypoint() public {
+        vm.expectRevert(ShinobiNativeWithdrawalPaymaster.InvalidAddress.selector);
+        new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(address(0)),
             IPrivacyPool(ethPool)
         );
     }
 
-    function test_SimpleShinobiCashPoolPaymaster_constructor_revertsZeroPool() public {
-        vm.expectRevert(SimpleShinobiCashPoolPaymaster.InvalidAddress.selector);
-        new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_constructor_revertsZeroPool() public {
+        vm.expectRevert(ShinobiNativeWithdrawalPaymaster.InvalidAddress.selector);
+        new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(address(0))
         );
     }
 
-    function test_SimpleShinobiCashPoolPaymaster_setExpectedSmartAccount_success() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_setExpectedSmartAccount_success() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
@@ -93,19 +93,19 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), smartAccount);
     }
 
-    function test_SimpleShinobiCashPoolPaymaster_setExpectedSmartAccount_revertsZeroAddress() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_setExpectedSmartAccount_revertsZeroAddress() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
         );
 
-        vm.expectRevert(SimpleShinobiCashPoolPaymaster.InvalidProcessooor.selector);
+        vm.expectRevert(ShinobiNativeWithdrawalPaymaster.InvalidProcessooor.selector);
         paymaster.setExpectedSmartAccount(address(0));
     }
 
-    function test_SimpleShinobiCashPoolPaymaster_setExpectedSmartAccount_onlyOwner() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_setExpectedSmartAccount_onlyOwner() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
@@ -116,8 +116,8 @@ contract PaymasterConstructorsTest is Test {
         paymaster.setExpectedSmartAccount(smartAccount);
     }
 
-    function test_SimpleShinobiCashPoolPaymaster_receive_acceptsETH() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_receive_acceptsETH() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
@@ -129,8 +129,8 @@ contract PaymasterConstructorsTest is Test {
         assertEq(address(paymaster).balance, 1 ether);
     }
 
-    function test_SimpleShinobiCashPoolPaymaster_constants() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_constants() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
@@ -145,8 +145,8 @@ contract PaymasterConstructorsTest is Test {
                 CROSS CHAIN WITHDRAWAL PAYMASTER TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_CrossChainWithdrawalPaymaster_constructor_success() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_constructor_success() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
@@ -156,26 +156,26 @@ contract PaymasterConstructorsTest is Test {
         assertEq(address(paymaster.ETH_POOL()), ethPool);
     }
 
-    function test_CrossChainWithdrawalPaymaster_constructor_revertsZeroEntrypoint() public {
-        vm.expectRevert(CrossChainWithdrawalPaymaster.InvalidAddress.selector);
-        new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_constructor_revertsZeroEntrypoint() public {
+        vm.expectRevert(ShinobiNativeCrosschainWithdrawalPaymaster.InvalidAddress.selector);
+        new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(address(0)),
             ShinobiCashPool(ethPool)
         );
     }
 
-    function test_CrossChainWithdrawalPaymaster_constructor_revertsZeroPool() public {
-        vm.expectRevert(CrossChainWithdrawalPaymaster.InvalidAddress.selector);
-        new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_constructor_revertsZeroPool() public {
+        vm.expectRevert(ShinobiNativeCrosschainWithdrawalPaymaster.InvalidAddress.selector);
+        new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(address(0))
         );
     }
 
-    function test_CrossChainWithdrawalPaymaster_setExpectedSmartAccount_success() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_setExpectedSmartAccount_success() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
@@ -189,19 +189,19 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), smartAccount);
     }
 
-    function test_CrossChainWithdrawalPaymaster_setExpectedSmartAccount_revertsZeroAddress() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_setExpectedSmartAccount_revertsZeroAddress() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
         );
 
-        vm.expectRevert(CrossChainWithdrawalPaymaster.InvalidProcessooor.selector);
+        vm.expectRevert(ShinobiNativeCrosschainWithdrawalPaymaster.InvalidProcessooor.selector);
         paymaster.setExpectedSmartAccount(address(0));
     }
 
-    function test_CrossChainWithdrawalPaymaster_setExpectedSmartAccount_onlyOwner() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_setExpectedSmartAccount_onlyOwner() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
@@ -212,8 +212,8 @@ contract PaymasterConstructorsTest is Test {
         paymaster.setExpectedSmartAccount(smartAccount);
     }
 
-    function test_CrossChainWithdrawalPaymaster_receive_acceptsETH() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_receive_acceptsETH() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
@@ -225,8 +225,8 @@ contract PaymasterConstructorsTest is Test {
         assertEq(address(paymaster).balance, 1 ether);
     }
 
-    function test_CrossChainWithdrawalPaymaster_constants() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_constants() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
@@ -241,8 +241,8 @@ contract PaymasterConstructorsTest is Test {
                     WITHDRAW2 PAYMASTER TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_Withdraw2Paymaster_constructor_success() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_constructor_success() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -254,9 +254,9 @@ contract PaymasterConstructorsTest is Test {
         assertEq(address(paymaster.WITHDRAW2_VERIFIER()), withdraw2Verifier);
     }
 
-    function test_Withdraw2Paymaster_constructor_revertsZeroEntrypoint() public {
-        vm.expectRevert(Withdraw2Paymaster.InvalidAddress.selector);
-        new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_constructor_revertsZeroEntrypoint() public {
+        vm.expectRevert(ShinobiNativeWithdraw2Paymaster.InvalidAddress.selector);
+        new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(address(0)),
             IShinobiCashPool(ethPool),
@@ -264,9 +264,9 @@ contract PaymasterConstructorsTest is Test {
         );
     }
 
-    function test_Withdraw2Paymaster_constructor_revertsZeroPool() public {
-        vm.expectRevert(Withdraw2Paymaster.InvalidAddress.selector);
-        new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_constructor_revertsZeroPool() public {
+        vm.expectRevert(ShinobiNativeWithdraw2Paymaster.InvalidAddress.selector);
+        new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(address(0)),
@@ -274,9 +274,9 @@ contract PaymasterConstructorsTest is Test {
         );
     }
 
-    function test_Withdraw2Paymaster_constructor_revertsZeroVerifier() public {
-        vm.expectRevert(Withdraw2Paymaster.InvalidAddress.selector);
-        new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_constructor_revertsZeroVerifier() public {
+        vm.expectRevert(ShinobiNativeWithdraw2Paymaster.InvalidAddress.selector);
+        new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -284,8 +284,8 @@ contract PaymasterConstructorsTest is Test {
         );
     }
 
-    function test_Withdraw2Paymaster_setExpectedSmartAccount_success() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_setExpectedSmartAccount_success() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -300,20 +300,20 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), smartAccount);
     }
 
-    function test_Withdraw2Paymaster_setExpectedSmartAccount_revertsZeroAddress() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_setExpectedSmartAccount_revertsZeroAddress() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
             IWithdraw2Verifier(withdraw2Verifier)
         );
 
-        vm.expectRevert(Withdraw2Paymaster.InvalidProcessooor.selector);
+        vm.expectRevert(ShinobiNativeWithdraw2Paymaster.InvalidProcessooor.selector);
         paymaster.setExpectedSmartAccount(address(0));
     }
 
-    function test_Withdraw2Paymaster_setExpectedSmartAccount_onlyOwner() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_setExpectedSmartAccount_onlyOwner() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -325,8 +325,8 @@ contract PaymasterConstructorsTest is Test {
         paymaster.setExpectedSmartAccount(smartAccount);
     }
 
-    function test_Withdraw2Paymaster_receive_acceptsETH() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_receive_acceptsETH() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -339,8 +339,8 @@ contract PaymasterConstructorsTest is Test {
         assertEq(address(paymaster).balance, 1 ether);
     }
 
-    function test_Withdraw2Paymaster_constants() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_constants() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -356,55 +356,55 @@ contract PaymasterConstructorsTest is Test {
                 CROSS CHAIN WITHDRAW2 PAYMASTER TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_CrossChainWithdraw2Paymaster_constructor_success() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_constructor_success() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         assertEq(address(paymaster.SHINOBI_CASH_ENTRYPOINT()), shinobiCashEntrypoint);
         assertEq(address(paymaster.ETH_CASH_POOL()), ethPool);
-        assertEq(address(paymaster.CROSSCHAIN_WITHDRAW2_VERIFIER()), crossChainWithdraw2Verifier);
+        assertEq(address(paymaster.CROSSCHAIN_WITHDRAW2_VERIFIER()), crosschainWithdraw2Verifier);
     }
 
-    function test_CrossChainWithdraw2Paymaster_constructor_revertsZeroEntrypoint() public {
-        vm.expectRevert(CrossChainWithdraw2Paymaster.InvalidAddress.selector);
-        new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_constructor_revertsZeroEntrypoint() public {
+        vm.expectRevert(ShinobiNativeCrosschainWithdraw2Paymaster.InvalidAddress.selector);
+        new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(address(0)),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
     }
 
-    function test_CrossChainWithdraw2Paymaster_constructor_revertsZeroPool() public {
-        vm.expectRevert(CrossChainWithdraw2Paymaster.InvalidAddress.selector);
-        new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_constructor_revertsZeroPool() public {
+        vm.expectRevert(ShinobiNativeCrosschainWithdraw2Paymaster.InvalidAddress.selector);
+        new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(address(0)),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
     }
 
-    function test_CrossChainWithdraw2Paymaster_constructor_revertsZeroVerifier() public {
-        vm.expectRevert(CrossChainWithdraw2Paymaster.InvalidAddress.selector);
-        new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_constructor_revertsZeroVerifier() public {
+        vm.expectRevert(ShinobiNativeCrosschainWithdraw2Paymaster.InvalidAddress.selector);
+        new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(address(0))
+            ICrosschainWithdraw2Verifier(address(0))
         );
     }
 
-    function test_CrossChainWithdraw2Paymaster_setExpectedSmartAccount_success() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_setExpectedSmartAccount_success() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         vm.expectEmit(true, true, false, false);
@@ -415,24 +415,24 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), smartAccount);
     }
 
-    function test_CrossChainWithdraw2Paymaster_setExpectedSmartAccount_revertsZeroAddress() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_setExpectedSmartAccount_revertsZeroAddress() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
-        vm.expectRevert(CrossChainWithdraw2Paymaster.InvalidProcessooor.selector);
+        vm.expectRevert(ShinobiNativeCrosschainWithdraw2Paymaster.InvalidProcessooor.selector);
         paymaster.setExpectedSmartAccount(address(0));
     }
 
-    function test_CrossChainWithdraw2Paymaster_setExpectedSmartAccount_onlyOwner() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_setExpectedSmartAccount_onlyOwner() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         vm.expectRevert();
@@ -440,12 +440,12 @@ contract PaymasterConstructorsTest is Test {
         paymaster.setExpectedSmartAccount(smartAccount);
     }
 
-    function test_CrossChainWithdraw2Paymaster_receive_acceptsETH() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_receive_acceptsETH() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         vm.deal(address(this), 1 ether);
@@ -454,12 +454,12 @@ contract PaymasterConstructorsTest is Test {
         assertEq(address(paymaster).balance, 1 ether);
     }
 
-    function test_CrossChainWithdraw2Paymaster_constants() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_constants() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         assertEq(paymaster.MIN_POST_OP_GAS_LIMIT(), 50_000);
@@ -471,8 +471,8 @@ contract PaymasterConstructorsTest is Test {
                         CAN UPDATE SMART ACCOUNT TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_SimpleShinobiCashPoolPaymaster_setExpectedSmartAccount_canUpdate() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_setExpectedSmartAccount_canUpdate() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
@@ -490,8 +490,8 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), newSmartAccount);
     }
 
-    function test_CrossChainWithdrawalPaymaster_setExpectedSmartAccount_canUpdate() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_setExpectedSmartAccount_canUpdate() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
@@ -509,8 +509,8 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), newSmartAccount);
     }
 
-    function test_Withdraw2Paymaster_setExpectedSmartAccount_canUpdate() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_setExpectedSmartAccount_canUpdate() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -529,12 +529,12 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), newSmartAccount);
     }
 
-    function test_CrossChainWithdraw2Paymaster_setExpectedSmartAccount_canUpdate() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_setExpectedSmartAccount_canUpdate() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         paymaster.setExpectedSmartAccount(smartAccount);
@@ -553,8 +553,8 @@ contract PaymasterConstructorsTest is Test {
                         INITIAL STATE TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_SimpleShinobiCashPoolPaymaster_expectedSmartAccount_initiallyZero() public {
-        SimpleShinobiCashPoolPaymaster paymaster = new SimpleShinobiCashPoolPaymaster(
+    function test_ShinobiNativeWithdrawalPaymaster_expectedSmartAccount_initiallyZero() public {
+        ShinobiNativeWithdrawalPaymaster paymaster = new ShinobiNativeWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
@@ -563,8 +563,8 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), address(0));
     }
 
-    function test_CrossChainWithdrawalPaymaster_expectedSmartAccount_initiallyZero() public {
-        CrossChainWithdrawalPaymaster paymaster = new CrossChainWithdrawalPaymaster(
+    function test_ShinobiNativeCrosschainWithdrawalPaymaster_expectedSmartAccount_initiallyZero() public {
+        ShinobiNativeCrosschainWithdrawalPaymaster paymaster = new ShinobiNativeCrosschainWithdrawalPaymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
@@ -573,8 +573,8 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), address(0));
     }
 
-    function test_Withdraw2Paymaster_expectedSmartAccount_initiallyZero() public {
-        Withdraw2Paymaster paymaster = new Withdraw2Paymaster(
+    function test_ShinobiNativeWithdraw2Paymaster_expectedSmartAccount_initiallyZero() public {
+        ShinobiNativeWithdraw2Paymaster paymaster = new ShinobiNativeWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
@@ -584,12 +584,12 @@ contract PaymasterConstructorsTest is Test {
         assertEq(paymaster.expectedSmartAccount(), address(0));
     }
 
-    function test_CrossChainWithdraw2Paymaster_expectedSmartAccount_initiallyZero() public {
-        CrossChainWithdraw2Paymaster paymaster = new CrossChainWithdraw2Paymaster(
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_expectedSmartAccount_initiallyZero() public {
+        ShinobiNativeCrosschainWithdraw2Paymaster paymaster = new ShinobiNativeCrosschainWithdraw2Paymaster(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         assertEq(paymaster.expectedSmartAccount(), address(0));

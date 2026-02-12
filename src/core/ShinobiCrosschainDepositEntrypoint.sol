@@ -85,7 +85,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
         uint256 gasLimit
     );
     event IntentProofSubmitted(bytes32 indexed orderId, uint256 hyperlaneGasPayment);
-    event CrossChainDepositIntent(
+    event CrosschainDepositIntent(
         address indexed depositor,
         uint256 indexed precommitment,
         uint256 totalPaid,
@@ -188,7 +188,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
             _submitIntentProofToHyperlane(orderId, hyperlaneGasPayment);
         }
 
-        emit CrossChainDepositIntent(
+        emit CrosschainDepositIntent(
             msg.sender,
             precommitment,
             totalPaid,

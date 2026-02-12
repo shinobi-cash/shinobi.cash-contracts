@@ -55,7 +55,7 @@ contract ShinobiCashCrosschainState {
         address fillOracle
     );
 
-    event CrossChainWithdrawalIntentRelayed(
+    event CrosschainWithdrawalIntentRelayed(
         address indexed _relayer,
         bytes32 indexed _crosschainRecipient,
         IERC20 indexed _asset,
@@ -84,7 +84,7 @@ contract ShinobiCashCrosschainState {
         Withdraw2Nullifiers _nullifiers
     );
 
-    event CrossChainWithdraw2IntentRelayed(
+    event CrosschainWithdraw2IntentRelayed(
         address indexed _relayer,
         bytes32 indexed _crosschainRecipient,
         IERC20 indexed _asset,

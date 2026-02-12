@@ -4,13 +4,13 @@
 pragma solidity 0.8.28;
 
 import {PrivacyPool} from "contracts/PrivacyPool.sol";
-import {ICrossChainWithdrawalProofVerifier} from "./interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {ICrosschainWithdrawalProofVerifier} from "./interfaces/ICrosschainWithdrawalProofVerifier.sol";
 import {IWithdraw2Verifier} from "./interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "./interfaces/ICrossChainWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "./interfaces/ICrosschainWithdraw2Verifier.sol";
 import {IShinobiCashPool} from "./interfaces/IShinobiCashPool.sol";
-import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
+import {CrosschainProofLib} from "./libraries/CrosschainProofLib.sol";
 import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
-import {CrossChainWithdraw2ProofLib} from "./libraries/CrossChainWithdraw2ProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "./libraries/CrosschainWithdraw2ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
 /**
@@ -20,17 +20,17 @@ import {Constants} from "contracts/lib/Constants.sol";
  * @dev Extends PrivacyPool with cross-chain withdrawal and 2:1 merge support
  */
 abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
-    using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
+    using CrosschainProofLib for CrosschainProofLib.CrosschainWithdrawProof;
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
-    using CrossChainWithdraw2ProofLib for CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof;
+    using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    ICrossChainWithdrawalProofVerifier public immutable CROSS_CHAIN_WITHDRAWAL_VERIFIER;
+    ICrosschainWithdrawalProofVerifier public immutable CROSS_CHAIN_WITHDRAWAL_VERIFIER;
     IWithdraw2Verifier public immutable WITHDRAW2_VERIFIER;
-    ICrossChainWithdraw2Verifier public immutable CROSSCHAIN_WITHDRAW2_VERIFIER;
+    ICrosschainWithdraw2Verifier public immutable CROSSCHAIN_WITHDRAW2_VERIFIER;
 
     /*//////////////////////////////////////////////////////////////
                               MODIFIERS
@@ -38,7 +38,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
 
     modifier validCrosschainWithdrawal(
         Withdrawal memory _withdrawal,
-        CrossChainProofLib.CrossChainWithdrawProof memory _proof
+        CrosschainProofLib.CrosschainWithdrawProof memory _proof
     ) {
         if (msg.sender != _withdrawal.processooor) revert InvalidProcessooor();
 
@@ -76,9 +76,9 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         _;
     }
 
-    modifier validCrossChainWithdraw2(
+    modifier validCrosschainWithdraw2(
         Withdrawal memory _withdrawal,
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory _proof
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory _proof
     ) {
         if (msg.sender != _withdrawal.processooor) revert InvalidProcessooor();
 
@@ -105,13 +105,13 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         address _withdrawalVerifier,
         address _ragequitVerifier,
         address _asset,
-        ICrossChainWithdrawalProofVerifier _crossChainVerifier,
+        ICrosschainWithdrawalProofVerifier _crossChainVerifier,
         IWithdraw2Verifier _withdraw2Verifier,
-        ICrossChainWithdraw2Verifier _crossChainWithdraw2Verifier
+        ICrosschainWithdraw2Verifier _crossChainWithdraw2Verifier
     ) PrivacyPool(_entrypoint, _withdrawalVerifier, _ragequitVerifier, _asset) {
-        if (address(_crossChainVerifier) == address(0)) revert InvalidCrossChainWithdrawalVerifier();
+        if (address(_crossChainVerifier) == address(0)) revert InvalidCrosschainWithdrawalVerifier();
         if (address(_withdraw2Verifier) == address(0)) revert InvalidWithdraw2Verifier();
-        if (address(_crossChainWithdraw2Verifier) == address(0)) revert InvalidCrossChainWithdraw2Verifier();
+        if (address(_crossChainWithdraw2Verifier) == address(0)) revert InvalidCrosschainWithdraw2Verifier();
 
         CROSS_CHAIN_WITHDRAWAL_VERIFIER = _crossChainVerifier;
         WITHDRAW2_VERIFIER = _withdraw2Verifier;
@@ -125,7 +125,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     /// @inheritdoc IShinobiCashPool
     function crosschainWithdraw(
         Withdrawal memory _withdrawal,
-        CrossChainProofLib.CrossChainWithdrawProof memory _proof
+        CrosschainProofLib.CrosschainWithdrawProof memory _proof
     ) external override validCrosschainWithdrawal(_withdrawal, _proof) {
         if (!CROSS_CHAIN_WITHDRAWAL_VERIFIER.verifyProof(_proof.pA, _proof.pB, _proof.pC, _proof.pubSignals)) {
             revert InvalidCrosschainWithdrawalProof();
@@ -180,10 +180,10 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
     /// @inheritdoc IShinobiCashPool
     function crossChainWithdraw2(
         Withdrawal memory _withdrawal,
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory _proof
-    ) external override validCrossChainWithdraw2(_withdrawal, _proof) {
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory _proof
+    ) external override validCrosschainWithdraw2(_withdrawal, _proof) {
         if (!CROSSCHAIN_WITHDRAW2_VERIFIER.verifyProof(_proof.pA, _proof.pB, _proof.pC, _proof.pubSignals)) {
-            revert InvalidCrossChainWithdraw2Proof();
+            revert InvalidCrosschainWithdraw2Proof();
         }
 
         _spend(_proof.nullifierHash0());
@@ -191,7 +191,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
         _insert(_proof.newCommitmentHash());
         _push(_withdrawal.processooor, _proof.withdrawnValue());
 
-        emit CrossChainWithdraw2Executed(
+        emit CrosschainWithdraw2Executed(
             _withdrawal.processooor,
             _proof.withdrawnValue(),
             Withdraw2Nullifiers(_proof.nullifierHash0(), _proof.nullifierHash1()),
@@ -204,7 +204,7 @@ abstract contract ShinobiCashPool is IShinobiCashPool, PrivacyPool {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function supportsCrossChain() external pure returns (bool) {
+    function supportsCrosschain() external pure returns (bool) {
         return true;
     }
 }

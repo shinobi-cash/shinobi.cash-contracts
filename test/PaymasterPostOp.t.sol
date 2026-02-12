@@ -4,15 +4,15 @@ pragma solidity 0.8.28;
 import {Test, console} from "forge-std/Test.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
-import {SimpleShinobiCashPoolPaymaster} from "../src/paymaster/SimpleShinobiCashPoolPaymaster.sol";
-import {CrossChainWithdrawalPaymaster} from "../src/paymaster/CrossChainWithdrawalPaymaster.sol";
-import {Withdraw2Paymaster} from "../src/paymaster/Withdraw2Paymaster.sol";
-import {CrossChainWithdraw2Paymaster} from "../src/paymaster/CrossChainWithdraw2Paymaster.sol";
+import {ShinobiNativeWithdrawalPaymaster} from "../src/paymaster/ShinobiNativeWithdrawalPaymaster.sol";
+import {ShinobiNativeCrosschainWithdrawalPaymaster} from "../src/paymaster/ShinobiNativeCrosschainWithdrawalPaymaster.sol";
+import {ShinobiNativeWithdraw2Paymaster} from "../src/paymaster/ShinobiNativeWithdraw2Paymaster.sol";
+import {ShinobiNativeCrosschainWithdraw2Paymaster} from "../src/paymaster/ShinobiNativeCrosschainWithdraw2Paymaster.sol";
 import {IShinobiCashEntrypoint} from "../src/core/interfaces/IShinobiCashEntrypoint.sol";
 import {IShinobiCashPool} from "../src/core/interfaces/IShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IWithdraw2Verifier} from "../src/core/interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "../src/core/interfaces/ICrossChainWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 import {ShinobiCashPool} from "../src/core/ShinobiCashPool.sol";
 
 /**
@@ -35,14 +35,14 @@ contract MockEntryPointWithDeposit {
 }
 
 /**
- * @notice Test harness to expose internal _postOp for SimpleShinobiCashPoolPaymaster
+ * @notice Test harness to expose internal _postOp for ShinobiNativeWithdrawalPaymaster
  */
-contract SimpleShinobiCashPoolPaymasterHarness is SimpleShinobiCashPoolPaymaster {
+contract ShinobiNativeWithdrawalPaymasterHarness is ShinobiNativeWithdrawalPaymaster {
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         IPrivacyPool _ethPrivacyPool
-    ) SimpleShinobiCashPoolPaymaster(_entryPoint, _shinobiCashEntrypoint, _ethPrivacyPool) {}
+    ) ShinobiNativeWithdrawalPaymaster(_entryPoint, _shinobiCashEntrypoint, _ethPrivacyPool) {}
 
     function exposed_postOp(
         IPaymaster.PostOpMode mode,
@@ -55,14 +55,14 @@ contract SimpleShinobiCashPoolPaymasterHarness is SimpleShinobiCashPoolPaymaster
 }
 
 /**
- * @notice Test harness to expose internal _postOp for CrossChainWithdrawalPaymaster
+ * @notice Test harness to expose internal _postOp for ShinobiNativeCrosschainWithdrawalPaymaster
  */
-contract CrossChainWithdrawalPaymasterHarness is CrossChainWithdrawalPaymaster {
+contract ShinobiNativeCrosschainWithdrawalPaymasterHarness is ShinobiNativeCrosschainWithdrawalPaymaster {
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         ShinobiCashPool _ethShinobiCashPool
-    ) CrossChainWithdrawalPaymaster(_entryPoint, _shinobiCashEntrypoint, _ethShinobiCashPool) {}
+    ) ShinobiNativeCrosschainWithdrawalPaymaster(_entryPoint, _shinobiCashEntrypoint, _ethShinobiCashPool) {}
 
     function exposed_postOp(
         IPaymaster.PostOpMode mode,
@@ -75,15 +75,15 @@ contract CrossChainWithdrawalPaymasterHarness is CrossChainWithdrawalPaymaster {
 }
 
 /**
- * @notice Test harness to expose internal _postOp for Withdraw2Paymaster
+ * @notice Test harness to expose internal _postOp for ShinobiNativeWithdraw2Paymaster
  */
-contract Withdraw2PaymasterHarness is Withdraw2Paymaster {
+contract ShinobiNativeWithdraw2PaymasterHarness is ShinobiNativeWithdraw2Paymaster {
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         IShinobiCashPool _ethCashPool,
         IWithdraw2Verifier _withdraw2Verifier
-    ) Withdraw2Paymaster(_entryPoint, _shinobiCashEntrypoint, _ethCashPool, _withdraw2Verifier) {}
+    ) ShinobiNativeWithdraw2Paymaster(_entryPoint, _shinobiCashEntrypoint, _ethCashPool, _withdraw2Verifier) {}
 
     function exposed_postOp(
         IPaymaster.PostOpMode mode,
@@ -96,15 +96,15 @@ contract Withdraw2PaymasterHarness is Withdraw2Paymaster {
 }
 
 /**
- * @notice Test harness to expose internal _postOp for CrossChainWithdraw2Paymaster
+ * @notice Test harness to expose internal _postOp for ShinobiNativeCrosschainWithdraw2Paymaster
  */
-contract CrossChainWithdraw2PaymasterHarness is CrossChainWithdraw2Paymaster {
+contract ShinobiNativeCrosschainWithdraw2PaymasterHarness is ShinobiNativeCrosschainWithdraw2Paymaster {
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         IShinobiCashPool _ethCashPool,
-        ICrossChainWithdraw2Verifier _crossChainWithdraw2Verifier
-    ) CrossChainWithdraw2Paymaster(_entryPoint, _shinobiCashEntrypoint, _ethCashPool, _crossChainWithdraw2Verifier) {}
+        ICrosschainWithdraw2Verifier _crosschainWithdraw2Verifier
+    ) ShinobiNativeCrosschainWithdraw2Paymaster(_entryPoint, _shinobiCashEntrypoint, _ethCashPool, _crosschainWithdraw2Verifier) {}
 
     function exposed_postOp(
         IPaymaster.PostOpMode mode,
@@ -132,12 +132,12 @@ contract PaymasterPostOpTest is Test {
     address public shinobiCashEntrypoint = makeAddr("shinobiCashEntrypoint");
     address public ethPool = makeAddr("ethPool");
     address public withdraw2Verifier = makeAddr("withdraw2Verifier");
-    address public crossChainWithdraw2Verifier = makeAddr("crossChainWithdraw2Verifier");
+    address public crosschainWithdraw2Verifier = makeAddr("crosschainWithdraw2Verifier");
 
-    SimpleShinobiCashPoolPaymasterHarness public simplePaymaster;
-    CrossChainWithdrawalPaymasterHarness public crossChainPaymaster;
-    Withdraw2PaymasterHarness public withdraw2Paymaster;
-    CrossChainWithdraw2PaymasterHarness public crossChainWithdraw2Paymaster;
+    ShinobiNativeWithdrawalPaymasterHarness public simplePaymaster;
+    ShinobiNativeCrosschainWithdrawalPaymasterHarness public crosschainPaymaster;
+    ShinobiNativeWithdraw2PaymasterHarness public withdraw2Paymaster;
+    ShinobiNativeCrosschainWithdraw2PaymasterHarness public crosschainWithdraw2Paymaster;
 
     RefundRecipient public recipient;
 
@@ -154,7 +154,7 @@ contract PaymasterPostOpTest is Test {
         bool success
     );
 
-    event CrossChainWithdrawalSponsored(
+    event CrosschainWithdrawalSponsored(
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
@@ -170,7 +170,7 @@ contract PaymasterPostOpTest is Test {
         bool success
     );
 
-    event CrossChainWithdraw2Sponsored(
+    event CrosschainWithdraw2Sponsored(
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
@@ -182,37 +182,37 @@ contract PaymasterPostOpTest is Test {
         mockEntryPoint = new MockEntryPointWithDeposit();
         recipient = new RefundRecipient();
 
-        simplePaymaster = new SimpleShinobiCashPoolPaymasterHarness(
+        simplePaymaster = new ShinobiNativeWithdrawalPaymasterHarness(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IPrivacyPool(ethPool)
         );
 
-        crossChainPaymaster = new CrossChainWithdrawalPaymasterHarness(
+        crosschainPaymaster = new ShinobiNativeCrosschainWithdrawalPaymasterHarness(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             ShinobiCashPool(ethPool)
         );
 
-        withdraw2Paymaster = new Withdraw2PaymasterHarness(
+        withdraw2Paymaster = new ShinobiNativeWithdraw2PaymasterHarness(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
             IWithdraw2Verifier(withdraw2Verifier)
         );
 
-        crossChainWithdraw2Paymaster = new CrossChainWithdraw2PaymasterHarness(
+        crosschainWithdraw2Paymaster = new ShinobiNativeCrosschainWithdraw2PaymasterHarness(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         );
 
         // Fund paymasters
         vm.deal(address(simplePaymaster), 10 ether);
-        vm.deal(address(crossChainPaymaster), 10 ether);
+        vm.deal(address(crosschainPaymaster), 10 ether);
         vm.deal(address(withdraw2Paymaster), 10 ether);
-        vm.deal(address(crossChainWithdraw2Paymaster), 10 ether);
+        vm.deal(address(crosschainWithdraw2Paymaster), 10 ether);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -308,14 +308,14 @@ contract PaymasterPostOpTest is Test {
             CROSS CHAIN WITHDRAWAL PAYMASTER POSTOP TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_CrossChainPaymaster_postOp_success() public {
+    function test_crosschainPaymaster_postOp_success() public {
         bytes memory context = abi.encode(USER_OP_HASH, address(recipient), EXPECTED_FEE);
 
-        uint256 postOpGasLimit = crossChainPaymaster.MIN_POST_OP_GAS_LIMIT();
+        uint256 postOpGasLimit = crosschainPaymaster.MIN_POST_OP_GAS_LIMIT();
         uint256 expectedActualCost = ACTUAL_GAS_COST + (postOpGasLimit * FEE_PER_GAS);
 
         vm.expectEmit(true, true, false, true);
-        emit CrossChainWithdrawalSponsored(
+        emit CrosschainWithdrawalSponsored(
             address(recipient),
             USER_OP_HASH,
             expectedActualCost,
@@ -324,7 +324,7 @@ contract PaymasterPostOpTest is Test {
         );
 
         uint256 gasBefore = gasleft();
-        crossChainPaymaster.exposed_postOp(
+        crosschainPaymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,
             context,
             ACTUAL_GAS_COST,
@@ -332,16 +332,16 @@ contract PaymasterPostOpTest is Test {
         );
         uint256 gasUsed = gasBefore - gasleft();
 
-        console.log("CrossChainPaymaster postOp gas used:", gasUsed);
+        console.log("CrosschainPaymaster postOp gas used:", gasUsed);
 
         // Cross-chain deposits expectedFeeAmount, not actualCost
-        assertEq(mockEntryPoint.getDeposit(address(crossChainPaymaster)), EXPECTED_FEE);
+        assertEq(mockEntryPoint.getDeposit(address(crosschainPaymaster)), EXPECTED_FEE);
     }
 
-    function test_CrossChainPaymaster_postOp_noDepositWhenZeroFee() public {
+    function test_crosschainPaymaster_postOp_noDepositWhenZeroFee() public {
         bytes memory context = abi.encode(USER_OP_HASH, address(recipient), 0);
 
-        crossChainPaymaster.exposed_postOp(
+        crosschainPaymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,
             context,
             ACTUAL_GAS_COST,
@@ -349,14 +349,14 @@ contract PaymasterPostOpTest is Test {
         );
 
         // No deposit when expectedFeeAmount is 0
-        assertEq(mockEntryPoint.getDeposit(address(crossChainPaymaster)), 0);
+        assertEq(mockEntryPoint.getDeposit(address(crosschainPaymaster)), 0);
     }
 
     /*//////////////////////////////////////////////////////////////
                 WITHDRAW2 PAYMASTER POSTOP TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_Withdraw2Paymaster_postOp_successWithRefund() public {
+    function test_ShinobiNativeWithdraw2Paymaster_postOp_successWithRefund() public {
         bytes memory context = abi.encode(USER_OP_HASH, address(recipient), EXPECTED_FEE);
 
         uint256 postOpGasLimit = withdraw2Paymaster.MIN_POST_OP_GAS_LIMIT();
@@ -381,13 +381,13 @@ contract PaymasterPostOpTest is Test {
         );
         uint256 gasUsed = gasBefore - gasleft();
 
-        console.log("Withdraw2Paymaster postOp gas used:", gasUsed);
+        console.log("ShinobiNativeWithdraw2Paymaster postOp gas used:", gasUsed);
 
         assertEq(recipient.receivedAmount(), expectedRefund);
         assertEq(mockEntryPoint.getDeposit(address(withdraw2Paymaster)), expectedActualCost);
     }
 
-    function test_Withdraw2Paymaster_postOp_failedNoRefund() public {
+    function test_ShinobiNativeWithdraw2Paymaster_postOp_failedNoRefund() public {
         bytes memory context = abi.encode(USER_OP_HASH, address(recipient), EXPECTED_FEE);
 
         uint256 postOpGasLimit = withdraw2Paymaster.MIN_POST_OP_GAS_LIMIT();
@@ -408,14 +408,14 @@ contract PaymasterPostOpTest is Test {
             CROSS CHAIN WITHDRAW2 PAYMASTER POSTOP TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_CrossChainWithdraw2Paymaster_postOp_success() public {
+    function test_ShinobiNativeCrosschainWithdraw2Paymaster_postOp_success() public {
         bytes memory context = abi.encode(USER_OP_HASH, address(recipient), EXPECTED_FEE);
 
-        uint256 postOpGasLimit = crossChainWithdraw2Paymaster.MIN_POST_OP_GAS_LIMIT();
+        uint256 postOpGasLimit = crosschainWithdraw2Paymaster.MIN_POST_OP_GAS_LIMIT();
         uint256 expectedActualCost = ACTUAL_GAS_COST + (postOpGasLimit * FEE_PER_GAS);
 
         vm.expectEmit(true, true, false, true);
-        emit CrossChainWithdraw2Sponsored(
+        emit CrosschainWithdraw2Sponsored(
             address(recipient),
             USER_OP_HASH,
             expectedActualCost,
@@ -424,7 +424,7 @@ contract PaymasterPostOpTest is Test {
         );
 
         uint256 gasBefore = gasleft();
-        crossChainWithdraw2Paymaster.exposed_postOp(
+        crosschainWithdraw2Paymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,
             context,
             ACTUAL_GAS_COST,
@@ -432,9 +432,9 @@ contract PaymasterPostOpTest is Test {
         );
         uint256 gasUsed = gasBefore - gasleft();
 
-        console.log("CrossChainWithdraw2Paymaster postOp gas used:", gasUsed);
+        console.log("ShinobiNativeCrosschainWithdraw2Paymaster postOp gas used:", gasUsed);
 
-        assertEq(mockEntryPoint.getDeposit(address(crossChainWithdraw2Paymaster)), EXPECTED_FEE);
+        assertEq(mockEntryPoint.getDeposit(address(crosschainWithdraw2Paymaster)), EXPECTED_FEE);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -456,19 +456,19 @@ contract PaymasterPostOpTest is Test {
         );
         uint256 simpleGas = gasBefore - gasleft();
 
-        // 2. CrossChainPaymaster (no refund)
+        // 2. CrosschainPaymaster (no refund)
         RefundRecipient recipient2 = new RefundRecipient();
         bytes memory context2 = abi.encode(USER_OP_HASH, address(recipient2), EXPECTED_FEE);
         gasBefore = gasleft();
-        crossChainPaymaster.exposed_postOp(
+        crosschainPaymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,
             context2,
             ACTUAL_GAS_COST,
             FEE_PER_GAS
         );
-        uint256 crossChainGas = gasBefore - gasleft();
+        uint256 crosschainGas = gasBefore - gasleft();
 
-        // 3. Withdraw2Paymaster (with refund path)
+        // 3. ShinobiNativeWithdraw2Paymaster (with refund path)
         RefundRecipient recipient3 = new RefundRecipient();
         bytes memory context3 = abi.encode(USER_OP_HASH, address(recipient3), EXPECTED_FEE);
         gasBefore = gasleft();
@@ -480,23 +480,23 @@ contract PaymasterPostOpTest is Test {
         );
         uint256 withdraw2Gas = gasBefore - gasleft();
 
-        // 4. CrossChainWithdraw2Paymaster (no refund)
+        // 4. ShinobiNativeCrosschainWithdraw2Paymaster (no refund)
         RefundRecipient recipient4 = new RefundRecipient();
         bytes memory context4 = abi.encode(USER_OP_HASH, address(recipient4), EXPECTED_FEE);
         gasBefore = gasleft();
-        crossChainWithdraw2Paymaster.exposed_postOp(
+        crosschainWithdraw2Paymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,
             context4,
             ACTUAL_GAS_COST,
             FEE_PER_GAS
         );
-        uint256 crossChainWithdraw2Gas = gasBefore - gasleft();
+        uint256 crosschainWithdraw2Gas = gasBefore - gasleft();
 
         console.log("=== PostOp Gas Usage ===");
-        console.log("SimpleShinobiCashPoolPaymaster:", simpleGas);
-        console.log("CrossChainWithdrawalPaymaster:", crossChainGas);
-        console.log("Withdraw2Paymaster:", withdraw2Gas);
-        console.log("CrossChainWithdraw2Paymaster:", crossChainWithdraw2Gas);
+        console.log("ShinobiNativeWithdrawalPaymaster:", simpleGas);
+        console.log("ShinobiNativeCrosschainWithdrawalPaymaster:", crosschainGas);
+        console.log("ShinobiNativeWithdraw2Paymaster:", withdraw2Gas);
+        console.log("ShinobiNativeCrosschainWithdraw2Paymaster:", crosschainWithdraw2Gas);
     }
 
     function test_measurePostOpGas_withFailedRefund() public {

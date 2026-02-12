@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025 Karandeep Singh (https://github.com/KannuSingh)
 pragma solidity 0.8.28;
+
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
 import {_packValidationData} from "@account-abstraction/contracts/core/Helpers.sol";
 import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
-
-import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IShinobiCashEntrypoint} from "../core/interfaces/IShinobiCashEntrypoint.sol";
-import {IEntrypoint} from "interfaces/IEntrypoint.sol";
-import {ProofLib} from "contracts/lib/ProofLib.sol";
+import {IShinobiCashCrosschainHandler} from "../core/interfaces/IShinobiCashCrosschainHandler.sol";
+import {ShinobiCashPool} from "../core/ShinobiCashPool.sol";
+import {ICrosschainWithdrawalProofVerifier} from "../core/interfaces/ICrosschainWithdrawalProofVerifier.sol";
+import {CrosschainProofLib} from "../core/libraries/CrosschainProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
-import {IWithdrawalVerifier} from "../core/interfaces/IWithdrawalVerifier.sol";
+import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 
 /**
- * @title SimpleShinobiCashPoolPaymaster
+ * @title ShinobiNativeCrosschainWithdrawalPaymaster
  * @author Karandeep Singh
- * @notice ERC-4337 Paymaster for same-chain privacy pool withdrawals
- * @dev Validates 8-signal ZK proofs and economics before sponsoring UserOperations
+ * @notice ERC-4337 Paymaster for cross-chain privacy pool withdrawals
+ * @dev Validates 9-signal ZK proofs and economics before sponsoring UserOperations
  */
-contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
-    using ProofLib for ProofLib.WithdrawProof;
+contract ShinobiNativeCrosschainWithdrawalPaymaster is BasePaymaster {
+    using CrosschainProofLib for CrosschainProofLib.CrosschainWithdrawProof;
     using UserOperationLib for PackedUserOperation;
 
     /*//////////////////////////////////////////////////////////////
@@ -30,19 +31,19 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     uint256 internal constant _VALIDATION_FAILED = 1;
-    uint256 public constant MIN_POST_OP_GAS_LIMIT = 80_000;
-    uint256 public constant MIN_CALL_GAS_LIMIT = 550_000;
-    uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 400_000;
+    uint256 public constant MIN_POST_OP_GAS_LIMIT = 50_000;
+    uint256 public constant MIN_CALL_GAS_LIMIT = 687_500;
+    uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 500_000;
 
     IShinobiCashEntrypoint public immutable SHINOBI_CASH_ENTRYPOINT;
-    IPrivacyPool public immutable ETH_CASH_POOL;
+    ShinobiCashPool public immutable ETH_POOL;
     address public expectedSmartAccount;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event PrivacyPoolWithdrawalSponsored(
+    event CrosschainWithdrawalSponsored(
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
@@ -55,7 +56,6 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
         address indexed newAccount
     );
 
-
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -64,7 +64,7 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     error InsufficientPostOpGasLimit();
     error InsufficientCallGasLimit();
     error InsufficientPaymasterVerificationGas();
-    error WithdrawalValidationFailed();
+    error CrosschainWithdrawalValidationFailed();
     error InsufficientPaymasterCost();
     error WrongFeeRecipient();
     error UnauthorizedCaller();
@@ -83,16 +83,16 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
-        IPrivacyPool _ethPrivacyPool
+        ShinobiCashPool _ethShinobiCashPool
     ) BasePaymaster(_entryPoint) {
         if (address(_shinobiCashEntrypoint) == address(0)) revert InvalidAddress();
-        if (address(_ethPrivacyPool) == address(0)) revert InvalidAddress();
+        if (address(_ethShinobiCashPool) == address(0)) revert InvalidAddress();
         SHINOBI_CASH_ENTRYPOINT = _shinobiCashEntrypoint;
-        ETH_CASH_POOL = _ethPrivacyPool;
+        ETH_POOL = _ethShinobiCashPool;
     }
 
     /*//////////////////////////////////////////////////////////////
-                                RECEIVE
+                               RECEIVE
     //////////////////////////////////////////////////////////////*/
 
     receive() external payable {}
@@ -113,29 +113,29 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Internal relay method that mirrors Privacy Pool Entrypoint.relay()
+     * @notice Internal relay method that mirrors ShinobiCashEntrypoint.crosschainWithdrawal()
      * @dev Called internally to validate withdrawal proofs and store results in transient storage
      */
-    function relay(
-        IPrivacyPool.Withdrawal calldata withdrawal,
-        ProofLib.WithdrawProof calldata proof,
-        uint256 scope
+    function crosschainWithdrawal(
+        IPrivacyPool.Withdrawal calldata _withdrawal,
+        CrosschainProofLib.CrosschainWithdrawProof calldata _proof,
+        uint256 _scope
     ) external {
         if (msg.sender != address(this)) revert UnauthorizedCaller();
-        if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (_withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
 
-        IEntrypoint.RelayData memory relayData = abi.decode(
-            withdrawal.data,
-            (IEntrypoint.RelayData)
+        IShinobiCashCrosschainHandler.CrosschainRelayData memory relayData = abi.decode(
+            _withdrawal.data,
+            (IShinobiCashCrosschainHandler.CrosschainRelayData)
         );
 
         if (relayData.feeRecipient != address(this)) revert WrongFeeRecipient();
-        if (scope != ETH_CASH_POOL.SCOPE()) revert InvalidScope();
-        if (!_validateWithdrawCall(withdrawal, proof)) revert WithdrawalValidationFailed();
+        if (_scope != ETH_POOL.SCOPE()) revert InvalidScope();
+        if (!_validateCrosschainWithdrawCall(_withdrawal, _proof)) revert CrosschainWithdrawalValidationFailed();
 
-        uint256 withdrawnValue = proof.withdrawnValue();
+        uint256 withdrawnValue = _proof.withdrawnValue();
         uint256 relayFeeBPS = relayData.relayFeeBPS;
-        address withdrawalRecipient = relayData.recipient;
+        address withdrawalRecipient = address(uint160(uint256(relayData.encodedDestination)));
 
         assembly {
             tstore(0, withdrawnValue)
@@ -145,7 +145,6 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
 
         if (relayFeeBPS == 0) revert ZeroFeeNotAllowed();
     }
-
     /*//////////////////////////////////////////////////////////////
                             POST-OP OPERATIONS
     //////////////////////////////////////////////////////////////*/
@@ -162,25 +161,16 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
         uint256 postOpCost = MIN_POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
         uint256 actualWithdrawalCost = actualGasCost + postOpCost;
 
-        uint256 refundAmount = 0;
-        bool executionSucceeded = mode == IPaymaster.PostOpMode.opSucceeded;
-
-        if (executionSucceeded && expectedFeeAmount > actualWithdrawalCost) {
-            refundAmount = expectedFeeAmount - actualWithdrawalCost;
-            (bool success, ) = withdrawalRecipient.call{value: refundAmount}("");
-            success;
+        if (expectedFeeAmount > 0) {
+            entryPoint.depositTo{value: expectedFeeAmount}(address(this));
         }
 
-        if (actualWithdrawalCost > 0) {
-            entryPoint.depositTo{value: actualWithdrawalCost}(address(this));
-        }
-
-        emit PrivacyPoolWithdrawalSponsored(
+        emit CrosschainWithdrawalSponsored(
             withdrawalRecipient,
             userOpHash,
             actualWithdrawalCost,
-            refundAmount,
-            executionSucceeded
+            0,
+            mode == IPaymaster.PostOpMode.opSucceeded
         );
     }
 
@@ -208,8 +198,8 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
 
         (address target, uint256 value, bytes memory data) = _extractExecuteCall(userOp.callData);
 
-        if (!_validatePrivacyPoolWithdrawal(target, value, data)) {
-            revert WithdrawalValidationFailed();
+        if (!_validateCrosschainWithdrawal(target, value, data)) {
+            revert CrosschainWithdrawalValidationFailed();
         }
 
         uint256 withdrawnValue;
@@ -237,7 +227,7 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
                         EMBEDDED WITHDRAWAL VALIDATION
     //////////////////////////////////////////////////////////////*/
 
-    function _validatePrivacyPoolWithdrawal(
+    function _validateCrosschainWithdrawal(
         address target,
         uint256 value,
         bytes memory data
@@ -250,29 +240,30 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
     }
 
     /*//////////////////////////////////////////////////////////////
-                         INTERNAL HELPERS
+                         CROSS-CHAIN PROOF VALIDATION
     //////////////////////////////////////////////////////////////*/
 
-    function _validateWithdrawCall(
+    function _validateCrosschainWithdrawCall(
         IPrivacyPool.Withdrawal memory withdrawal,
-        ProofLib.WithdrawProof memory proof
+        CrosschainProofLib.CrosschainWithdrawProof memory proof
     ) internal view returns (bool) {
         uint256 expectedContext = uint256(
-            keccak256(abi.encode(withdrawal, ETH_CASH_POOL.SCOPE()))
+            keccak256(abi.encode(withdrawal, ETH_POOL.SCOPE()))
         ) % (Constants.SNARK_SCALAR_FIELD);
 
         if (proof.context() != expectedContext) return false;
 
         if (
-            proof.stateTreeDepth() > ETH_CASH_POOL.MAX_TREE_DEPTH() ||
-            proof.ASPTreeDepth() > ETH_CASH_POOL.MAX_TREE_DEPTH()
+            proof.stateTreeDepth() > ETH_POOL.MAX_TREE_DEPTH() ||
+            proof.ASPTreeDepth() > ETH_POOL.MAX_TREE_DEPTH()
         ) return false;
 
         if (!_isKnownRoot(proof.stateRoot())) return false;
         if (proof.ASPRoot() != SHINOBI_CASH_ENTRYPOINT.latestRoot()) return false;
-        if (ETH_CASH_POOL.nullifierHashes(proof.existingNullifierHash())) return false;
+        if (ETH_POOL.nullifierHashes(proof.existingNullifierHash())) return false;
+        if (proof.refundCommitmentHash() == 0) return false;
 
-        if (!IWithdrawalVerifier(address(ETH_CASH_POOL.WITHDRAWAL_VERIFIER())).verifyProof(
+        if (!ICrosschainWithdrawalProofVerifier(ETH_POOL.CROSS_CHAIN_WITHDRAWAL_VERIFIER()).verifyProof(
             proof.pA,
             proof.pB,
             proof.pC,
@@ -282,14 +273,18 @@ contract SimpleShinobiCashPoolPaymaster is BasePaymaster {
         return true;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            UTILITY FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     function _isKnownRoot(uint256 _root) internal view returns (bool) {
         if (_root == 0) return false;
 
-        uint32 _index = ETH_CASH_POOL.currentRootIndex();
-        uint32 ROOT_HISTORY_SIZE = ETH_CASH_POOL.ROOT_HISTORY_SIZE();
+        uint32 _index = ETH_POOL.currentRootIndex();
+        uint32 ROOT_HISTORY_SIZE = ETH_POOL.ROOT_HISTORY_SIZE();
 
         for (uint32 _i = 0; _i < ROOT_HISTORY_SIZE; _i++) {
-            if (_root == ETH_CASH_POOL.roots(_index)) return true;
+            if (_root == ETH_POOL.roots(_index)) return true;
             _index = (_index + ROOT_HISTORY_SIZE - 1) % ROOT_HISTORY_SIZE;
         }
 

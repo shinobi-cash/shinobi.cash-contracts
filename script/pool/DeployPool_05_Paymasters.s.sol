@@ -7,10 +7,10 @@ import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
 // Paymasters
-import {SimpleShinobiCashPoolPaymaster} from "../../src/paymaster/SimpleShinobiCashPoolPaymaster.sol";
-import {CrossChainWithdrawalPaymaster} from "../../src/paymaster/CrossChainWithdrawalPaymaster.sol";
-import {Withdraw2Paymaster} from "../../src/paymaster/Withdraw2Paymaster.sol";
-import {CrossChainWithdraw2Paymaster} from "../../src/paymaster/CrossChainWithdraw2Paymaster.sol";
+import {ShinobiNativeWithdrawalPaymaster} from "../../src/paymaster/ShinobiNativeWithdrawalPaymaster.sol";
+import {ShinobiNativeCrosschainWithdrawalPaymaster} from "../../src/paymaster/ShinobiNativeCrosschainWithdrawalPaymaster.sol";
+import {ShinobiNativeWithdraw2Paymaster} from "../../src/paymaster/ShinobiNativeWithdraw2Paymaster.sol";
+import {ShinobiNativeCrosschainWithdraw2Paymaster} from "../../src/paymaster/ShinobiNativeCrosschainWithdraw2Paymaster.sol";
 
 // Interfaces
 import {IEntryPoint as IERC4337EntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
@@ -19,7 +19,7 @@ import {IShinobiCashPool} from "../../src/core/interfaces/IShinobiCashPool.sol";
 import {ShinobiCashPool} from "../../src/core/ShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IWithdraw2Verifier} from "../../src/core/interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "../../src/core/interfaces/ICrossChainWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 
 /**
  * @title DeployPool_05_Paymasters
@@ -96,9 +96,9 @@ contract DeployPool_05_Paymasters is Script {
         if (existingSimple != address(0)) {
             console.log("1. SimplePaymaster already deployed:", existingSimple);
         } else {
-            console.log("1. Deploying SimpleShinobiCashPoolPaymaster...");
+            console.log("1. Deploying ShinobiNativeWithdrawalPaymaster...");
             uint256 blockBefore = block.number;
-            SimpleShinobiCashPoolPaymaster pm = new SimpleShinobiCashPoolPaymaster(
+            ShinobiNativeWithdrawalPaymaster pm = new ShinobiNativeWithdrawalPaymaster(
                 IERC4337EntryPoint(poolConfig.erc4337Entrypoint),
                 IShinobiCashEntrypoint(entrypoint),
                 IPrivacyPool(ethPool)
@@ -114,9 +114,9 @@ contract DeployPool_05_Paymasters is Script {
         if (existingCrossChain != address(0)) {
             console.log("2. CrossChainPaymaster already deployed:", existingCrossChain);
         } else {
-            console.log("2. Deploying CrossChainWithdrawalPaymaster...");
+            console.log("2. Deploying ShinobiNativeCrosschainWithdrawalPaymaster...");
             uint256 blockBefore = block.number;
-            CrossChainWithdrawalPaymaster pm = new CrossChainWithdrawalPaymaster(
+            ShinobiNativeCrosschainWithdrawalPaymaster pm = new ShinobiNativeCrosschainWithdrawalPaymaster(
                 IERC4337EntryPoint(poolConfig.erc4337Entrypoint),
                 IShinobiCashEntrypoint(entrypoint),
                 ShinobiCashPool(ethPool)
@@ -130,11 +130,11 @@ contract DeployPool_05_Paymasters is Script {
 
         // 3. Deploy Withdraw2 Paymaster
         if (existingWithdraw2 != address(0)) {
-            console.log("3. Withdraw2Paymaster already deployed:", existingWithdraw2);
+            console.log("3. ShinobiNativeWithdraw2Paymaster already deployed:", existingWithdraw2);
         } else {
-            console.log("3. Deploying Withdraw2Paymaster...");
+            console.log("3. Deploying ShinobiNativeWithdraw2Paymaster...");
             uint256 blockBefore = block.number;
-            Withdraw2Paymaster pm = new Withdraw2Paymaster(
+            ShinobiNativeWithdraw2Paymaster pm = new ShinobiNativeWithdraw2Paymaster(
                 IERC4337EntryPoint(poolConfig.erc4337Entrypoint),
                 IShinobiCashEntrypoint(entrypoint),
                 IShinobiCashPool(ethPool),
@@ -149,15 +149,15 @@ contract DeployPool_05_Paymasters is Script {
 
         // 4. Deploy CrossChainWithdraw2 Paymaster
         if (existingCrossChainWithdraw2 != address(0)) {
-            console.log("4. CrossChainWithdraw2Paymaster already deployed:", existingCrossChainWithdraw2);
+            console.log("4. ShinobiNativeCrosschainWithdraw2Paymaster already deployed:", existingCrossChainWithdraw2);
         } else {
-            console.log("4. Deploying CrossChainWithdraw2Paymaster...");
+            console.log("4. Deploying ShinobiNativeCrosschainWithdraw2Paymaster...");
             uint256 blockBefore = block.number;
-            CrossChainWithdraw2Paymaster pm = new CrossChainWithdraw2Paymaster(
+            ShinobiNativeCrosschainWithdraw2Paymaster pm = new ShinobiNativeCrosschainWithdraw2Paymaster(
                 IERC4337EntryPoint(poolConfig.erc4337Entrypoint),
                 IShinobiCashEntrypoint(entrypoint),
                 IShinobiCashPool(ethPool),
-                ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+                ICrosschainWithdraw2Verifier(crossChainWithdraw2Verifier)
             );
             DeploymentWriter.writePaymaster(poolKey, "crossChainWithdraw2", address(pm), blockBefore);
             pm.deposit{value: 0.01 ether}();

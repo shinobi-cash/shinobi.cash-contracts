@@ -3,15 +3,15 @@
 pragma solidity 0.8.28;
 
 import {Entrypoint} from "contracts/Entrypoint.sol";
-import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
+import {CrosschainProofLib} from "./libraries/CrosschainProofLib.sol";
 import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
-import {CrossChainWithdraw2ProofLib} from "./libraries/CrossChainWithdraw2ProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "./libraries/CrosschainWithdraw2ProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {ProofLib} from "contracts/lib/ProofLib.sol";
-import {IShinobiCashCrossChainHandler} from "./interfaces/IShinobiCashCrossChainHandler.sol";
+import {IShinobiCashCrosschainHandler} from "./interfaces/IShinobiCashCrosschainHandler.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
@@ -25,10 +25,10 @@ import {ShinobiCashCrosschainState} from "./ShinobiCashCrosschainState.sol";
  * @notice Main orchestrator for cross-chain privacy pool operations
  * @dev Handles cross-chain withdrawals (1:1 and 2:1) and deposits via OIF intents
  */
-contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrossChainHandler {
-    using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
+contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrosschainHandler {
+    using CrosschainProofLib for CrosschainProofLib.CrosschainWithdrawProof;
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
-    using CrossChainWithdraw2ProofLib for CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof;
+    using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
     using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
@@ -143,10 +143,10 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     }
 
 
-    /// @inheritdoc IShinobiCashCrossChainHandler
+    /// @inheritdoc IShinobiCashCrosschainHandler
     function crosschainWithdrawal(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrossChainProofLib.CrossChainWithdrawProof calldata _proof,
+        CrosschainProofLib.CrosschainWithdrawProof calldata _proof,
         uint256 _scope
     ) external override nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
@@ -160,7 +160,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         IERC20 _asset = IERC20(_shinobiPool.ASSET());
         uint256 _balanceBefore = _assetBalance(_asset);
 
-        CrossChainRelayData memory _data = abi.decode(_withdrawal.data, (CrossChainRelayData));
+        CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
 
         if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
             revert DestinationChainNotConfigured();
@@ -181,7 +181,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
         if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
 
-        emit CrossChainWithdrawalIntentRelayed(
+        emit CrosschainWithdrawalIntentRelayed(
             msg.sender,
             _data.encodedDestination,
             _asset,
@@ -259,7 +259,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      */
     function crossChainWithdrawal2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof calldata _proof,
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
         uint256 _scope
     ) external nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
@@ -272,12 +272,12 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             _proof.nullifierHash1()
         );
 
-        _executeCrossChainWithdraw2(_withdrawal, _proof, _scope, nullifiers);
+        _executeCrosschainWithdraw2(_withdrawal, _proof, _scope, nullifiers);
     }
 
-    function _executeCrossChainWithdraw2(
+    function _executeCrosschainWithdraw2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof calldata _proof,
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
         uint256 _scope,
         Withdraw2Nullifiers memory _nullifiers
     ) internal {
@@ -287,7 +287,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         IERC20 _asset = IERC20(_shinobiPool.ASSET());
         uint256 _balanceBefore = _assetBalance(_asset);
 
-        CrossChainRelayData memory _data = abi.decode(_withdrawal.data, (CrossChainRelayData));
+        CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
 
         if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
             revert DestinationChainNotConfigured();
@@ -308,7 +308,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
         if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
 
-        emit CrossChainWithdraw2IntentRelayed(
+        emit CrosschainWithdraw2IntentRelayed(
             msg.sender,
             _data.encodedDestination,
             _asset,
@@ -348,7 +348,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     function _openWithdrawalIntent(
         IERC20 _asset,
         uint256 _withdrawnAmount,
-        CrossChainRelayData memory _data,
+        CrosschainRelayData memory _data,
         uint256 _scope,
         bytes32 _nullifierHash,
         bytes32 _refundCommitmentHash

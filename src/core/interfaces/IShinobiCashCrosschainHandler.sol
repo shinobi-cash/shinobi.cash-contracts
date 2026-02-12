@@ -5,13 +5,13 @@ pragma solidity 0.8.28;
 
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
+import {CrosschainProofLib} from "../libraries/CrosschainProofLib.sol";
   /**
-   * @title IShinobiCashCrossChainHandler
+   * @title IShinobiCashCrosschainHandler
    * @notice Interface for handling cross-chain privacy pool operations (deposits and withdrawals)
    * @dev Defines the contract capability to process cross-chain deposits and withdrawals
    */
-  interface IShinobiCashCrossChainHandler {
+  interface IShinobiCashCrosschainHandler {
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -21,7 +21,7 @@ import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
     * @notice Enhanced relay data for cross-chain withdrawals
     * @dev Contains all information needed for cross-chain processing and refunds
     */
-    struct CrossChainRelayData {
+    struct CrosschainRelayData {
         address feeRecipient;          // Paymaster address (gets relay fees)
         uint256 relayFeeBPS;          // Fee in basis points (e.g., 1000 = 10%)
         uint256 solverFeeBPS;         // Solver fee in basis points
@@ -46,7 +46,7 @@ import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
        * @param refundCommitmentHash The commitment created for refund recovery
        * @param refundAmount The amount available for refund
        */
-      event CrossChainIntentFailed(
+      event CrosschainIntentFailed(
           bytes32 indexed nullifier,
           bytes32 indexed refundCommitmentHash,
           uint256 refundAmount
@@ -72,7 +72,7 @@ import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
        */
       function crosschainWithdrawal(
           IPrivacyPool.Withdrawal calldata withdrawal,
-          CrossChainProofLib.CrossChainWithdrawProof calldata proof,
+          CrosschainProofLib.CrosschainWithdrawProof calldata proof,
           uint256 scope
       ) external ;
 

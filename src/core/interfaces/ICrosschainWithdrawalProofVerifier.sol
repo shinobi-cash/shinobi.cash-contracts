@@ -4,11 +4,11 @@
 pragma solidity 0.8.28;
 
 /**
- * @title ICrossChainWithdrawalProofVerifier
+ * @title ICrosschainWithdrawalProofVerifier
  * @notice Interface for verifying cross-chain withdrawal (1:1) ZK proofs
  * @dev Verifies Groth16 proofs with 9 public signals for cross-chain withdrawals
  */
-interface ICrossChainWithdrawalProofVerifier {
+interface ICrosschainWithdrawalProofVerifier {
     /**
      * @notice Verify a cross-chain withdrawal proof
      * @dev Verifies the Groth16 proof with 9 public signals

@@ -4,9 +4,9 @@
 pragma solidity 0.8.28;
 
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
+import {CrosschainProofLib} from "../libraries/CrosschainProofLib.sol";
 import {Withdraw2ProofLib} from "../libraries/Withdraw2ProofLib.sol";
-import {CrossChainWithdraw2ProofLib} from "../libraries/CrossChainWithdraw2ProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "../libraries/CrosschainWithdraw2ProofLib.sol";
 
 /**
  * @title IShinobiCashPool
@@ -75,7 +75,7 @@ interface IShinobiCashPool is IPrivacyPool {
      * @param newCommitmentHash The change commitment hash that was inserted
      * @param refundCommitmentHash The commitment hash for potential refunds
      */
-    event CrossChainWithdraw2Executed(
+    event CrosschainWithdraw2Executed(
         address indexed processooor,
         uint256 withdrawnValue,
         Withdraw2Nullifiers nullifiers,
@@ -88,7 +88,7 @@ interface IShinobiCashPool is IPrivacyPool {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Thrown when cross-chain verifier address is zero
-    error InvalidCrossChainWithdrawalVerifier();
+    error InvalidCrosschainWithdrawalVerifier();
 
     /// @notice Thrown when cross-chain proof verification fails
     error InvalidCrosschainWithdrawalProof();
@@ -100,13 +100,13 @@ interface IShinobiCashPool is IPrivacyPool {
     error InvalidWithdraw2Verifier();
 
     /// @notice Thrown when cross-chain Withdraw2 verifier address is zero
-    error InvalidCrossChainWithdraw2Verifier();
+    error InvalidCrosschainWithdraw2Verifier();
 
     /// @notice Thrown when same-chain Withdraw2 proof verification fails
     error InvalidWithdraw2Proof();
 
     /// @notice Thrown when cross-chain Withdraw2 proof verification fails
-    error InvalidCrossChainWithdraw2Proof();
+    error InvalidCrosschainWithdraw2Proof();
 
     /*//////////////////////////////////////////////////////////////
                         CROSS-CHAIN FUNCTIONS
@@ -119,7 +119,7 @@ interface IShinobiCashPool is IPrivacyPool {
      */
     function crosschainWithdraw(
         Withdrawal memory _withdrawal,
-        CrossChainProofLib.CrossChainWithdrawProof memory _proof
+        CrosschainProofLib.CrosschainWithdrawProof memory _proof
     ) external;
 
     /**
@@ -151,7 +151,7 @@ interface IShinobiCashPool is IPrivacyPool {
      */
     function crossChainWithdraw2(
         Withdrawal memory _withdrawal,
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof memory _proof
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory _proof
     ) external;
 
 }

@@ -9,11 +9,11 @@ import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 // ZK Verifiers - Standard withdrawal (1:1)
 import {WithdrawalVerifier} from "contracts/verifiers/WithdrawalVerifier.sol";
 import {CommitmentVerifier} from "contracts/verifiers/CommitmentVerifier.sol";
-import {CrossChainWithdrawalVerifier} from "../../src/core/verifiers/CrossChainWithdrawalVerifier.sol";
+import {CrosschainWithdrawalVerifier} from "../../src/core/verifiers/CrosschainWithdrawalVerifier.sol";
 
 // ZK Verifiers - Withdraw2 (2:1)
 import {Withdraw2Verifier} from "../../src/core/verifiers/Withdraw2Verifier.sol";
-import {CrossChainWithdraw2Verifier} from "../../src/core/verifiers/CrossChainWithdraw2Verifier.sol";
+import {CrosschainWithdraw2Verifier} from "../../src/core/verifiers/CrosschainWithdraw2Verifier.sol";
 
 /**
  * @title DeployPool_01_Verifiers
@@ -101,13 +101,13 @@ contract DeployPool_01_Verifiers is Script {
             console.log("   Block:", blockBefore);
         }
 
-        // 3. Deploy CrossChainWithdrawalVerifier
+        // 3. Deploy CrosschainWithdrawalVerifier
         if (existingCrossChain != address(0)) {
-            console.log("3. CrossChainWithdrawalVerifier already deployed:", existingCrossChain);
+            console.log("3. CrosschainWithdrawalVerifier already deployed:", existingCrossChain);
         } else {
-            console.log("3. Deploying CrossChainWithdrawalVerifier...");
+            console.log("3. Deploying CrosschainWithdrawalVerifier...");
             uint256 blockBefore = block.number;
-            address addr = address(new CrossChainWithdrawalVerifier());
+            address addr = address(new CrosschainWithdrawalVerifier());
             DeploymentWriter.writeVerifier(poolKey, "crossChainWithdrawal", addr, blockBefore);
             console.log("   Address:", addr);
             console.log("   Block:", blockBefore);
@@ -125,13 +125,13 @@ contract DeployPool_01_Verifiers is Script {
             console.log("   Block:", blockBefore);
         }
 
-        // 5. Deploy CrossChainWithdraw2Verifier
+        // 5. Deploy CrosschainWithdraw2Verifier
         if (existingCrossChainWithdraw2 != address(0)) {
-            console.log("5. CrossChainWithdraw2Verifier already deployed:", existingCrossChainWithdraw2);
+            console.log("5. CrosschainWithdraw2Verifier already deployed:", existingCrossChainWithdraw2);
         } else {
-            console.log("5. Deploying CrossChainWithdraw2Verifier...");
+            console.log("5. Deploying CrosschainWithdraw2Verifier...");
             uint256 blockBefore = block.number;
-            address addr = address(new CrossChainWithdraw2Verifier());
+            address addr = address(new CrosschainWithdraw2Verifier());
             DeploymentWriter.writeVerifier(poolKey, "crossChainWithdraw2", addr, blockBefore);
             console.log("   Address:", addr);
             console.log("   Block:", blockBefore);

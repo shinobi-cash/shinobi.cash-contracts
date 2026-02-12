@@ -4,12 +4,12 @@
 pragma solidity 0.8.28;
 
 /**
- * @title ICrossChainWithdraw2Verifier
+ * @title ICrosschainWithdraw2Verifier
  * @notice Interface for verifying cross-chain Withdraw2 (2 inputs -> 1 output) Groth16 proofs
  * @dev Verifies proofs for combining 2 input notes into 1 output note (change) with withdrawal.
  *      Cross-chain version includes refundCommitmentHash for recovery (10 signals).
  */
-interface ICrossChainWithdraw2Verifier {
+interface ICrosschainWithdraw2Verifier {
     /**
      * @notice Verifies a cross-chain Withdraw2 Groth16 proof
      * @param _pA First elliptic curve point (pi_A) of the Groth16 proof
