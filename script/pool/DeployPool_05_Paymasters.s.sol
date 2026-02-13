@@ -87,7 +87,7 @@ contract DeployPool_05_Paymasters is Script {
             ethPool: DeploymentWriter.readContractAddress(poolKey, "contracts", "ethPool"),
             withdraw2Verifier: DeploymentWriter.readContractAddress(poolKey, "verifiers", "withdraw2"),
             crossChainWithdraw2Verifier: DeploymentWriter.readContractAddress(poolKey, "verifiers", "crossChainWithdraw2"),
-            inputSettler: DeploymentWriter.readContractAddress(poolKey, "settlers", "input"),
+            inputSettler: DeploymentWriter.readContractAddress(poolKey, "contracts", "inputSettler"),
             expectedSmartAccount: vm.envOr("EXPECTED_SMART_ACCOUNT", address(0xa3aBDC7f6334CD3EE466A115f30522377787c024)),
             erc4337Entrypoint: poolConfig.erc4337Entrypoint
         });
