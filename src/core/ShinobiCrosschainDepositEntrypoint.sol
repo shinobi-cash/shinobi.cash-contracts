@@ -170,7 +170,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
         usedPrecommitments[precommitment] = true;
 
         uint256 hyperlaneGasPayment = _quoteHyperlaneGasPayment();
-        if (hyperlaneGasPayment > 0 && totalPaid <= hyperlaneGasPayment) {
+        if (totalPaid <= hyperlaneGasPayment) {
             revert InsufficientFundsForHyperlane(totalPaid, hyperlaneGasPayment);
         }
 
@@ -184,9 +184,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
 
         bytes32 orderId = _createAndExecuteIntent(precommitment, depositFunds, netDepositAmount, _fillDeadline, _expiry);
 
-        if (hyperlaneGasPayment > 0) {
-            _submitIntentProofToHyperlane(orderId, hyperlaneGasPayment);
-        }
+        _submitIntentProofToHyperlane(orderId, hyperlaneGasPayment);
 
         emit CrosschainDepositIntent(
             msg.sender,
@@ -210,11 +208,14 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
         if (fillOracle == address(0)) revert ConfigurationNotSet();
         if (intentOracle == address(0)) revert ConfigurationNotSet();
         if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
+
+        // Hyperlane is required for cross-chain deposits - intent proof must be relayed
+        if (address(hyperlaneOracle) == address(0)) revert HyperlaneNotConfigured();
+        if (destinationHyperlaneDomain == 0) revert HyperlaneNotConfigured();
+        if (destinationHyperlaneOracle == address(0)) revert HyperlaneNotConfigured();
     }
 
     function _quoteHyperlaneGasPayment() internal view returns (uint256 gasPayment) {
-        if (address(hyperlaneOracle) == address(0)) return 0;
-
         bytes[] memory tempPayloads = new bytes[](1);
         tempPayloads[0] = abi.encode(bytes32(0));
 
@@ -418,6 +419,19 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     function disableHyperlane() external onlyOwner {
         hyperlaneOracle = IHyperlaneOracle(address(0));
         emit HyperlaneConfigUpdated(address(0), 0, address(0), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Get the current hyperlane gas payment quote
+     * @return gasPayment The amount of ETH needed for hyperlane relay
+     */
+    function quoteHyperlaneGas() external view returns (uint256 gasPayment) {
+        if (address(hyperlaneOracle) == address(0)) return 0;
+        return _quoteHyperlaneGasPayment();
     }
 
     /*//////////////////////////////////////////////////////////////

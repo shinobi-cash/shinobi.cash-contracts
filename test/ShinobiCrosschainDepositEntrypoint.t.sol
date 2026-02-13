@@ -48,6 +48,9 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
+    address public destHyperlaneOracle = makeAddr("destHyperlaneOracle");
+    uint32 public constant DEST_HYPERLANE_DOMAIN = 421614;
+
     function setUp() public {
         entrypoint = new ShinobiCrosschainDepositEntrypoint(owner);
         inputSettler = new MockInputSettler();
@@ -60,6 +63,13 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
         entrypoint.setIntentOracle(intentOracle);
         entrypoint.setDestinationConfig(DEST_CHAIN_ID, destEntrypoint, destOutputSettler, destOracle);
         entrypoint.setAssetPool(Constants.NATIVE_ASSET, destPool);
+        // Hyperlane is now required for cross-chain deposits
+        entrypoint.setHyperlaneConfig(
+            address(hyperlaneOracle),
+            DEST_HYPERLANE_DOMAIN,
+            destHyperlaneOracle,
+            200_000
+        );
         vm.stopPrank();
 
         vm.deal(user, 100 ether);
@@ -161,12 +171,14 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
     }
 
     function test_deposit_revertsBelowMinimumAfterFee() public {
-        // With 5% default solver fee, 0.01 ETH becomes 0.0095 ETH net
-        // which is below 0.01 ETH minimum
+        // With hyperlane gas (0.001 ETH) and 5% solver fee:
+        // - Deposit: 0.01 ETH - 0.001 ETH (gas) = 0.009 ETH
+        // - Solver fee: 0.009 * 5% = 0.00045 ETH
+        // - Net: 0.009 - 0.00045 = 0.00855 ETH (below 0.01 minimum)
         vm.expectRevert(
             abi.encodeWithSelector(
                 ShinobiCrosschainDepositEntrypoint.DepositAmountBelowMinimumAfterFee.selector,
-                0.0095 ether,
+                0.00855 ether,
                 MIN_DEPOSIT
             )
         );
@@ -358,6 +370,23 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
                 Constants.NATIVE_ASSET
             )
         );
+        vm.prank(user);
+        newEntrypoint.deposit{value: DEPOSIT_AMOUNT}(12345);
+    }
+
+    function test_deposit_revertsWhenHyperlaneNotConfigured() public {
+        ShinobiCrosschainDepositEntrypoint newEntrypoint = new ShinobiCrosschainDepositEntrypoint(owner);
+
+        vm.startPrank(owner);
+        newEntrypoint.setInputSettler(address(inputSettler));
+        newEntrypoint.setFillOracle(fillOracle);
+        newEntrypoint.setIntentOracle(intentOracle);
+        newEntrypoint.setDestinationConfig(DEST_CHAIN_ID, destEntrypoint, destOutputSettler, destOracle);
+        newEntrypoint.setAssetPool(Constants.NATIVE_ASSET, destPool);
+        // Don't set hyperlane config
+        vm.stopPrank();
+
+        vm.expectRevert(ShinobiCrosschainDepositEntrypoint.HyperlaneNotConfigured.selector);
         vm.prank(user);
         newEntrypoint.deposit{value: DEPOSIT_AMOUNT}(12345);
     }
