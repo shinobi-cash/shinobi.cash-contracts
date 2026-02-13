@@ -19,13 +19,13 @@ import {CrosschainProofLib} from "../libraries/CrosschainProofLib.sol";
 
     /**
     * @notice Enhanced relay data for cross-chain withdrawals
-    * @dev Contains all information needed for cross-chain processing and refunds
+    * @dev Contains information for cross-chain processing
+    * @dev Note: relayFeeBPS and refundFeeBPS now come from circuit proof (single source of truth)
     */
     struct CrosschainRelayData {
-        address feeRecipient;          // Paymaster address (gets relay fees)
-        uint256 relayFeeBPS;          // Fee in basis points (e.g., 1000 = 10%)
-        uint256 solverFeeBPS;         // Solver fee in basis points
-        bytes32 encodedDestination;   // chainId(32 bits) + recipient(160 bits) packed
+        address feeRecipient;          // Receives relay fee (withdrawal) and refund fee (if refund triggered)
+        uint256 solverFeeBPS;          // Solver fee in basis points (not in circuit)
+        bytes32 encodedDestination;    // chainId(32 bits) + recipient(160 bits) packed
     }
 
     /// @notice Struct to hold fee breakdown for withdrawals

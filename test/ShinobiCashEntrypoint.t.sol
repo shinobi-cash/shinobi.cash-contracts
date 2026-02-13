@@ -479,7 +479,7 @@ contract ShinobiCashEntrypointTest is Test {
         // Try to call handleRefund from unauthorized address
         vm.expectRevert(ShinobiCashCrosschainState.OnlyWithdrawalInputSettler.selector);
         vm.prank(user);
-        entrypoint.handleRefund(12345, 1 ether, 1);
+        entrypoint.handleRefund(12345, address(this), 0, 1);
     }
 
     function test_onlyDepositOutputSettler_revertsUnauthorized() public {
@@ -556,15 +556,6 @@ contract ShinobiCashEntrypointTest is Test {
                         HANDLE REFUND TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_handleRefund_revertsAmountMismatch() public {
-        vm.prank(owner);
-        entrypoint.setWithdrawalInputSettler(withdrawalInputSettler);
-
-        vm.expectRevert(IShinobiCashCrosschainHandler.AmountMismatch.selector);
-        vm.prank(withdrawalInputSettler);
-        entrypoint.handleRefund{value: 0.5 ether}(12345, 1 ether, 1);
-    }
-
     function test_handleRefund_revertsPoolNotFound() public {
         vm.prank(owner);
         entrypoint.setWithdrawalInputSettler(withdrawalInputSettler);
@@ -572,7 +563,7 @@ contract ShinobiCashEntrypointTest is Test {
         // No pool registered for scope
         vm.expectRevert(IEntrypoint.PoolNotFound.selector);
         vm.prank(withdrawalInputSettler);
-        entrypoint.handleRefund{value: 1 ether}(12345, 1 ether, 1);
+        entrypoint.handleRefund{value: 1 ether}(12345, address(this), 0, 1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -624,7 +615,7 @@ contract ShinobiCashEntrypointTest is Test {
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = user; // Wrong processooor
         CrosschainProofLib.CrosschainWithdrawProof memory proof;
-        proof.pubSignals[3] = 1 ether; // withdrawnValue
+        proof.pubSignals[5] = 1 ether; // withdrawnValue at index 5
 
         vm.expectRevert(IEntrypoint.InvalidProcessooor.selector);
         entrypoint.crosschainWithdrawal(withdrawal, proof, 1);
@@ -639,7 +630,7 @@ contract ShinobiCashEntrypointTest is Test {
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = address(entrypoint);
         CrosschainProofLib.CrosschainWithdrawProof memory proof;
-        proof.pubSignals[3] = 1 ether; // withdrawnValue
+        proof.pubSignals[5] = 1 ether; // withdrawnValue at index 5
 
         vm.expectRevert(IEntrypoint.PoolNotFound.selector);
         entrypoint.crosschainWithdrawal(withdrawal, proof, 999); // Unknown scope
@@ -725,7 +716,7 @@ contract ShinobiCashEntrypointTest is Test {
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = user; // Wrong processooor
         CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof;
-        proof.pubSignals[4] = 1 ether; // withdrawnValue
+        proof.pubSignals[6] = 1 ether; // withdrawnValue at index 6
 
         vm.expectRevert(IEntrypoint.InvalidProcessooor.selector);
         entrypoint.crossChainWithdrawal2(withdrawal, proof, 1);
@@ -736,11 +727,29 @@ contract ShinobiCashEntrypointTest is Test {
         entrypoint.setWithdrawalInputSettler(withdrawalInputSettler);
         vm.prank(owner);
         entrypoint.setMaxSolverFeeBPS(MAX_SOLVER_FEE_BPS);
+        // Configure the destination chain
+        vm.prank(owner);
+        entrypoint.setWithdrawalChainConfig(
+            DESTINATION_CHAIN_ID,
+            outputSettler,
+            outputOracle,
+            fillOracle,
+            FILL_DEADLINE,
+            EXPIRY
+        );
+
+        // Create relay data with configured destination chain
+        IShinobiCashCrosschainHandler.CrosschainRelayData memory relayData;
+        relayData.feeRecipient = makeAddr("feeRecipient");
+        relayData.solverFeeBPS = 100;
+        // Pack chainId (32 bits) and recipient (160 bits) into encodedDestination
+        relayData.encodedDestination = bytes32(uint256(DESTINATION_CHAIN_ID) << 224 | uint256(uint160(user)));
 
         IPrivacyPool.Withdrawal memory withdrawal;
         withdrawal.processooor = address(entrypoint);
+        withdrawal.data = abi.encode(relayData);
         CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof;
-        proof.pubSignals[4] = 1 ether; // withdrawnValue
+        proof.pubSignals[6] = 1 ether; // withdrawnValue at index 6
 
         vm.expectRevert(IEntrypoint.PoolNotFound.selector);
         entrypoint.crossChainWithdrawal2(withdrawal, proof, 999); // Unknown scope

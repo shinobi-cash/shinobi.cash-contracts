@@ -5,9 +5,21 @@ pragma solidity 0.8.28;
 
 /**
  * @title CrosschainProofLib
- * @notice Groth16 proof signal extraction for cross-chain 1:1 withdrawals (9 signals)
- * @dev Public signals: [newCommitment, nullifier, refundCommitment, withdrawnValue,
- *      stateRoot, stateTreeDepth, ASPRoot, ASPTreeDepth, context]
+ * @notice Groth16 proof signal extraction for cross-chain 1:1 withdrawals (13 signals)
+ * @dev Public signals order:
+ *      [0] newCommitmentHash    - Output: new commitment after withdrawal
+ *      [1] existingNullifierHash - Output: spent nullifier
+ *      [2] refundCommitmentHash - Output: commitment for refund (with netRefundAmount)
+ *      [3] relayFeeBPSOut       - Output: relay fee in basis points
+ *      [4] refundFeeBPSOut      - Output: refund fee in basis points
+ *      [5] withdrawnValue       - Input: amount withdrawn
+ *      [6] stateRoot            - Input: merkle state root
+ *      [7] stateTreeDepth       - Input: state tree depth
+ *      [8] ASPRoot              - Input: ASP merkle root
+ *      [9] ASPTreeDepth         - Input: ASP tree depth
+ *      [10] context             - Input: binding context hash
+ *      [11] relayFeeBPS         - Input: relay fee (same as output)
+ *      [12] refundFeeBPS        - Input: refund fee (same as output)
  */
 library CrosschainProofLib {
 
@@ -15,7 +27,7 @@ library CrosschainProofLib {
         uint256[2] pA;
         uint256[2][2] pB;
         uint256[2] pC;
-        uint256[9] pubSignals;
+        uint256[13] pubSignals;
     }
 
     function newCommitmentHash(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
@@ -30,27 +42,35 @@ library CrosschainProofLib {
         return _p.pubSignals[2];
     }
 
-    function withdrawnValue(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+    function relayFeeBPS(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[3];
     }
 
-    function stateRoot(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+    function refundFeeBPS(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[4];
     }
 
-    function stateTreeDepth(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+    function withdrawnValue(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[5];
     }
 
-    function ASPRoot(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+    function stateRoot(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[6];
     }
 
-    function ASPTreeDepth(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+    function stateTreeDepth(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[7];
     }
 
-    function context(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+    function ASPRoot(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
         return _p.pubSignals[8];
+    }
+
+    function ASPTreeDepth(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+        return _p.pubSignals[9];
+    }
+
+    function context(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
+        return _p.pubSignals[10];
     }
 }

@@ -73,7 +73,7 @@ contract ShinobiCashCrosschainState {
         uint256 _amount
     );
 
-    event Refunded(uint256 amount, uint256 indexed refundCommitmentHash);
+    event Refunded(uint256 amount, uint256 indexed refundCommitmentHash, uint256 refundFee, address indexed feeRecipient);
 
     event Withdraw2Relayed(
         address indexed _relayer,
@@ -112,4 +112,5 @@ contract ShinobiCashCrosschainState {
     error SolverFeeGreaterThanMax();
     error MaxSolverFeeBPSNotSet();
     error InvalidAsset();
+    error RefundFeeTransferFailed();
 }

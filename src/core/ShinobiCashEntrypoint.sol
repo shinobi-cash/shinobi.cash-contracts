@@ -42,6 +42,26 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint256 solverFee;
     }
 
+    struct IntentCreationParams {
+        bytes32 nullifierHash;
+        bytes32 refundCommitmentHash;
+        uint256 escrowAmount;
+        uint256 netAmount;
+        uint256 destinationChainId;
+        bytes32 encodedRecipient;
+        uint256 scope;
+        address feeRecipient;
+        uint256 refundFeeBPS;
+    }
+
+    struct CrosschainWithdraw2ProofData {
+        uint256 withdrawnValue;
+        uint256 relayFeeBPS;
+        uint256 refundFeeBPS;
+        bytes32 refundCommitmentHash;
+        bytes32 nullifierHash0;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
@@ -165,7 +185,9 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
             revert DestinationChainNotConfigured();
         }
-        if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
+        // Read fees from proof (circuit is single source of truth)
+        if (_proof.relayFeeBPS() > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
         if (_data.solverFeeBPS > maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
 
         _shinobiPool.crosschainWithdraw(_withdrawal, _proof);
@@ -173,6 +195,8 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         WithdrawalResult memory result = _openWithdrawalIntent(
             _asset,
             _proof.withdrawnValue(),
+            _proof.relayFeeBPS(),
+            _proof.refundFeeBPS(),
             _data,
             _scope,
             bytes32(_proof.existingNullifierHash()),
@@ -281,36 +305,60 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint256 _scope,
         Withdraw2Nullifiers memory _nullifiers
     ) internal {
-        ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
-        if (address(_shinobiPool) == address(0)) revert PoolNotFound();
+        // Extract all proof values upfront to avoid stack issues later
+        CrosschainWithdraw2ProofData memory proofData = CrosschainWithdraw2ProofData({
+            withdrawnValue: _proof.withdrawnValue(),
+            relayFeeBPS: _proof.relayFeeBPS(),
+            refundFeeBPS: _proof.refundFeeBPS(),
+            refundCommitmentHash: bytes32(_proof.refundCommitmentHash()),
+            nullifierHash0: bytes32(_nullifiers.nullifierHash0)
+        });
 
-        IERC20 _asset = IERC20(_shinobiPool.ASSET());
-        uint256 _balanceBefore = _assetBalance(_asset);
+        IERC20 _asset;
+        bytes32 _encodedDestination;
+        WithdrawalResult memory result;
 
-        CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
+        // Scoped block for pool and intent operations
+        {
+            CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
+            _encodedDestination = _data.encodedDestination;
 
-        if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
-            revert DestinationChainNotConfigured();
+            if (!withdrawalChainConfig[uint256(_encodedDestination) >> 224].isConfigured) {
+                revert DestinationChainNotConfigured();
+            }
+
+            uint256 _balanceBefore;
+
+            {
+                ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
+                if (address(_shinobiPool) == address(0)) revert PoolNotFound();
+
+                _asset = IERC20(_shinobiPool.ASSET());
+                _balanceBefore = _assetBalance(_asset);
+
+                if (proofData.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+                if (_data.solverFeeBPS > maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
+
+                _shinobiPool.crossChainWithdraw2(_withdrawal, _proof);
+            }
+
+            result = _openWithdrawalIntent(
+                _asset,
+                proofData.withdrawnValue,
+                proofData.relayFeeBPS,
+                proofData.refundFeeBPS,
+                _data,
+                _scope,
+                proofData.nullifierHash0,
+                proofData.refundCommitmentHash
+            );
+
+            if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
         }
-        if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
-        if (_data.solverFeeBPS > maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
-
-        _shinobiPool.crossChainWithdraw2(_withdrawal, _proof);
-
-        WithdrawalResult memory result = _openWithdrawalIntent(
-            _asset,
-            _proof.withdrawnValue(),
-            _data,
-            _scope,
-            bytes32(_nullifiers.nullifierHash0),
-            bytes32(_proof.refundCommitmentHash())
-        );
-
-        if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
 
         emit CrosschainWithdraw2IntentRelayed(
             msg.sender,
-            _data.encodedDestination,
+            _encodedDestination,
             _asset,
             result.netAmount,
             result.relayFee,
@@ -322,23 +370,37 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
     /**
      * @notice Handle refund for failed cross-chain withdrawal
-     * @param _refundCommitmentHash The commitment hash for refund
-     * @param _amount The amount being refunded
+     * @dev The refundCommitmentHash from circuit is correctly computed with netRefundAmount
+     * @param _refundCommitmentHash The commitment hash for refund (from circuit, tied to netRefundAmount)
+     * @param _feeRecipient The address to receive the refund fee
+     * @param _refundFeeBPS The refund fee in basis points (from circuit)
      * @param _scope The privacy pool scope identifier
      */
     function handleRefund(
         uint256 _refundCommitmentHash,
-        uint256 _amount,
+        address _feeRecipient,
+        uint256 _refundFeeBPS,
         uint256 _scope
     ) external payable onlyWithdrawalInputSettler {
-        if (msg.value != _amount) revert AmountMismatch();
+        uint256 escrowAmount = msg.value;
+
+        // Calculate refund fee
+        uint256 refundFee = escrowAmount - _deductFee(escrowAmount, _refundFeeBPS);
+        uint256 netRefundAmount = escrowAmount - refundFee;
 
         ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
         if (address(_shinobiPool) == address(0)) revert PoolNotFound();
 
-        _shinobiPool.handleRefund{value: msg.value}(_refundCommitmentHash, _amount);
+        // Pay refund fee to recipient (paymaster/relayer)
+        if (refundFee > 0) {
+            (bool success,) = _feeRecipient.call{value: refundFee}("");
+            if (!success) revert RefundFeeTransferFailed();
+        }
 
-        emit Refunded(_amount, _refundCommitmentHash);
+        // Insert circuit's refundCommitmentHash (correctly tied to netRefundAmount)
+        _shinobiPool.handleRefund{value: netRefundAmount}(_refundCommitmentHash, netRefundAmount);
+
+        emit Refunded(netRefundAmount, _refundCommitmentHash, refundFee, _feeRecipient);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -348,31 +410,34 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     function _openWithdrawalIntent(
         IERC20 _asset,
         uint256 _withdrawnAmount,
+        uint256 _relayFeeBPS,
+        uint256 _refundFeeBPS,
         CrosschainRelayData memory _data,
         uint256 _scope,
         bytes32 _nullifierHash,
         bytes32 _refundCommitmentHash
     ) internal returns (WithdrawalResult memory result) {
-        WithdrawalFees memory fees = _calculateWithdrawalFees(_withdrawnAmount, _data.relayFeeBPS, _data.solverFeeBPS);
+        WithdrawalFees memory fees = _calculateWithdrawalFees(_withdrawnAmount, _relayFeeBPS, _data.solverFeeBPS);
 
-        uint256 _escrowAmount = _withdrawnAmount - fees.relayFee;
-        uint256 _netAmount = _withdrawnAmount - fees.relayFee - fees.solverFee;
+        IntentCreationParams memory params = IntentCreationParams({
+            nullifierHash: _nullifierHash,
+            refundCommitmentHash: _refundCommitmentHash,
+            escrowAmount: _withdrawnAmount - fees.relayFee,
+            netAmount: _withdrawnAmount - fees.relayFee - fees.solverFee,
+            destinationChainId: uint256(_data.encodedDestination) >> 224,
+            encodedRecipient: _data.encodedDestination,
+            scope: _scope,
+            feeRecipient: _data.feeRecipient,
+            refundFeeBPS: _refundFeeBPS
+        });
 
-        ShinobiIntent memory intent = _createWithdrawalIntent(
-            _nullifierHash,
-            _refundCommitmentHash,
-            _escrowAmount,
-            _netAmount,
-            uint256(_data.encodedDestination) >> 224,
-            _data.encodedDestination,
-            _scope
-        );
+        ShinobiIntent memory intent = _createWithdrawalIntent(params);
 
         _transfer(_asset, _data.feeRecipient, fees.relayFee);
-        IShinobiInputSettler(withdrawalInputSettler).open{value: _escrowAmount}(intent);
+        IShinobiInputSettler(withdrawalInputSettler).open{value: params.escrowAmount}(intent);
 
         result.orderId = intent.orderIdentifier();
-        result.netAmount = _netAmount;
+        result.netAmount = params.netAmount;
         result.relayFee = fees.relayFee;
         result.solverFee = fees.solverFee;
     }
@@ -401,44 +466,40 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
 
     function _createWithdrawalIntent(
-        bytes32 nullifierHash,
-        bytes32 refundCommitmentHash,
-        uint256 escrowAmount,
-        uint256 netAmount,
-        uint256 destinationChainId,
-        bytes32 encodedRecipient,
-        uint256 scope
+        IntentCreationParams memory p
     ) internal view returns (ShinobiIntent memory intent) {
-        WithdrawalChainConfig storage destConfig = withdrawalChainConfig[destinationChainId];
+        WithdrawalChainConfig storage destConfig = withdrawalChainConfig[p.destinationChainId];
 
+        // refundCalldata includes feeRecipient and refundFeeBPS for fee payment on refund
         bytes memory refundCalldata = abi.encode(
             address(this),
             abi.encodeWithSelector(
                 this.handleRefund.selector,
-                uint256(refundCommitmentHash),
-                escrowAmount,
-                scope
+                uint256(p.refundCommitmentHash),
+                p.feeRecipient,
+                p.refundFeeBPS,
+                p.scope
             )
         );
 
         uint256[2][] memory inputs = new uint256[2][](1);
-        inputs[0] = [uint256(0), escrowAmount];
+        inputs[0] = [uint256(0), p.escrowAmount];
 
         MandateOutput[] memory outputs = new MandateOutput[](1);
         outputs[0] = MandateOutput({
             oracle: bytes32(uint256(uint160(destConfig.withdrawalFillOracle))),
             settler: bytes32(uint256(uint160(destConfig.withdrawalOutputSettler))),
-            chainId: destinationChainId,
+            chainId: p.destinationChainId,
             token: bytes32(0),
-            amount: netAmount,
-            recipient: bytes32(uint256(uint160(uint256(encodedRecipient)))),
+            amount: p.netAmount,
+            recipient: bytes32(uint256(uint160(uint256(p.encodedRecipient)))),
             call: "",
             context: ""
         });
 
         intent = ShinobiIntent({
             user: address(this),
-            nonce: uint256(nullifierHash),
+            nonce: uint256(p.nullifierHash),
             originChainId: block.chainid,
             expires: uint32(block.timestamp) + destConfig.expiry,
             fillDeadline: uint32(block.timestamp) + destConfig.fillDeadline,

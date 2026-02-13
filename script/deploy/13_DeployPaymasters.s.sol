@@ -20,6 +20,7 @@ import {ShinobiCashPool} from "../../src/core/ShinobiCashPool.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IWithdraw2Verifier} from "../../src/core/interfaces/IWithdraw2Verifier.sol";
 import {ICrosschainWithdraw2Verifier} from "../../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
+import {IShinobiInputSettler} from "../../src/oif/interfaces/IShinobiInputSettler.sol";
 
 /**
  * @title 13_DeployPaymasters
@@ -39,6 +40,7 @@ contract DeployPaymasters is Script {
         address ethPool = vm.envAddress("SHINOBI_CASH_ETH_POOL");
         address withdraw2Verifier = vm.envAddress("WITHDRAW2_VERIFIER");
         address crossChainWithdraw2Verifier = vm.envAddress("CROSSCHAIN_WITHDRAW2_VERIFIER");
+        address inputSettler = vm.envAddress("INPUT_SETTLER");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -63,7 +65,8 @@ contract DeployPaymasters is Script {
         address payable crossChainPaymaster = payable(address(new ShinobiNativeCrosschainWithdrawalPaymaster(
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
             IShinobiCashEntrypoint(entrypoint),
-            ShinobiCashPool(ethPool)
+            ShinobiCashPool(ethPool),
+            IShinobiInputSettler(inputSettler)
         )));
         console.log("   Cross-Chain Paymaster:", crossChainPaymaster);
 
@@ -83,7 +86,8 @@ contract DeployPaymasters is Script {
             IERC4337EntryPoint(ERC4337_ENTRYPOINT),
             IShinobiCashEntrypoint(entrypoint),
             IShinobiCashPool(ethPool),
-            ICrosschainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crossChainWithdraw2Verifier),
+            IShinobiInputSettler(inputSettler)
         )));
         console.log("   CrossChainWithdraw2 Paymaster:", crossChainShinobiNativeWithdraw2Paymaster);
 

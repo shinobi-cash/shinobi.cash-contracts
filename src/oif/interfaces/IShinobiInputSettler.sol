@@ -12,6 +12,12 @@ import {ShinobiIntent} from "../libraries/ShinobiIntentType.sol";
  */
 interface IShinobiInputSettler {
     /*//////////////////////////////////////////////////////////////
+                                 ENUMS
+    //////////////////////////////////////////////////////////////*/
+
+    enum OrderStatus { None, Deposited, Claimed, Refunded }
+
+    /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
@@ -72,6 +78,13 @@ interface IShinobiInputSettler {
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Get the status of an order
+     * @param orderId The order identifier
+     * @return The current status of the order
+     */
+    function orderStatus(bytes32 orderId) external view returns (OrderStatus);
 
     /**
      * @notice Generate order identifier for an intent

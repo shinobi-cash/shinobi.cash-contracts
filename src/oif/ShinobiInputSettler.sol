@@ -25,9 +25,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
 
     address public immutable entrypoint;
 
-    enum OrderStatus { None, Deposited, Claimed, Refunded }
-
-    mapping(bytes32 => OrderStatus) public orderStatus;
+    mapping(bytes32 => OrderStatus) public override orderStatus;
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS

@@ -14,6 +14,7 @@ import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {IWithdraw2Verifier} from "../src/core/interfaces/IWithdraw2Verifier.sol";
 import {ICrosschainWithdraw2Verifier} from "../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 import {ShinobiCashPool} from "../src/core/ShinobiCashPool.sol";
+import {IShinobiInputSettler} from "../src/oif/interfaces/IShinobiInputSettler.sol";
 
 /**
  * @notice Mock ERC-4337 EntryPoint with depositTo function
@@ -61,8 +62,9 @@ contract ShinobiNativeCrosschainWithdrawalPaymasterHarness is ShinobiNativeCross
     constructor(
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
-        ShinobiCashPool _ethShinobiCashPool
-    ) ShinobiNativeCrosschainWithdrawalPaymaster(_entryPoint, _shinobiCashEntrypoint, _ethShinobiCashPool) {}
+        ShinobiCashPool _ethShinobiCashPool,
+        IShinobiInputSettler _inputSettler
+    ) ShinobiNativeCrosschainWithdrawalPaymaster(_entryPoint, _shinobiCashEntrypoint, _ethShinobiCashPool, _inputSettler) {}
 
     function exposed_postOp(
         IPaymaster.PostOpMode mode,
@@ -103,8 +105,9 @@ contract ShinobiNativeCrosschainWithdraw2PaymasterHarness is ShinobiNativeCrossc
         IEntryPoint _entryPoint,
         IShinobiCashEntrypoint _shinobiCashEntrypoint,
         IShinobiCashPool _ethCashPool,
-        ICrosschainWithdraw2Verifier _crosschainWithdraw2Verifier
-    ) ShinobiNativeCrosschainWithdraw2Paymaster(_entryPoint, _shinobiCashEntrypoint, _ethCashPool, _crosschainWithdraw2Verifier) {}
+        ICrosschainWithdraw2Verifier _crosschainWithdraw2Verifier,
+        IShinobiInputSettler _inputSettler
+    ) ShinobiNativeCrosschainWithdraw2Paymaster(_entryPoint, _shinobiCashEntrypoint, _ethCashPool, _crosschainWithdraw2Verifier, _inputSettler) {}
 
     function exposed_postOp(
         IPaymaster.PostOpMode mode,
@@ -133,6 +136,7 @@ contract PaymasterPostOpTest is Test {
     address public ethPool = makeAddr("ethPool");
     address public withdraw2Verifier = makeAddr("withdraw2Verifier");
     address public crosschainWithdraw2Verifier = makeAddr("crosschainWithdraw2Verifier");
+    address public inputSettler = makeAddr("inputSettler");
 
     ShinobiNativeWithdrawalPaymasterHarness public simplePaymaster;
     ShinobiNativeCrosschainWithdrawalPaymasterHarness public crosschainPaymaster;
@@ -158,7 +162,6 @@ contract PaymasterPostOpTest is Test {
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
-        uint256 refunded,
         bool success
     );
 
@@ -174,7 +177,6 @@ contract PaymasterPostOpTest is Test {
         address indexed userAccount,
         bytes32 indexed userOpHash,
         uint256 actualWithdrawalCost,
-        uint256 refunded,
         bool success
     );
 
@@ -191,7 +193,8 @@ contract PaymasterPostOpTest is Test {
         crosschainPaymaster = new ShinobiNativeCrosschainWithdrawalPaymasterHarness(
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
-            ShinobiCashPool(ethPool)
+            ShinobiCashPool(ethPool),
+            IShinobiInputSettler(inputSettler)
         );
 
         withdraw2Paymaster = new ShinobiNativeWithdraw2PaymasterHarness(
@@ -205,7 +208,8 @@ contract PaymasterPostOpTest is Test {
             IEntryPoint(address(mockEntryPoint)),
             IShinobiCashEntrypoint(shinobiCashEntrypoint),
             IShinobiCashPool(ethPool),
-            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier),
+            IShinobiInputSettler(inputSettler)
         );
 
         // Fund paymasters
@@ -309,7 +313,13 @@ contract PaymasterPostOpTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_crosschainPaymaster_postOp_success() public {
-        bytes memory context = abi.encode(USER_OP_HASH, address(recipient), EXPECTED_FEE);
+        // Context now includes OperationType
+        bytes memory context = abi.encode(
+            ShinobiNativeCrosschainWithdrawalPaymaster.OperationType.Withdrawal,
+            USER_OP_HASH,
+            address(recipient),
+            EXPECTED_FEE
+        );
 
         uint256 postOpGasLimit = crosschainPaymaster.MIN_POST_OP_GAS_LIMIT();
         uint256 expectedActualCost = ACTUAL_GAS_COST + (postOpGasLimit * FEE_PER_GAS);
@@ -319,7 +329,6 @@ contract PaymasterPostOpTest is Test {
             address(recipient),
             USER_OP_HASH,
             expectedActualCost,
-            0, // No refund in cross-chain version
             true
         );
 
@@ -339,7 +348,13 @@ contract PaymasterPostOpTest is Test {
     }
 
     function test_crosschainPaymaster_postOp_noDepositWhenZeroFee() public {
-        bytes memory context = abi.encode(USER_OP_HASH, address(recipient), 0);
+        // Context now includes OperationType
+        bytes memory context = abi.encode(
+            ShinobiNativeCrosschainWithdrawalPaymaster.OperationType.Withdrawal,
+            USER_OP_HASH,
+            address(recipient),
+            0
+        );
 
         crosschainPaymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,
@@ -409,7 +424,12 @@ contract PaymasterPostOpTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_ShinobiNativeCrosschainWithdraw2Paymaster_postOp_success() public {
-        bytes memory context = abi.encode(USER_OP_HASH, address(recipient), EXPECTED_FEE);
+        bytes memory context = abi.encode(
+            ShinobiNativeCrosschainWithdraw2Paymaster.OperationType.Withdrawal,
+            USER_OP_HASH,
+            address(recipient),
+            EXPECTED_FEE
+        );
 
         uint256 postOpGasLimit = crosschainWithdraw2Paymaster.MIN_POST_OP_GAS_LIMIT();
         uint256 expectedActualCost = ACTUAL_GAS_COST + (postOpGasLimit * FEE_PER_GAS);
@@ -419,7 +439,6 @@ contract PaymasterPostOpTest is Test {
             address(recipient),
             USER_OP_HASH,
             expectedActualCost,
-            0,
             true
         );
 
@@ -441,6 +460,46 @@ contract PaymasterPostOpTest is Test {
                     GAS MEASUREMENT TESTS
     //////////////////////////////////////////////////////////////*/
 
+    function test_measurePostOpGas_refundFlows() public {
+        bytes32 orderId = keccak256("test-order");
+
+        // 1. ShinobiNativeCrosschainWithdrawalPaymaster - Refund flow
+        bytes memory context1 = abi.encode(
+            ShinobiNativeCrosschainWithdrawalPaymaster.OperationType.Refund,
+            USER_OP_HASH,
+            orderId,
+            EXPECTED_FEE
+        );
+        uint256 gasBefore = gasleft();
+        crosschainPaymaster.exposed_postOp(
+            IPaymaster.PostOpMode.opSucceeded,
+            context1,
+            ACTUAL_GAS_COST,
+            FEE_PER_GAS
+        );
+        uint256 crosschainRefundGas = gasBefore - gasleft();
+
+        // 2. ShinobiNativeCrosschainWithdraw2Paymaster - Refund flow
+        bytes memory context2 = abi.encode(
+            ShinobiNativeCrosschainWithdraw2Paymaster.OperationType.Refund,
+            USER_OP_HASH,
+            orderId,
+            EXPECTED_FEE
+        );
+        gasBefore = gasleft();
+        crosschainWithdraw2Paymaster.exposed_postOp(
+            IPaymaster.PostOpMode.opSucceeded,
+            context2,
+            ACTUAL_GAS_COST,
+            FEE_PER_GAS
+        );
+        uint256 crosschainWithdraw2RefundGas = gasBefore - gasleft();
+
+        console.log("=== PostOp Gas Usage (Refund Flow) ===");
+        console.log("ShinobiNativeCrosschainWithdrawalPaymaster (Refund):", crosschainRefundGas);
+        console.log("ShinobiNativeCrosschainWithdraw2Paymaster (Refund):", crosschainWithdraw2RefundGas);
+    }
+
     function test_measurePostOpGas_allPaymasters() public {
         // Measure each paymaster independently with fresh recipients
 
@@ -458,7 +517,12 @@ contract PaymasterPostOpTest is Test {
 
         // 2. CrosschainPaymaster (no refund)
         RefundRecipient recipient2 = new RefundRecipient();
-        bytes memory context2 = abi.encode(USER_OP_HASH, address(recipient2), EXPECTED_FEE);
+        bytes memory context2 = abi.encode(
+            ShinobiNativeCrosschainWithdrawalPaymaster.OperationType.Withdrawal,
+            USER_OP_HASH,
+            address(recipient2),
+            EXPECTED_FEE
+        );
         gasBefore = gasleft();
         crosschainPaymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,
@@ -482,7 +546,12 @@ contract PaymasterPostOpTest is Test {
 
         // 4. ShinobiNativeCrosschainWithdraw2Paymaster (no refund)
         RefundRecipient recipient4 = new RefundRecipient();
-        bytes memory context4 = abi.encode(USER_OP_HASH, address(recipient4), EXPECTED_FEE);
+        bytes memory context4 = abi.encode(
+            ShinobiNativeCrosschainWithdraw2Paymaster.OperationType.Withdrawal,
+            USER_OP_HASH,
+            address(recipient4),
+            EXPECTED_FEE
+        );
         gasBefore = gasleft();
         crosschainWithdraw2Paymaster.exposed_postOp(
             IPaymaster.PostOpMode.opSucceeded,

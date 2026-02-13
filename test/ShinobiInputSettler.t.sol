@@ -62,7 +62,7 @@ contract ShinobiInputSettlerTest is Test {
 
         entrypoint.openIntent{value: AMOUNT}(intent);
 
-        assertEq(uint256(settler.orderStatus(orderId)), uint256(ShinobiInputSettler.OrderStatus.Deposited));
+        assertEq(uint256(settler.orderStatus(orderId)), uint256(IShinobiInputSettler.OrderStatus.Deposited));
     }
 
     function test_open_revertsUnauthorizedCaller() public {
@@ -176,7 +176,7 @@ contract ShinobiInputSettlerTest is Test {
         vm.prank(solver);
         settler.finalise(intent, solveParams, destination);
 
-        assertEq(uint256(settler.orderStatus(orderId)), uint256(ShinobiInputSettler.OrderStatus.Claimed));
+        assertEq(uint256(settler.orderStatus(orderId)), uint256(IShinobiInputSettler.OrderStatus.Claimed));
         assertEq(solver.balance, solverBalanceBefore + AMOUNT);
     }
 
@@ -361,7 +361,7 @@ contract ShinobiInputSettlerTest is Test {
 
         settler.refund(intent);
 
-        assertEq(uint256(settler.orderStatus(orderId)), uint256(ShinobiInputSettler.OrderStatus.Refunded));
+        assertEq(uint256(settler.orderStatus(orderId)), uint256(IShinobiInputSettler.OrderStatus.Refunded));
         assertEq(user.balance, userBalanceBefore + AMOUNT);
     }
 
@@ -454,7 +454,7 @@ contract ShinobiInputSettlerTest is Test {
         vm.prank(solver);
         settler.finalise(intent, solveParams, destination);
 
-        assertEq(uint256(settler.orderStatus(intent.orderIdentifier())), uint256(ShinobiInputSettler.OrderStatus.Claimed));
+        assertEq(uint256(settler.orderStatus(intent.orderIdentifier())), uint256(IShinobiInputSettler.OrderStatus.Claimed));
     }
 
     function testFuzz_bytes32ToAddress_revertsOnAnyDirtyBit(uint96 dirtyBits) public {
