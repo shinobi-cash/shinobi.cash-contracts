@@ -77,6 +77,7 @@ contract ShinobiNativeWithdrawalPaymaster is BasePaymaster {
     error SmartAccountNotDeployed();
     error InvalidAddress();
     error RelayFeeGreaterThanMax();
+    error InvalidRelayDataLength();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -125,6 +126,7 @@ contract ShinobiNativeWithdrawalPaymaster is BasePaymaster {
     ) external {
         if (msg.sender != address(this)) revert UnauthorizedCaller();
         if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (withdrawal.data.length != 96) revert InvalidRelayDataLength();
 
         IEntrypoint.RelayData memory relayData = abi.decode(
             withdrawal.data,

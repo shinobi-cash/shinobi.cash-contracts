@@ -193,6 +193,7 @@ contract CrosschainWithdrawalPaymasterHarness is ShinobiNativeCrosschainWithdraw
     ) external {
         // Skip msg.sender check, perform all other validations
         if (_withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (_withdrawal.data.length != 96) revert InvalidRelayDataLength();
 
         IShinobiCashCrosschainHandler.CrosschainRelayData memory relayData = abi.decode(
             _withdrawal.data,
@@ -241,6 +242,7 @@ contract CrosschainWithdraw2PaymasterHarness is ShinobiNativeCrosschainWithdraw2
         uint256 scope
     ) external {
         if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (withdrawal.data.length != 96) revert InvalidRelayDataLength();
 
         IShinobiCashCrosschainHandler.CrosschainRelayData memory relayData = abi.decode(
             withdrawal.data,
@@ -285,6 +287,7 @@ contract WithdrawalPaymasterHarness is ShinobiNativeWithdrawalPaymaster {
         uint256 scope
     ) external view {
         if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (withdrawal.data.length != 96) revert InvalidRelayDataLength();
 
         IEntrypoint.RelayData memory relayData = abi.decode(
             withdrawal.data,
@@ -320,6 +323,7 @@ contract Withdraw2PaymasterHarness is ShinobiNativeWithdraw2Paymaster {
         uint256 scope
     ) external view {
         if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (withdrawal.data.length != 96) revert InvalidRelayDataLength();
 
         (address feeRecipient, , ) = _decodeRelayData(withdrawal.data);
 
@@ -782,5 +786,87 @@ contract PaymasterValidationTest is Test {
 
         // Should not revert
         withdraw2Paymaster.exposed_validateRelayFee(withdrawal, MAX_RELAY_FEE_BPS, mockPool.SCOPE());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    RELAY DATA LENGTH VALIDATION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_crosschainPaymaster_revertsInvalidRelayDataLength_tooShort() public {
+        // Create data with wrong length (64 bytes instead of 96)
+        bytes memory shortData = abi.encode(address(crosschainPaymaster), uint256(500));
+
+        IPrivacyPool.Withdrawal memory withdrawal = _createWithdrawal(
+            address(mockEntrypoint),
+            shortData
+        );
+
+        CrosschainProofLib.CrosschainWithdrawProof memory proof = _createCrosschainProof(100);
+
+        uint256 scope = mockPool.SCOPE();
+        vm.expectRevert(ShinobiNativeCrosschainWithdrawalPaymaster.InvalidRelayDataLength.selector);
+        crosschainPaymaster.exposed_validateWithdrawal(withdrawal, proof, scope);
+    }
+
+    function test_crosschainPaymaster_revertsInvalidRelayDataLength_tooLong() public {
+        // Create data with wrong length (128 bytes instead of 96)
+        bytes memory longData = abi.encode(
+            address(crosschainPaymaster),
+            uint256(500),
+            bytes32(uint256(CHAIN_ID_BASE) << 224),
+            uint256(12345) // extra field
+        );
+
+        IPrivacyPool.Withdrawal memory withdrawal = _createWithdrawal(
+            address(mockEntrypoint),
+            longData
+        );
+
+        CrosschainProofLib.CrosschainWithdrawProof memory proof = _createCrosschainProof(100);
+
+        uint256 scope = mockPool.SCOPE();
+        vm.expectRevert(ShinobiNativeCrosschainWithdrawalPaymaster.InvalidRelayDataLength.selector);
+        crosschainPaymaster.exposed_validateWithdrawal(withdrawal, proof, scope);
+    }
+
+    function test_crosschainWithdraw2Paymaster_revertsInvalidRelayDataLength() public {
+        bytes memory shortData = abi.encode(address(crosschainWithdraw2Paymaster), uint256(500));
+
+        IPrivacyPool.Withdrawal memory withdrawal = _createWithdrawal(
+            address(mockEntrypoint),
+            shortData
+        );
+
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof = _createCrosschainWithdraw2Proof(100);
+
+        uint256 scope = mockPool.SCOPE();
+        vm.expectRevert(ShinobiNativeCrosschainWithdraw2Paymaster.InvalidRelayDataLength.selector);
+        crosschainWithdraw2Paymaster.exposed_validateWithdrawal(withdrawal, proof, scope);
+    }
+
+    function test_withdrawalPaymaster_revertsInvalidRelayDataLength() public {
+        bytes memory shortData = abi.encode(makeAddr("recipient"), address(withdrawalPaymaster));
+
+        IPrivacyPool.Withdrawal memory withdrawal = _createWithdrawal(
+            address(mockEntrypoint),
+            shortData
+        );
+
+        uint256 scope = mockPool.SCOPE();
+        vm.expectRevert(ShinobiNativeWithdrawalPaymaster.InvalidRelayDataLength.selector);
+        withdrawalPaymaster.exposed_validateRelayFee(withdrawal, 100, scope);
+    }
+
+    function test_withdraw2Paymaster_revertsInvalidRelayDataLength() public {
+        bytes memory shortData = abi.encode(makeAddr("recipient"), address(withdraw2Paymaster));
+
+        IPrivacyPool.Withdrawal memory withdrawal = _createWithdrawal(
+            address(mockEntrypoint),
+            shortData
+        );
+
+        uint256 scope = mockPool.SCOPE();
+        vm.expectRevert(ShinobiNativeWithdraw2Paymaster.InvalidRelayDataLength.selector);
+        withdraw2Paymaster.exposed_validateRelayFee(withdrawal, 100, scope);
     }
 }

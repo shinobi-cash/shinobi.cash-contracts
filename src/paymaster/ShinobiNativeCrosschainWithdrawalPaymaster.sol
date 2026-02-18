@@ -112,6 +112,7 @@ contract ShinobiNativeCrosschainWithdrawalPaymaster is BasePaymaster {
     error DestinationChainNotConfigured();
     error RelayFeeGreaterThanMax();
     error SolverFeeGreaterThanMax();
+    error InvalidRelayDataLength();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -163,6 +164,7 @@ contract ShinobiNativeCrosschainWithdrawalPaymaster is BasePaymaster {
     ) external {
         if (msg.sender != address(this)) revert UnauthorizedCaller();
         if (_withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (_withdrawal.data.length != 96) revert InvalidRelayDataLength();
 
         IShinobiCashCrosschainHandler.CrosschainRelayData memory relayData = abi.decode(
             _withdrawal.data,

@@ -78,6 +78,7 @@ contract ShinobiNativeWithdraw2Paymaster is BasePaymaster {
     error InvalidWithdraw2Proof();
     error InvalidAddress();
     error RelayFeeGreaterThanMax();
+    error InvalidRelayDataLength();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -133,6 +134,7 @@ contract ShinobiNativeWithdraw2Paymaster is BasePaymaster {
     ) external {
         if (msg.sender != address(this)) revert UnauthorizedCaller();
         if (withdrawal.processooor != address(SHINOBI_CASH_ENTRYPOINT)) revert InvalidProcessooor();
+        if (withdrawal.data.length != 96) revert InvalidRelayDataLength();
 
         (address feeRecipient, uint256 relayFeeBPS, address recipient) = _decodeRelayData(withdrawal.data);
 
