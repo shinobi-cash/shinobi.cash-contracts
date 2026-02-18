@@ -50,16 +50,13 @@ contract ShinobiWithdrawalOutputSettler is BaseShinobiOutputSettler {
      * @dev Optimistic settlement - no intent proof validation (ZK proof validated on origin)
      */
     function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
-        if (intent.outputs.length == 0) revert InvalidOutput();
+        if (intent.outputs.length != 1) revert InvalidOutput();
         if (intent.outputs[0].chainId != block.chainid) revert InvalidChain();
         if (block.timestamp > intent.fillDeadline) revert FillDeadlinePassed();
         if (intent.fillOracle != fillOracle) revert FillOracleMismatch();
 
         bytes32 orderId = intent.orderIdentifier();
-
-        for (uint256 i = 0; i < intent.outputs.length; i++) {
-            _fillOutput(orderId, intent.outputs[i], msg.sender);
-        }
+        _fillOutput(orderId, intent.outputs[0], msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////

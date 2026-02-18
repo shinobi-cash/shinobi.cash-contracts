@@ -9,7 +9,7 @@ import {ShinobiIntent} from "./libraries/ShinobiIntentType.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@oz/access/Ownable2Step.sol";
 
 /**
  * @title BaseShinobiOutputSettler
@@ -17,7 +17,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
  * @notice Abstract base contract for Shinobi output settlers
  * @dev Common functionality for deposit and withdrawal output settlers with IPayloadCreator support
  */
-abstract contract BaseShinobiOutputSettler is IShinobiOutputSettler, IPayloadCreator, ReentrancyGuard, Ownable {
+abstract contract BaseShinobiOutputSettler is IShinobiOutputSettler, IPayloadCreator, ReentrancyGuard, Ownable2Step {
     using MandateOutputEncodingLib for MandateOutput;
 
     /*//////////////////////////////////////////////////////////////

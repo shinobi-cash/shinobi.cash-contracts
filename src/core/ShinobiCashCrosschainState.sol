@@ -35,7 +35,37 @@ contract ShinobiCashCrosschainState {
 
     address public withdrawalInputSettler;
     address public depositOutputSettler;
-    mapping(uint256 chainId => WithdrawalChainConfig config) public withdrawalChainConfig;
+    uint256 internal _maxSolverFeeBPS;
+    mapping(uint256 chainId => WithdrawalChainConfig config) internal _withdrawalChainConfig;
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Get the maximum solver fee in basis points
+    function maxSolverFeeBPS() external view virtual returns (uint256) {
+        return _maxSolverFeeBPS;
+    }
+
+    /// @notice Get withdrawal chain configuration
+    function withdrawalChainConfig(uint256 chainId) external view virtual returns (
+        bool isConfigured,
+        uint32 fillDeadline,
+        uint32 expiry,
+        address withdrawalOutputSettler,
+        address withdrawalFillOracle,
+        address fillOracle
+    ) {
+        WithdrawalChainConfig storage config = _withdrawalChainConfig[chainId];
+        return (
+            config.isConfigured,
+            config.fillDeadline,
+            config.expiry,
+            config.withdrawalOutputSettler,
+            config.withdrawalFillOracle,
+            config.fillOracle
+        );
+    }
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -43,6 +73,7 @@ contract ShinobiCashCrosschainState {
 
     event WithdrawalInputSettlerUpdated(address indexed _previous, address indexed _new);
     event DepositOutputSettlerUpdated(address indexed _previous, address indexed _new);
+    event MaxSolverFeeBPSUpdated(uint256 _previous, uint256 _new);
 
     event WithdrawalChainConfigured(
         uint256 indexed chainId,
@@ -53,7 +84,7 @@ contract ShinobiCashCrosschainState {
         address fillOracle
     );
 
-    event CrossChainWithdrawalIntentRelayed(
+    event CrosschainWithdrawalIntentRelayed(
         address indexed _relayer,
         bytes32 indexed _crosschainRecipient,
         IERC20 indexed _asset,
@@ -71,7 +102,7 @@ contract ShinobiCashCrosschainState {
         uint256 _amount
     );
 
-    event Refunded(uint256 amount, uint256 indexed refundCommitmentHash);
+    event Refunded(uint256 amount, uint256 indexed refundCommitmentHash, uint256 refundFee, address indexed feeRecipient);
 
     event Withdraw2Relayed(
         address indexed _relayer,
@@ -82,7 +113,7 @@ contract ShinobiCashCrosschainState {
         Withdraw2Nullifiers _nullifiers
     );
 
-    event CrossChainWithdraw2IntentRelayed(
+    event CrosschainWithdraw2IntentRelayed(
         address indexed _relayer,
         bytes32 indexed _crosschainRecipient,
         IERC20 indexed _asset,
@@ -106,4 +137,9 @@ contract ShinobiCashCrosschainState {
     error OnlyDepositOutputSettler();
     error DeadlineTooShort();
     error ExpiryBeforeFillDeadline();
+    error InvalidChainId();
+    error SolverFeeGreaterThanMax();
+    error MaxSolverFeeBPSNotSet();
+    error InvalidAsset();
+    error RefundFeeTransferFailed();
 }

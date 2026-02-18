@@ -10,7 +10,7 @@ import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@oz/access/Ownable2Step.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 
@@ -20,7 +20,7 @@ import {Constants} from "contracts/lib/Constants.sol";
  * @notice Lightweight entrypoint for cross-chain deposits on origin chains
  * @dev Deployed on origin chains where users have funds. Provides deposit/refund interface.
  */
-contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloadCreator {
+contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IPayloadCreator {
     using ShinobiIntentLib for ShinobiIntent;
     using SafeCast for uint256;
 
@@ -29,9 +29,8 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     //////////////////////////////////////////////////////////////*/
 
     address public inputSettler;
-    bool private inputSettlerSet;
 
-    uint32 public defaultFillDeadline = 1 hours;
+    uint32 public defaultFillDeadline = 30 minutes;
     uint32 public defaultExpiry = 24 hours;
     address public fillOracle;
     address public intentOracle;
@@ -65,8 +64,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     //////////////////////////////////////////////////////////////*/
 
     event InputSettlerSet(address indexed inputSettlerAddress);
-    event DefaultFillDeadlineUpdated(uint32 previousFillDeadline, uint32 newFillDeadline);
-    event DefaultExpiryUpdated(uint32 previousExpiry, uint32 newExpiry);
+    event DefaultDeadlinesUpdated(uint32 newFillDeadline, uint32 newExpiry);
     event FillOracleUpdated(address indexed previousFillOracle, address indexed newFillOracle);
     event IntentOracleUpdated(address indexed previousIntentOracle, address indexed newIntentOracle);
     event DestinationConfigUpdated(
@@ -87,7 +85,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
         uint256 gasLimit
     );
     event IntentProofSubmitted(bytes32 indexed orderId, uint256 hyperlaneGasPayment);
-    event CrossChainDepositIntent(
+    event CrosschainDepositIntent(
         address indexed depositor,
         uint256 indexed precommitment,
         uint256 totalPaid,
@@ -115,6 +113,8 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     error HyperlaneNotConfigured();
     error InsufficientFundsForHyperlane(uint256 available, uint256 required);
     error PrecommitmentAlreadyUsed();
+    error ExpiryBeforeFillDeadline();
+    error DeadlineTooShort();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -127,38 +127,50 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Deposit funds for cross-chain transfer to pool (uses default solver fee)
+     * @notice Deposit funds for cross-chain transfer to pool (uses all defaults)
      * @param precommitment The precommitment for the pool deposit
      */
     function deposit(uint256 precommitment) external payable nonReentrant {
-        _deposit(precommitment, defaultSolverFeeBPS);
+        _deposit(precommitment, defaultSolverFeeBPS, defaultFillDeadline, defaultExpiry);
     }
 
     /**
-     * @notice Deposit funds for cross-chain transfer to pool with custom solver fee
+     * @notice Deposit funds with custom parameters for solver fee and deadlines
      * @param precommitment The precommitment for the pool deposit
      * @param customSolverFeeBPS Custom solver fee in basis points (e.g., 700 = 7%)
+     * @param customFillDeadline Custom fill deadline in seconds from now
+     * @param customExpiry Custom expiry in seconds from now
      */
-    // Function signature updated
-    function depositWithCustomFee(uint256 precommitment, uint256 customSolverFeeBPS) external payable nonReentrant {
+    function depositWithCustomParams(
+        uint256 precommitment,
+        uint256 customSolverFeeBPS,
+        uint32 customFillDeadline,
+        uint32 customExpiry
+    ) external payable nonReentrant {
         if (customSolverFeeBPS > maxSolverFeeBPS) {
             revert SolverFeeExceedsMax(customSolverFeeBPS, maxSolverFeeBPS);
         }
-        _deposit(precommitment, customSolverFeeBPS);
+        if (customExpiry <= customFillDeadline) revert ExpiryBeforeFillDeadline();
+        if (customFillDeadline < 60) revert DeadlineTooShort();
+        _deposit(precommitment, customSolverFeeBPS, customFillDeadline, customExpiry);
     }
 
-    function _deposit(uint256 precommitment, uint256 _solverFeeBPS) internal {
+    function _deposit(
+        uint256 precommitment,
+        uint256 _solverFeeBPS,
+        uint32 _fillDeadline,
+        uint32 _expiry
+    ) internal {
         uint256 totalPaid = msg.value;
         if (totalPaid == 0) revert InvalidAmount();
-        if (destinationChainId == 0) revert ConfigurationNotSet();
-        if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
+        _validateConfiguration();
 
         // Prevent duplicate precommitment usage on this chain
         if (usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
         usedPrecommitments[precommitment] = true;
 
         uint256 hyperlaneGasPayment = _quoteHyperlaneGasPayment();
-        if (hyperlaneGasPayment > 0 && totalPaid <= hyperlaneGasPayment) {
+        if (totalPaid <= hyperlaneGasPayment) {
             revert InsufficientFundsForHyperlane(totalPaid, hyperlaneGasPayment);
         }
 
@@ -170,13 +182,11 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
             revert DepositAmountBelowMinimumAfterFee(netDepositAmount, minimumDepositAmount);
         }
 
-        bytes32 orderId = _createAndExecuteIntent(precommitment, depositFunds, netDepositAmount);
+        bytes32 orderId = _createAndExecuteIntent(precommitment, depositFunds, netDepositAmount, _fillDeadline, _expiry);
 
-        if (hyperlaneGasPayment > 0) {
-            _submitIntentProofToHyperlane(orderId, hyperlaneGasPayment);
-        }
+        _submitIntentProofToHyperlane(orderId, hyperlaneGasPayment);
 
-        emit CrossChainDepositIntent(
+        emit CrosschainDepositIntent(
             msg.sender,
             precommitment,
             totalPaid,
@@ -189,9 +199,23 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
         );
     }
 
-    function _quoteHyperlaneGasPayment() internal view returns (uint256 gasPayment) {
-        if (address(hyperlaneOracle) == address(0)) return 0;
+    function _validateConfiguration() internal view {
+        if (inputSettler == address(0)) revert ConfigurationNotSet();
+        if (destinationChainId == 0) revert ConfigurationNotSet();
+        if (destinationEntrypoint == address(0)) revert ConfigurationNotSet();
+        if (destinationOutputSettler == address(0)) revert ConfigurationNotSet();
+        if (destinationOracle == address(0)) revert ConfigurationNotSet();
+        if (fillOracle == address(0)) revert ConfigurationNotSet();
+        if (intentOracle == address(0)) revert ConfigurationNotSet();
+        if (assetToPool[Constants.NATIVE_ASSET] == address(0)) revert AssetNotSupported(Constants.NATIVE_ASSET);
 
+        // Hyperlane is required for cross-chain deposits - intent proof must be relayed
+        if (address(hyperlaneOracle) == address(0)) revert HyperlaneNotConfigured();
+        if (destinationHyperlaneDomain == 0) revert HyperlaneNotConfigured();
+        if (destinationHyperlaneOracle == address(0)) revert HyperlaneNotConfigured();
+    }
+
+    function _quoteHyperlaneGasPayment() internal view returns (uint256 gasPayment) {
         bytes[] memory tempPayloads = new bytes[](1);
         tempPayloads[0] = abi.encode(bytes32(0));
 
@@ -208,7 +232,9 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     function _createAndExecuteIntent(
         uint256 precommitment,
         uint256 depositFunds,
-        uint256 netDepositAmount
+        uint256 netDepositAmount,
+        uint32 _fillDeadline,
+        uint32 _expiry
     ) internal returns (bytes32 orderId) {
         uint256 intentNonce = ++nonce;
         uint32 currentTimestamp = block.timestamp.toUint32();
@@ -224,8 +250,8 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
                 user: msg.sender,
                 nonce: intentNonce,
                 originChainId: block.chainid,
-                expires: currentTimestamp + defaultExpiry,
-                fillDeadline: currentTimestamp + defaultFillDeadline,
+                expires: currentTimestamp + _expiry,
+                fillDeadline: currentTimestamp + _fillDeadline,
                 fillOracle: fillOracle,
                 inputs: inputs,
                 outputs: outputs,
@@ -293,29 +319,25 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     function setInputSettler(address _inputSettler) external onlyOwner {
         if (_inputSettler == address(0)) revert InvalidAddress(_inputSettler);
         inputSettler = _inputSettler;
-        inputSettlerSet = true;
         emit InputSettlerSet(_inputSettler);
     }
 
-    function setDefaultFillDeadline(uint32 _fillDeadline) external onlyOwner {
-        uint32 previousFillDeadline = defaultFillDeadline;
+    function setDefaultDeadlines(uint32 _fillDeadline, uint32 _expiry) external onlyOwner {
+        if (_expiry <= _fillDeadline) revert ExpiryBeforeFillDeadline();
         defaultFillDeadline = _fillDeadline;
-        emit DefaultFillDeadlineUpdated(previousFillDeadline, _fillDeadline);
-    }
-
-    function setDefaultExpiry(uint32 _expiry) external onlyOwner {
-        uint32 previousExpiry = defaultExpiry;
         defaultExpiry = _expiry;
-        emit DefaultExpiryUpdated(previousExpiry, _expiry);
+        emit DefaultDeadlinesUpdated(_fillDeadline, _expiry);
     }
 
     function setFillOracle(address _fillOracle) external onlyOwner {
+        if (_fillOracle == address(0)) revert InvalidAddress(_fillOracle);
         address previousFillOracle = fillOracle;
         fillOracle = _fillOracle;
         emit FillOracleUpdated(previousFillOracle, _fillOracle);
     }
 
     function setIntentOracle(address _intentOracle) external onlyOwner {
+        if (_intentOracle == address(0)) revert InvalidAddress(_intentOracle);
         address previousIntentOracle = intentOracle;
         intentOracle = _intentOracle;
         emit IntentOracleUpdated(previousIntentOracle, _intentOracle);
@@ -397,6 +419,19 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable, IPayloa
     function disableHyperlane() external onlyOwner {
         hyperlaneOracle = IHyperlaneOracle(address(0));
         emit HyperlaneConfigUpdated(address(0), 0, address(0), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Get the current hyperlane gas payment quote
+     * @return gasPayment The amount of ETH needed for hyperlane relay
+     */
+    function quoteHyperlaneGas() external view returns (uint256 gasPayment) {
+        if (address(hyperlaneOracle) == address(0)) return 0;
+        return _quoteHyperlaneGasPayment();
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -3,15 +3,15 @@
 pragma solidity 0.8.28;
 
 import {Entrypoint} from "contracts/Entrypoint.sol";
-import {CrossChainProofLib} from "./libraries/CrossChainProofLib.sol";
+import {CrosschainProofLib} from "./libraries/CrosschainProofLib.sol";
 import {Withdraw2ProofLib} from "./libraries/Withdraw2ProofLib.sol";
-import {CrossChainWithdraw2ProofLib} from "./libraries/CrossChainWithdraw2ProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "./libraries/CrosschainWithdraw2ProofLib.sol";
 import {ShinobiCashPool} from "./ShinobiCashPool.sol";
 import {ShinobiCashPoolSimple} from "./implementations/ShinobiCashPoolSimple.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {ProofLib} from "contracts/lib/ProofLib.sol";
-import {IShinobiCashCrossChainHandler} from "./interfaces/IShinobiCashCrossChainHandler.sol";
+import {IShinobiCashCrosschainHandler} from "./interfaces/IShinobiCashCrosschainHandler.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
@@ -25,10 +25,10 @@ import {ShinobiCashCrosschainState} from "./ShinobiCashCrosschainState.sol";
  * @notice Main orchestrator for cross-chain privacy pool operations
  * @dev Handles cross-chain withdrawals (1:1 and 2:1) and deposits via OIF intents
  */
-contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrossChainHandler {
-    using CrossChainProofLib for CrossChainProofLib.CrossChainWithdrawProof;
+contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShinobiCashCrosschainHandler {
+    using CrosschainProofLib for CrosschainProofLib.CrosschainWithdrawProof;
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
-    using CrossChainWithdraw2ProofLib for CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof;
+    using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
     using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
@@ -40,6 +40,26 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint256 netAmount;
         uint256 relayFee;
         uint256 solverFee;
+    }
+
+    struct IntentCreationParams {
+        bytes32 nullifierHash;
+        bytes32 refundCommitmentHash;
+        uint256 escrowAmount;
+        uint256 netAmount;
+        uint256 destinationChainId;
+        bytes32 encodedRecipient;
+        uint256 scope;
+        address feeRecipient;
+        uint256 refundFeeBPS;
+    }
+
+    struct CrosschainWithdraw2ProofData {
+        uint256 withdrawnValue;
+        uint256 relayFeeBPS;
+        uint256 refundFeeBPS;
+        bytes32 refundCommitmentHash;
+        bytes32 nullifierHash0;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -76,6 +96,43 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         emit DepositOutputSettlerUpdated(previous, _outputSettler);
     }
 
+    /// @notice Configure the maximum solver fee in basis points
+    function setMaxSolverFeeBPS(uint256 __maxSolverFeeBPS) external onlyRole(_OWNER_ROLE) {
+        if (__maxSolverFeeBPS > 10000) revert InvalidFeeBPS();
+        uint256 previous = _maxSolverFeeBPS;
+        _maxSolverFeeBPS = __maxSolverFeeBPS;
+        emit MaxSolverFeeBPSUpdated(previous, __maxSolverFeeBPS);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW OVERRIDES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IShinobiCashCrosschainHandler
+    function maxSolverFeeBPS() external view override(ShinobiCashCrosschainState, IShinobiCashCrosschainHandler) returns (uint256) {
+        return _maxSolverFeeBPS;
+    }
+
+    /// @inheritdoc IShinobiCashCrosschainHandler
+    function withdrawalChainConfig(uint256 chainId) external view override(ShinobiCashCrosschainState, IShinobiCashCrosschainHandler) returns (
+        bool isConfigured,
+        uint32 fillDeadline,
+        uint32 expiry,
+        address withdrawalOutputSettler,
+        address withdrawalFillOracle,
+        address fillOracle
+    ) {
+        WithdrawalChainConfig storage config = _withdrawalChainConfig[chainId];
+        return (
+            config.isConfigured,
+            config.fillDeadline,
+            config.expiry,
+            config.withdrawalOutputSettler,
+            config.withdrawalFillOracle,
+            config.fillOracle
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                     WITHDRAWAL CONFIGURATION
     //////////////////////////////////////////////////////////////*/
@@ -89,13 +146,14 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint32 _fillDeadline,
         uint32 _expiry
     ) external onlyRole(_OWNER_ROLE) {
+        if (_chainId == 0) revert InvalidChainId();
         if (_outputSettler == address(0) || _outputOracle == address(0) || _fillOracle == address(0)) {
             revert InvalidAddress();
         }
         if (_fillDeadline < 300 || _expiry < 300) revert DeadlineTooShort();
         if (_expiry <= _fillDeadline) revert ExpiryBeforeFillDeadline();
 
-        withdrawalChainConfig[_chainId] = WithdrawalChainConfig({
+        _withdrawalChainConfig[_chainId] = WithdrawalChainConfig({
             isConfigured: true,
             withdrawalOutputSettler: _outputSettler,
             withdrawalFillOracle: _outputOracle,
@@ -111,7 +169,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
                         CROSS-CHAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Handle a cross-chain deposit with verified depositor address
+    /// @notice Handle a cross-chain deposit with verified depositor address (native ETH)
     function crosschainDeposit(
         address _depositor,
         uint256 _amount,
@@ -121,14 +179,27 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         _commitment = _handleCrosschainDeposit(IERC20(Constants.NATIVE_ASSET), _depositor, msg.value, _precommitment);
     }
 
+    /// @notice Handle a cross-chain deposit with verified depositor address (ERC20)
+    /// @dev Tokens must be transferred to this contract before calling
+    function crosschainDepositERC20(
+        IERC20 _asset,
+        address _depositor,
+        uint256 _amount,
+        uint256 _precommitment
+    ) external nonReentrant onlyDepositOutputSettler returns (uint256 _commitment) {
+        if (address(_asset) == Constants.NATIVE_ASSET) revert InvalidAsset();
+        _commitment = _handleCrosschainDeposit(_asset, _depositor, _amount, _precommitment);
+    }
 
-    /// @inheritdoc IShinobiCashCrossChainHandler
+
+    /// @inheritdoc IShinobiCashCrosschainHandler
     function crosschainWithdrawal(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrossChainProofLib.CrossChainWithdrawProof calldata _proof,
+        CrosschainProofLib.CrosschainWithdrawProof calldata _proof,
         uint256 _scope
     ) external override nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
+        if (_maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
         if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
         if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
 
@@ -138,18 +209,23 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         IERC20 _asset = IERC20(_shinobiPool.ASSET());
         uint256 _balanceBefore = _assetBalance(_asset);
 
-        CrossChainRelayData memory _data = abi.decode(_withdrawal.data, (CrossChainRelayData));
+        CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
 
-        if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
+        if (!_withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
             revert DestinationChainNotConfigured();
         }
-        if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
+        // Read fees from proof (circuit is single source of truth)
+        if (_proof.relayFeeBPS() > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+        if (_data.solverFeeBPS > _maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
 
         _shinobiPool.crosschainWithdraw(_withdrawal, _proof);
 
         WithdrawalResult memory result = _openWithdrawalIntent(
             _asset,
             _proof.withdrawnValue(),
+            _proof.relayFeeBPS(),
+            _proof.refundFeeBPS(),
             _data,
             _scope,
             bytes32(_proof.existingNullifierHash()),
@@ -158,7 +234,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
         if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
 
-        emit CrossChainWithdrawalIntentRelayed(
+        emit CrosschainWithdrawalIntentRelayed(
             msg.sender,
             _data.encodedDestination,
             _asset,
@@ -236,10 +312,11 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
      */
     function crossChainWithdrawal2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof calldata _proof,
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
         uint256 _scope
     ) external nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
+        if (_maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
         if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
         if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
 
@@ -248,44 +325,69 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             _proof.nullifierHash1()
         );
 
-        _executeCrossChainWithdraw2(_withdrawal, _proof, _scope, nullifiers);
+        _executeCrosschainWithdraw2(_withdrawal, _proof, _scope, nullifiers);
     }
 
-    function _executeCrossChainWithdraw2(
+    function _executeCrosschainWithdraw2(
         IPrivacyPool.Withdrawal calldata _withdrawal,
-        CrossChainWithdraw2ProofLib.CrossChainWithdraw2Proof calldata _proof,
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof calldata _proof,
         uint256 _scope,
         Withdraw2Nullifiers memory _nullifiers
     ) internal {
-        ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
-        if (address(_shinobiPool) == address(0)) revert PoolNotFound();
+        // Extract all proof values upfront to avoid stack issues later
+        CrosschainWithdraw2ProofData memory proofData = CrosschainWithdraw2ProofData({
+            withdrawnValue: _proof.withdrawnValue(),
+            relayFeeBPS: _proof.relayFeeBPS(),
+            refundFeeBPS: _proof.refundFeeBPS(),
+            refundCommitmentHash: bytes32(_proof.refundCommitmentHash()),
+            nullifierHash0: bytes32(_nullifiers.nullifierHash0)
+        });
 
-        IERC20 _asset = IERC20(_shinobiPool.ASSET());
-        uint256 _balanceBefore = _assetBalance(_asset);
+        IERC20 _asset;
+        bytes32 _encodedDestination;
+        WithdrawalResult memory result;
 
-        CrossChainRelayData memory _data = abi.decode(_withdrawal.data, (CrossChainRelayData));
+        // Scoped block for pool and intent operations
+        {
+            CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
+            _encodedDestination = _data.encodedDestination;
 
-        if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
-            revert DestinationChainNotConfigured();
+            if (!_withdrawalChainConfig[uint256(_encodedDestination) >> 224].isConfigured) {
+                revert DestinationChainNotConfigured();
+            }
+
+            uint256 _balanceBefore;
+
+            {
+                ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
+                if (address(_shinobiPool) == address(0)) revert PoolNotFound();
+
+                _asset = IERC20(_shinobiPool.ASSET());
+                _balanceBefore = _assetBalance(_asset);
+
+                if (proofData.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+                if (_data.solverFeeBPS > _maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
+
+                _shinobiPool.crossChainWithdraw2(_withdrawal, _proof);
+            }
+
+            result = _openWithdrawalIntent(
+                _asset,
+                proofData.withdrawnValue,
+                proofData.relayFeeBPS,
+                proofData.refundFeeBPS,
+                _data,
+                _scope,
+                proofData.nullifierHash0,
+                proofData.refundCommitmentHash
+            );
+
+            if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
         }
-        if (_data.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
 
-        _shinobiPool.crossChainWithdraw2(_withdrawal, _proof);
-
-        WithdrawalResult memory result = _openWithdrawalIntent(
-            _asset,
-            _proof.withdrawnValue(),
-            _data,
-            _scope,
-            bytes32(_nullifiers.nullifierHash0),
-            bytes32(_proof.refundCommitmentHash())
-        );
-
-        if (_balanceBefore > _assetBalance(_asset)) revert InvalidPoolState();
-
-        emit CrossChainWithdraw2IntentRelayed(
+        emit CrosschainWithdraw2IntentRelayed(
             msg.sender,
-            _data.encodedDestination,
+            _encodedDestination,
             _asset,
             result.netAmount,
             result.relayFee,
@@ -297,23 +399,37 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
     /**
      * @notice Handle refund for failed cross-chain withdrawal
-     * @param _refundCommitmentHash The commitment hash for refund
-     * @param _amount The amount being refunded
+     * @dev The refundCommitmentHash from circuit is correctly computed with netRefundAmount
+     * @param _refundCommitmentHash The commitment hash for refund (from circuit, tied to netRefundAmount)
+     * @param _feeRecipient The address to receive the refund fee
+     * @param _refundFeeBPS The refund fee in basis points (from circuit)
      * @param _scope The privacy pool scope identifier
      */
     function handleRefund(
         uint256 _refundCommitmentHash,
-        uint256 _amount,
+        address _feeRecipient,
+        uint256 _refundFeeBPS,
         uint256 _scope
     ) external payable onlyWithdrawalInputSettler {
-        if (msg.value != _amount) revert AmountMismatch();
+        uint256 escrowAmount = msg.value;
+
+        // Calculate refund fee
+        uint256 refundFee = escrowAmount - _deductFee(escrowAmount, _refundFeeBPS);
+        uint256 netRefundAmount = escrowAmount - refundFee;
 
         ShinobiCashPool _shinobiPool = ShinobiCashPool(address(scopeToPool[_scope]));
         if (address(_shinobiPool) == address(0)) revert PoolNotFound();
 
-        _shinobiPool.handleRefund{value: msg.value}(_refundCommitmentHash, _amount);
+        // Pay refund fee to recipient (paymaster/relayer)
+        if (refundFee > 0) {
+            (bool success,) = _feeRecipient.call{value: refundFee}("");
+            if (!success) revert RefundFeeTransferFailed();
+        }
 
-        emit Refunded(_amount, _refundCommitmentHash);
+        // Insert circuit's refundCommitmentHash (correctly tied to netRefundAmount)
+        _shinobiPool.handleRefund{value: netRefundAmount}(_refundCommitmentHash, netRefundAmount);
+
+        emit Refunded(netRefundAmount, _refundCommitmentHash, refundFee, _feeRecipient);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -323,31 +439,34 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     function _openWithdrawalIntent(
         IERC20 _asset,
         uint256 _withdrawnAmount,
-        CrossChainRelayData memory _data,
+        uint256 _relayFeeBPS,
+        uint256 _refundFeeBPS,
+        CrosschainRelayData memory _data,
         uint256 _scope,
         bytes32 _nullifierHash,
         bytes32 _refundCommitmentHash
     ) internal returns (WithdrawalResult memory result) {
-        WithdrawalFees memory fees = _calculateWithdrawalFees(_withdrawnAmount, _data.relayFeeBPS, _data.solverFeeBPS);
+        WithdrawalFees memory fees = _calculateWithdrawalFees(_withdrawnAmount, _relayFeeBPS, _data.solverFeeBPS);
 
-        uint256 _escrowAmount = _withdrawnAmount - fees.relayFee;
-        uint256 _netAmount = _withdrawnAmount - fees.relayFee - fees.solverFee;
+        IntentCreationParams memory params = IntentCreationParams({
+            nullifierHash: _nullifierHash,
+            refundCommitmentHash: _refundCommitmentHash,
+            escrowAmount: _withdrawnAmount - fees.relayFee,
+            netAmount: _withdrawnAmount - fees.relayFee - fees.solverFee,
+            destinationChainId: uint256(_data.encodedDestination) >> 224,
+            encodedRecipient: _data.encodedDestination,
+            scope: _scope,
+            feeRecipient: _data.feeRecipient,
+            refundFeeBPS: _refundFeeBPS
+        });
 
-        ShinobiIntent memory intent = _createWithdrawalIntent(
-            _nullifierHash,
-            _refundCommitmentHash,
-            _escrowAmount,
-            _netAmount,
-            uint256(_data.encodedDestination) >> 224,
-            _data.encodedDestination,
-            _scope
-        );
+        ShinobiIntent memory intent = _createWithdrawalIntent(params);
 
         _transfer(_asset, _data.feeRecipient, fees.relayFee);
-        IShinobiInputSettler(withdrawalInputSettler).open{value: _escrowAmount}(intent);
+        IShinobiInputSettler(withdrawalInputSettler).open{value: params.escrowAmount}(intent);
 
         result.orderId = intent.orderIdentifier();
-        result.netAmount = _netAmount;
+        result.netAmount = params.netAmount;
         result.relayFee = fees.relayFee;
         result.solverFee = fees.solverFee;
     }
@@ -369,51 +488,47 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
         uint256 _amountAfterFees = _deductFee(_amount, config.vettingFeeBPS);
         uint256 _nativeAssetValue = address(_asset) == Constants.NATIVE_ASSET ? _amountAfterFees : 0;
-        _commitment = pool.deposit{value: _nativeAssetValue}(_depositor, _nativeAssetValue, _precommitment);
+        _commitment = pool.deposit{value: _nativeAssetValue}(_depositor, _amountAfterFees, _precommitment);
 
         emit CrosschainDeposited(_depositor, address(pool), _precommitment, _commitment, _amountAfterFees);
     }
 
 
     function _createWithdrawalIntent(
-        bytes32 nullifierHash,
-        bytes32 refundCommitmentHash,
-        uint256 escrowAmount,
-        uint256 netAmount,
-        uint256 destinationChainId,
-        bytes32 encodedRecipient,
-        uint256 scope
+        IntentCreationParams memory p
     ) internal view returns (ShinobiIntent memory intent) {
-        WithdrawalChainConfig storage destConfig = withdrawalChainConfig[destinationChainId];
+        WithdrawalChainConfig storage destConfig = _withdrawalChainConfig[p.destinationChainId];
 
+        // refundCalldata includes feeRecipient and refundFeeBPS for fee payment on refund
         bytes memory refundCalldata = abi.encode(
             address(this),
             abi.encodeWithSelector(
                 this.handleRefund.selector,
-                uint256(refundCommitmentHash),
-                escrowAmount,
-                scope
+                uint256(p.refundCommitmentHash),
+                p.feeRecipient,
+                p.refundFeeBPS,
+                p.scope
             )
         );
 
         uint256[2][] memory inputs = new uint256[2][](1);
-        inputs[0] = [uint256(0), escrowAmount];
+        inputs[0] = [uint256(0), p.escrowAmount];
 
         MandateOutput[] memory outputs = new MandateOutput[](1);
         outputs[0] = MandateOutput({
             oracle: bytes32(uint256(uint160(destConfig.withdrawalFillOracle))),
             settler: bytes32(uint256(uint160(destConfig.withdrawalOutputSettler))),
-            chainId: destinationChainId,
+            chainId: p.destinationChainId,
             token: bytes32(0),
-            amount: netAmount,
-            recipient: bytes32(uint256(uint160(uint256(encodedRecipient)))),
+            amount: p.netAmount,
+            recipient: bytes32(uint256(uint160(uint256(p.encodedRecipient)))),
             call: "",
             context: ""
         });
 
         intent = ShinobiIntent({
             user: address(this),
-            nonce: uint256(nullifierHash),
+            nonce: uint256(p.nullifierHash),
             originChainId: block.chainid,
             expires: uint32(block.timestamp) + destConfig.expiry,
             fillDeadline: uint32(block.timestamp) + destConfig.fillDeadline,

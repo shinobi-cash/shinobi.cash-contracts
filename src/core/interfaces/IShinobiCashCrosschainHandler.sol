@@ -5,13 +5,13 @@ pragma solidity 0.8.28;
 
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
+import {CrosschainProofLib} from "../libraries/CrosschainProofLib.sol";
   /**
-   * @title IShinobiCashCrossChainHandler
+   * @title IShinobiCashCrosschainHandler
    * @notice Interface for handling cross-chain privacy pool operations (deposits and withdrawals)
    * @dev Defines the contract capability to process cross-chain deposits and withdrawals
    */
-  interface IShinobiCashCrossChainHandler {
+  interface IShinobiCashCrosschainHandler {
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -19,13 +19,13 @@ import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
 
     /**
     * @notice Enhanced relay data for cross-chain withdrawals
-    * @dev Contains all information needed for cross-chain processing and refunds
+    * @dev Contains information for cross-chain processing
+    * @dev Note: relayFeeBPS and refundFeeBPS now come from circuit proof (single source of truth)
     */
-    struct CrossChainRelayData {
-        address feeRecipient;          // Paymaster address (gets relay fees)
-        uint256 relayFeeBPS;          // Fee in basis points (e.g., 1000 = 10%)
-        uint256 solverFeeBPS;         // Solver fee in basis points
-        bytes32 encodedDestination;   // chainId(32 bits) + recipient(160 bits) packed
+    struct CrosschainRelayData {
+        address feeRecipient;          // Receives relay fee (withdrawal) and refund fee (if refund triggered)
+        uint256 solverFeeBPS;          // Solver fee in basis points (not in circuit)
+        bytes32 encodedDestination;    // chainId(32 bits) + recipient(160 bits) packed
     }
 
     /// @notice Struct to hold fee breakdown for withdrawals
@@ -46,7 +46,7 @@ import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
        * @param refundCommitmentHash The commitment created for refund recovery
        * @param refundAmount The amount available for refund
        */
-      event CrossChainIntentFailed(
+      event CrosschainIntentFailed(
           bytes32 indexed nullifier,
           bytes32 indexed refundCommitmentHash,
           uint256 refundAmount
@@ -72,7 +72,7 @@ import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
        */
       function crosschainWithdrawal(
           IPrivacyPool.Withdrawal calldata withdrawal,
-          CrossChainProofLib.CrossChainWithdrawProof calldata proof,
+          CrosschainProofLib.CrosschainWithdrawProof calldata proof,
           uint256 scope
       ) external ;
 
@@ -89,5 +89,29 @@ import {CrossChainProofLib} from "../libraries/CrossChainProofLib.sol";
           uint256 amount,
           uint256 precommitment
       ) external payable returns (uint256 _commitment);
+
+      /*//////////////////////////////////////////////////////////////
+                              VIEW FUNCTIONS
+      //////////////////////////////////////////////////////////////*/
+
+      /// @notice Get the maximum solver fee in basis points
+      function maxSolverFeeBPS() external view returns (uint256);
+
+      /// @notice Get withdrawal chain configuration
+      /// @param chainId The destination chain ID
+      /// @return isConfigured Whether the chain is configured
+      /// @return fillDeadline The fill deadline in seconds
+      /// @return expiry The expiry time in seconds
+      /// @return withdrawalOutputSettler The withdrawal output settler address
+      /// @return withdrawalFillOracle The withdrawal fill oracle address
+      /// @return fillOracle The fill oracle address
+      function withdrawalChainConfig(uint256 chainId) external view returns (
+          bool isConfigured,
+          uint32 fillDeadline,
+          uint32 expiry,
+          address withdrawalOutputSettler,
+          address withdrawalFillOracle,
+          address fillOracle
+      );
 
   }

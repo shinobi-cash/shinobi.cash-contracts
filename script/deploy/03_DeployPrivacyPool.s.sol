@@ -6,9 +6,9 @@ import {console} from "forge-std/console.sol";
 
 // Shinobi Cash contracts
 import {ShinobiCashPoolSimple} from "../../src/core/implementations/ShinobiCashPoolSimple.sol";
-import {ICrossChainWithdrawalProofVerifier} from "../../src/core/interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {ICrosschainWithdrawalProofVerifier} from "../../src/core/interfaces/ICrosschainWithdrawalProofVerifier.sol";
 import {IWithdraw2Verifier} from "../../src/core/interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "../../src/core/interfaces/ICrossChainWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 
 /**
  * @title 03_DeployPrivacyPool
@@ -24,9 +24,9 @@ contract DeployPrivacyPool is Script {
         address entrypoint = vm.envAddress("SHINOBI_CASH_ENTRYPOINT_PROXY");
         address withdrawalVerifier = vm.envAddress("WITHDRAWAL_VERIFIER");
         address commitmentVerifier = vm.envAddress("COMMITMENT_VERIFIER");
-        address crossChainVerifier = vm.envAddress("CROSSCHAIN_WITHDRAWAL_VERIFIER");
+        address crosschainVerifier = vm.envAddress("CROSSCHAIN_WITHDRAWAL_VERIFIER");
         address withdraw2Verifier = vm.envAddress("WITHDRAW2_VERIFIER");
-        address crossChainWithdraw2Verifier = vm.envAddress("CROSSCHAIN_WITHDRAW2_VERIFIER");
+        address crosschainWithdraw2Verifier = vm.envAddress("CROSSCHAIN_WITHDRAW2_VERIFIER");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -39,9 +39,9 @@ contract DeployPrivacyPool is Script {
             entrypoint,
             withdrawalVerifier,
             commitmentVerifier,
-            ICrossChainWithdrawalProofVerifier(crossChainVerifier),
+            ICrosschainWithdrawalProofVerifier(crosschainVerifier),
             IWithdraw2Verifier(withdraw2Verifier),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)
         ));
 
         console.log("Shinobi ETH Privacy Pool:", ethPool);

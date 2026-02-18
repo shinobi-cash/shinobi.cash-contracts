@@ -5,9 +5,9 @@ pragma solidity 0.8.28;
 
 import {Constants} from "contracts/lib/Constants.sol";
 import {ShinobiCashPool} from "../ShinobiCashPool.sol";
-import {ICrossChainWithdrawalProofVerifier} from "../interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {ICrosschainWithdrawalProofVerifier} from "../interfaces/ICrosschainWithdrawalProofVerifier.sol";
 import {IWithdraw2Verifier} from "../interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "../interfaces/ICrossChainWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../interfaces/ICrosschainWithdraw2Verifier.sol";
 
 /**
  * @title ShinobiCashPoolSimple
@@ -23,9 +23,9 @@ contract ShinobiCashPoolSimple is ShinobiCashPool {
         address _entrypoint,
         address _withdrawalVerifier,
         address _ragequitVerifier,
-        ICrossChainWithdrawalProofVerifier _crossChainVerifier,
+        ICrosschainWithdrawalProofVerifier _crossChainVerifier,
         IWithdraw2Verifier _withdraw2Verifier,
-        ICrossChainWithdraw2Verifier _crossChainWithdraw2Verifier
+        ICrosschainWithdraw2Verifier _crossChainWithdraw2Verifier
     ) ShinobiCashPool(
         _entrypoint,
         _withdrawalVerifier,

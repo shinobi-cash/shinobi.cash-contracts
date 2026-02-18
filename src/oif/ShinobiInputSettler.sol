@@ -25,9 +25,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
 
     address public immutable entrypoint;
 
-    enum OrderStatus { None, Deposited, Claimed, Refunded }
-
-    mapping(bytes32 => OrderStatus) public orderStatus;
+    mapping(bytes32 => OrderStatus) public override orderStatus;
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -51,6 +49,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
     error ETHTransferFailed();
     error InvalidRefundCalldataLength();
     error InvalidRefundTarget();
+    error DirtyUpperBits();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -233,6 +232,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
     }
 
     function _bytes32ToAddress(bytes32 b) internal pure returns (address addr) {
+        if (uint256(b) > type(uint160).max) revert DirtyUpperBits();
         assembly { addr := b }
     }
 

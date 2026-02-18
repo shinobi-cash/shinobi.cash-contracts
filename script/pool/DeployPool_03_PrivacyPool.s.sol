@@ -8,9 +8,9 @@ import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
 // Privacy Pool
 import {ShinobiCashPoolSimple} from "../../src/core/implementations/ShinobiCashPoolSimple.sol";
-import {ICrossChainWithdrawalProofVerifier} from "../../src/core/interfaces/ICrossChainWithdrawalProofVerifier.sol";
+import {ICrosschainWithdrawalProofVerifier} from "../../src/core/interfaces/ICrosschainWithdrawalProofVerifier.sol";
 import {IWithdraw2Verifier} from "../../src/core/interfaces/IWithdraw2Verifier.sol";
-import {ICrossChainWithdraw2Verifier} from "../../src/core/interfaces/ICrossChainWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 
 /**
  * @title DeployPool_03_PrivacyPool
@@ -74,9 +74,9 @@ contract DeployPool_03_PrivacyPool is Script {
             entrypoint,
             withdrawalVerifier,
             commitmentVerifier,
-            ICrossChainWithdrawalProofVerifier(crossChainWithdrawalVerifier),
+            ICrosschainWithdrawalProofVerifier(crossChainWithdrawalVerifier),
             IWithdraw2Verifier(withdraw2Verifier),
-            ICrossChainWithdraw2Verifier(crossChainWithdraw2Verifier)
+            ICrosschainWithdraw2Verifier(crossChainWithdraw2Verifier)
         );
         DeploymentWriter.writeContract(poolKey, "ethPool", address(pool), blockBefore);
         console.log("   Address:", address(pool));

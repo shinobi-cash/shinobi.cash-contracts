@@ -56,6 +56,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
     error CallbackFailed();
     error OriginChainNotConfigured(uint256 chainId);
     error InvalidAddress();
+    error InvalidChainId();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -75,6 +76,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
         address _hyperlaneOracle,
         address _depositEntrypoint
     ) external onlyOwner {
+        if (_chainId == 0) revert InvalidChainId();
         if (_hyperlaneOracle == address(0)) revert InvalidAddress();
         if (_depositEntrypoint == address(0)) revert InvalidAddress();
 
