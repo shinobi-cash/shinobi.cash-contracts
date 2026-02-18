@@ -54,18 +54,23 @@ contract SetupEntrypoint is Script {
         );
         console.log("   ETH Pool registered:", ethPool);
 
-        // 2. Set Withdrawal Input Settler (for withdrawal intents)
-        console.log("2. Setting Withdrawal Input Settler...");
+        // 2. Set Max Solver Fee BPS (required for cross-chain withdrawals)
+        console.log("2. Setting Max Solver Fee BPS...");
+        entrypoint.setMaxSolverFeeBPS(1000); // 10% max solver fee
+        console.log("   Max Solver Fee BPS set: 1000 (10%)");
+
+        // 3. Set Withdrawal Input Settler (for withdrawal intents)
+        console.log("3. Setting Withdrawal Input Settler...");
         entrypoint.setWithdrawalInputSettler(withdrawalInputSettler);
         console.log("   Withdrawal Input Settler set:", withdrawalInputSettler);
 
-        // 3. Set Deposit Output Settler (for receiving cross-chain deposits)
-        console.log("3. Setting Deposit Output Settler...");
+        // 4. Set Deposit Output Settler (for receiving cross-chain deposits)
+        console.log("4. Setting Deposit Output Settler...");
         entrypoint.setDepositOutputSettler(depositOutputSettler);
         console.log("   Deposit Output Settler set:", depositOutputSettler);
 
-        // 4. Configure withdrawal destination chain (Base Sepolia)
-        console.log("4. Configuring withdrawal chain (Base Sepolia)...");
+        // 5. Configure withdrawal destination chain (Base Sepolia)
+        console.log("5. Configuring withdrawal chain (Base Sepolia)...");
         entrypoint.setWithdrawalChainConfig(
             84532, // Base Sepolia chain ID
             withdrawalOutputSettler, // Withdrawal Output Settler on Base
@@ -88,6 +93,7 @@ contract SetupEntrypoint is Script {
         console.log("");
         console.log("Summary:");
         console.log("- ETH Pool: Registered with 0.001 ETH minimum deposit");
+        console.log("- Max Solver Fee: 10% (1000 BPS)");
         console.log("- Withdrawal Input Settler: Configured");
         console.log("- Deposit Output Settler: Configured");
         console.log("- Cross-chain withdrawals: Enabled to Base Sepolia (84532)");

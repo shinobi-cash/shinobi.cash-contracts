@@ -79,16 +79,24 @@ contract Pool_06_Setup is Script {
             console.log("   Already registered, skipping.");
         }
 
-        // 2. Set Withdrawal Input Settler
-        console.log("2. Setting Withdrawal Input Settler...");
+        // 2. Set Max Solver Fee BPS (required for cross-chain withdrawals)
+        console.log("2. Setting Max Solver Fee BPS...");
+        try entrypointContract.setMaxSolverFeeBPS(poolConfig.maxSolverFeeBPS) {
+            console.log("   Max Solver Fee BPS:", poolConfig.maxSolverFeeBPS);
+        } catch {
+            console.log("   Already set, skipping.");
+        }
+
+        // 3. Set Withdrawal Input Settler
+        console.log("3. Setting Withdrawal Input Settler...");
         try entrypointContract.setWithdrawalInputSettler(inputSettler) {
             console.log("   Set to:", inputSettler);
         } catch {
             console.log("   Already set, skipping.");
         }
 
-        // 3. Set Deposit Output Settler
-        console.log("3. Setting Deposit Output Settler...");
+        // 4. Set Deposit Output Settler
+        console.log("4. Setting Deposit Output Settler...");
         try entrypointContract.setDepositOutputSettler(depositOutputSettler) {
             console.log("   Set to:", depositOutputSettler);
         } catch {

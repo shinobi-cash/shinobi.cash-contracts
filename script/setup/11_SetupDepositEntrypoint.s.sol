@@ -94,8 +94,8 @@ contract SetupDepositEntrypoint is Script {
 
         // 5. Set fee configuration
         console.log("5. Setting fee configuration...");
-        depositEntrypoint.setMinimumDepositAmount(0.01 ether);
-        console.log("   Minimum Deposit Amount: 0.01 ETH");
+        depositEntrypoint.setMinimumDepositAmount(0.001 ether);
+        console.log("   Minimum Deposit Amount: 0.001 ETH");
 
         depositEntrypoint.setDefaultSolverFeeBPS(500); // 5%
         console.log("   Default Solver Fee: 5% (500 BPS)");

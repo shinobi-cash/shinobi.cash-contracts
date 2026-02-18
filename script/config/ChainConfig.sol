@@ -32,6 +32,7 @@ library ChainConfig {
         uint256 minimumDeposit;
         uint256 vettingFeeBPS;
         uint256 maxRelayFeeBPS;
+        uint256 maxSolverFeeBPS;
     }
 
     /**
@@ -52,6 +53,7 @@ library ChainConfig {
         config.minimumDeposit = vm.parseJsonUint(json, ".config.minimumDeposit");
         config.vettingFeeBPS = vm.parseJsonUint(json, ".config.vettingFeeBPS");
         config.maxRelayFeeBPS = vm.parseJsonUint(json, ".config.maxRelayFeeBPS");
+        config.maxSolverFeeBPS = vm.parseJsonUint(json, ".config.maxSolverFeeBPS");
     }
 
     /*//////////////////////////////////////////////////////////////
