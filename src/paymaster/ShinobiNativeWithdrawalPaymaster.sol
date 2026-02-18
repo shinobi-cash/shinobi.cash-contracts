@@ -14,6 +14,7 @@ import {IEntrypoint} from "interfaces/IEntrypoint.sol";
 import {ProofLib} from "contracts/lib/ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 import {IWithdrawalVerifier} from "../core/interfaces/IWithdrawalVerifier.sol";
+import {IERC20} from "@oz/interfaces/IERC20.sol";
 
 /**
  * @title ShinobiNativeWithdrawalPaymaster
@@ -75,6 +76,7 @@ contract ShinobiNativeWithdrawalPaymaster is BasePaymaster {
     error UnauthorizedSmartAccount();
     error SmartAccountNotDeployed();
     error InvalidAddress();
+    error RelayFeeGreaterThanMax();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -131,6 +133,11 @@ contract ShinobiNativeWithdrawalPaymaster is BasePaymaster {
 
         if (relayData.feeRecipient != address(this)) revert WrongFeeRecipient();
         if (scope != ETH_CASH_POOL.SCOPE()) revert InvalidScope();
+
+        // Early relay fee validation - fail fast before expensive ZK verification
+        (, , , uint256 maxRelayFeeBPS) = SHINOBI_CASH_ENTRYPOINT.assetConfig(IERC20(Constants.NATIVE_ASSET));
+        if (relayData.relayFeeBPS > maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
         if (!_validateWithdrawCall(withdrawal, proof)) revert WithdrawalValidationFailed();
 
         uint256 withdrawnValue = proof.withdrawnValue();

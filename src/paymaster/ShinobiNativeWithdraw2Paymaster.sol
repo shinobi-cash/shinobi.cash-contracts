@@ -14,6 +14,7 @@ import {IShinobiCashPool} from "../core/interfaces/IShinobiCashPool.sol";
 import {IWithdraw2Verifier} from "../core/interfaces/IWithdraw2Verifier.sol";
 import {Withdraw2ProofLib} from "../core/libraries/Withdraw2ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
+import {IERC20} from "@oz/interfaces/IERC20.sol";
 
 /**
  * @title ShinobiNativeWithdraw2Paymaster
@@ -76,6 +77,7 @@ contract ShinobiNativeWithdraw2Paymaster is BasePaymaster {
     error NullifierAlreadySpent();
     error InvalidWithdraw2Proof();
     error InvalidAddress();
+    error RelayFeeGreaterThanMax();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -136,6 +138,11 @@ contract ShinobiNativeWithdraw2Paymaster is BasePaymaster {
 
         if (feeRecipient != address(this)) revert WrongFeeRecipient();
         if (scope != ETH_CASH_POOL.SCOPE()) revert InvalidScope();
+
+        // Early relay fee validation - fail fast before expensive ZK verification
+        (, , , uint256 maxRelayFeeBPS) = SHINOBI_CASH_ENTRYPOINT.assetConfig(IERC20(Constants.NATIVE_ASSET));
+        if (relayFeeBPS > maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
         if (!_validateWithdraw2Proof(withdrawal, proof)) revert WithdrawalValidationFailed();
 
         uint256 withdrawnValue = proof.withdrawnValue();

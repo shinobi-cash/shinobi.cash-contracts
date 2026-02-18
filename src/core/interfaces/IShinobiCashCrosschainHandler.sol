@@ -90,4 +90,28 @@ import {CrosschainProofLib} from "../libraries/CrosschainProofLib.sol";
           uint256 precommitment
       ) external payable returns (uint256 _commitment);
 
+      /*//////////////////////////////////////////////////////////////
+                              VIEW FUNCTIONS
+      //////////////////////////////////////////////////////////////*/
+
+      /// @notice Get the maximum solver fee in basis points
+      function maxSolverFeeBPS() external view returns (uint256);
+
+      /// @notice Get withdrawal chain configuration
+      /// @param chainId The destination chain ID
+      /// @return isConfigured Whether the chain is configured
+      /// @return fillDeadline The fill deadline in seconds
+      /// @return expiry The expiry time in seconds
+      /// @return withdrawalOutputSettler The withdrawal output settler address
+      /// @return withdrawalFillOracle The withdrawal fill oracle address
+      /// @return fillOracle The fill oracle address
+      function withdrawalChainConfig(uint256 chainId) external view returns (
+          bool isConfigured,
+          uint32 fillDeadline,
+          uint32 expiry,
+          address withdrawalOutputSettler,
+          address withdrawalFillOracle,
+          address fillOracle
+      );
+
   }

@@ -35,8 +35,37 @@ contract ShinobiCashCrosschainState {
 
     address public withdrawalInputSettler;
     address public depositOutputSettler;
-    uint256 public maxSolverFeeBPS;
-    mapping(uint256 chainId => WithdrawalChainConfig config) public withdrawalChainConfig;
+    uint256 internal _maxSolverFeeBPS;
+    mapping(uint256 chainId => WithdrawalChainConfig config) internal _withdrawalChainConfig;
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Get the maximum solver fee in basis points
+    function maxSolverFeeBPS() external view virtual returns (uint256) {
+        return _maxSolverFeeBPS;
+    }
+
+    /// @notice Get withdrawal chain configuration
+    function withdrawalChainConfig(uint256 chainId) external view virtual returns (
+        bool isConfigured,
+        uint32 fillDeadline,
+        uint32 expiry,
+        address withdrawalOutputSettler,
+        address withdrawalFillOracle,
+        address fillOracle
+    ) {
+        WithdrawalChainConfig storage config = _withdrawalChainConfig[chainId];
+        return (
+            config.isConfigured,
+            config.fillDeadline,
+            config.expiry,
+            config.withdrawalOutputSettler,
+            config.withdrawalFillOracle,
+            config.fillOracle
+        );
+    }
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS

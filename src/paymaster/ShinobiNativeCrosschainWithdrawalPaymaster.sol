@@ -15,6 +15,7 @@ import {ICrosschainWithdrawalProofVerifier} from "../core/interfaces/ICrosschain
 import {CrosschainProofLib} from "../core/libraries/CrosschainProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
+import {IERC20} from "@oz/interfaces/IERC20.sol";
 import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
 import {ShinobiIntent} from "../oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
@@ -107,6 +108,10 @@ contract ShinobiNativeCrosschainWithdrawalPaymaster is BasePaymaster {
     error InvalidRefundTarget();
     error InvalidSelector();
     error RefundValidationFailed();
+    error MaxSolverFeeBPSNotSet();
+    error DestinationChainNotConfigured();
+    error RelayFeeGreaterThanMax();
+    error SolverFeeGreaterThanMax();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -166,10 +171,22 @@ contract ShinobiNativeCrosschainWithdrawalPaymaster is BasePaymaster {
 
         if (relayData.feeRecipient != address(this)) revert WrongFeeRecipient();
         if (_scope != ETH_POOL.SCOPE()) revert InvalidScope();
+
+        uint32 chainId = uint32(uint256(relayData.encodedDestination) >> 224);
+        (bool isConfigured,,,,,) = SHINOBI_CASH_ENTRYPOINT.withdrawalChainConfig(chainId);
+        if (!isConfigured) revert DestinationChainNotConfigured();
+
+        uint256 relayFeeBPS = _proof.relayFeeBPS();
+        (, , , uint256 maxRelayFeeBPS) = SHINOBI_CASH_ENTRYPOINT.assetConfig(IERC20(Constants.NATIVE_ASSET));
+        if (relayFeeBPS > maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+        
+        uint256 maxSolver = SHINOBI_CASH_ENTRYPOINT.maxSolverFeeBPS();
+        if (maxSolver == 0) revert MaxSolverFeeBPSNotSet();
+        if (relayData.solverFeeBPS > maxSolver) revert SolverFeeGreaterThanMax();
+
         if (!_validateCrosschainWithdrawCall(_withdrawal, _proof)) revert CrosschainWithdrawalValidationFailed();
 
         uint256 withdrawnValue = _proof.withdrawnValue();
-        uint256 relayFeeBPS = _proof.relayFeeBPS(); // Read from proof (circuit is single source of truth)
         address withdrawalRecipient = address(uint160(uint256(relayData.encodedDestination)));
 
         assembly {

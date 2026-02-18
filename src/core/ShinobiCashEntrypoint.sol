@@ -97,11 +97,40 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     }
 
     /// @notice Configure the maximum solver fee in basis points
-    function setMaxSolverFeeBPS(uint256 _maxSolverFeeBPS) external onlyRole(_OWNER_ROLE) {
-        if (_maxSolverFeeBPS > 10000) revert InvalidFeeBPS();
-        uint256 previous = maxSolverFeeBPS;
-        maxSolverFeeBPS = _maxSolverFeeBPS;
-        emit MaxSolverFeeBPSUpdated(previous, _maxSolverFeeBPS);
+    function setMaxSolverFeeBPS(uint256 __maxSolverFeeBPS) external onlyRole(_OWNER_ROLE) {
+        if (__maxSolverFeeBPS > 10000) revert InvalidFeeBPS();
+        uint256 previous = _maxSolverFeeBPS;
+        _maxSolverFeeBPS = __maxSolverFeeBPS;
+        emit MaxSolverFeeBPSUpdated(previous, __maxSolverFeeBPS);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW OVERRIDES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IShinobiCashCrosschainHandler
+    function maxSolverFeeBPS() external view override(ShinobiCashCrosschainState, IShinobiCashCrosschainHandler) returns (uint256) {
+        return _maxSolverFeeBPS;
+    }
+
+    /// @inheritdoc IShinobiCashCrosschainHandler
+    function withdrawalChainConfig(uint256 chainId) external view override(ShinobiCashCrosschainState, IShinobiCashCrosschainHandler) returns (
+        bool isConfigured,
+        uint32 fillDeadline,
+        uint32 expiry,
+        address withdrawalOutputSettler,
+        address withdrawalFillOracle,
+        address fillOracle
+    ) {
+        WithdrawalChainConfig storage config = _withdrawalChainConfig[chainId];
+        return (
+            config.isConfigured,
+            config.fillDeadline,
+            config.expiry,
+            config.withdrawalOutputSettler,
+            config.withdrawalFillOracle,
+            config.fillOracle
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -124,7 +153,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         if (_fillDeadline < 300 || _expiry < 300) revert DeadlineTooShort();
         if (_expiry <= _fillDeadline) revert ExpiryBeforeFillDeadline();
 
-        withdrawalChainConfig[_chainId] = WithdrawalChainConfig({
+        _withdrawalChainConfig[_chainId] = WithdrawalChainConfig({
             isConfigured: true,
             withdrawalOutputSettler: _outputSettler,
             withdrawalFillOracle: _outputOracle,
@@ -170,7 +199,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint256 _scope
     ) external override nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
-        if (maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
+        if (_maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
         if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
         if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
 
@@ -182,13 +211,13 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
 
         CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
 
-        if (!withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
+        if (!_withdrawalChainConfig[uint256(_data.encodedDestination) >> 224].isConfigured) {
             revert DestinationChainNotConfigured();
         }
 
         // Read fees from proof (circuit is single source of truth)
         if (_proof.relayFeeBPS() > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
-        if (_data.solverFeeBPS > maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
+        if (_data.solverFeeBPS > _maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
 
         _shinobiPool.crosschainWithdraw(_withdrawal, _proof);
 
@@ -287,7 +316,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
         uint256 _scope
     ) external nonReentrant {
         if (withdrawalInputSettler == address(0)) revert WithdrawalInputSettlerNotSet();
-        if (maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
+        if (_maxSolverFeeBPS == 0) revert MaxSolverFeeBPSNotSet();
         if (_proof.withdrawnValue() == 0) revert InvalidWithdrawalAmount();
         if (_withdrawal.processooor != address(this)) revert InvalidProcessooor();
 
@@ -323,7 +352,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
             CrosschainRelayData memory _data = abi.decode(_withdrawal.data, (CrosschainRelayData));
             _encodedDestination = _data.encodedDestination;
 
-            if (!withdrawalChainConfig[uint256(_encodedDestination) >> 224].isConfigured) {
+            if (!_withdrawalChainConfig[uint256(_encodedDestination) >> 224].isConfigured) {
                 revert DestinationChainNotConfigured();
             }
 
@@ -337,7 +366,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
                 _balanceBefore = _assetBalance(_asset);
 
                 if (proofData.relayFeeBPS > assetConfig[_asset].maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
-                if (_data.solverFeeBPS > maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
+                if (_data.solverFeeBPS > _maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
 
                 _shinobiPool.crossChainWithdraw2(_withdrawal, _proof);
             }
@@ -468,7 +497,7 @@ contract ShinobiCashEntrypoint is Entrypoint, ShinobiCashCrosschainState, IShino
     function _createWithdrawalIntent(
         IntentCreationParams memory p
     ) internal view returns (ShinobiIntent memory intent) {
-        WithdrawalChainConfig storage destConfig = withdrawalChainConfig[p.destinationChainId];
+        WithdrawalChainConfig storage destConfig = _withdrawalChainConfig[p.destinationChainId];
 
         // refundCalldata includes feeRecipient and refundFeeBPS for fee payment on refund
         bytes memory refundCalldata = abi.encode(
