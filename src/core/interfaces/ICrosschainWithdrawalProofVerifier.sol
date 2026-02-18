@@ -6,16 +6,16 @@ pragma solidity 0.8.28;
 /**
  * @title ICrosschainWithdrawalProofVerifier
  * @notice Interface for verifying cross-chain withdrawal (1:1) ZK proofs
- * @dev Verifies Groth16 proofs with 13 public signals for cross-chain withdrawals
+ * @dev Verifies Groth16 proofs with 11 public signals for cross-chain withdrawals
  */
 interface ICrosschainWithdrawalProofVerifier {
     /**
      * @notice Verify a cross-chain withdrawal proof
-     * @dev Verifies the Groth16 proof with 13 public signals
+     * @dev Verifies the Groth16 proof with 11 public signals
      * @param a Proof component A (pi_A)
      * @param b Proof component B (pi_B)
      * @param c Proof component C (pi_C)
-     * @param input Array of 13 public signals:
+     * @param input Array of 11 public signals:
      *              [0] newCommitmentHash - Hash of the new commitment (change)
      *              [1] existingNullifierHash - Hash of the nullifier being spent
      *              [2] refundCommitmentHash - Hash of commitment for refund recovery
@@ -27,14 +27,12 @@ interface ICrosschainWithdrawalProofVerifier {
      *              [8] ASPRoot - ASP merkle root
      *              [9] ASPTreeDepth - ASP tree depth
      *              [10] context - Binding context hash
-     *              [11] relayFeeBPS - Relay fee input
-     *              [12] refundFeeBPS - Refund fee input
      * @return True if the proof is valid, false otherwise
      */
     function verifyProof(
         uint[2] memory a,
         uint[2][2] memory b,
         uint[2] memory c,
-        uint[13] memory input
+        uint[11] memory input
     ) external view returns (bool);
 }

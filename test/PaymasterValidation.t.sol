@@ -443,14 +443,13 @@ contract PaymasterValidationTest is Test {
     }
 
     function _createCrosschainProof(uint256 relayFeeBPS) internal pure returns (CrosschainProofLib.CrosschainWithdrawProof memory) {
-        // Create minimal proof with relayFeeBPS at index 3 and 11
+        // Create minimal proof with relayFeeBPS at index 3
         uint256[2] memory pA;
         uint256[2][2] memory pB;
         uint256[2] memory pC;
-        uint256[13] memory pubSignals;
+        uint256[11] memory pubSignals;
 
         pubSignals[3] = relayFeeBPS; // relayFeeBPSOut
-        pubSignals[11] = relayFeeBPS; // relayFeeBPS
         pubSignals[5] = 1 ether; // withdrawnValue
 
         return CrosschainProofLib.CrosschainWithdrawProof({
@@ -575,10 +574,9 @@ contract PaymasterValidationTest is Test {
         uint256[2] memory pA;
         uint256[2][2] memory pB;
         uint256[2] memory pC;
-        uint256[14] memory pubSignals;
+        uint256[12] memory pubSignals;
 
         pubSignals[4] = relayFeeBPS; // relayFeeBPSOut
-        pubSignals[12] = relayFeeBPS; // relayFeeBPS
         pubSignals[6] = 1 ether; // withdrawnValue
 
         return CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof({

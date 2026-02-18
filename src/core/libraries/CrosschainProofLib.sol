@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 
 /**
  * @title CrosschainProofLib
- * @notice Groth16 proof signal extraction for cross-chain 1:1 withdrawals (13 signals)
+ * @notice Groth16 proof signal extraction for cross-chain 1:1 withdrawals (11 signals)
  * @dev Public signals order:
  *      [0] newCommitmentHash    - Output: new commitment after withdrawal
  *      [1] existingNullifierHash - Output: spent nullifier
@@ -18,8 +18,6 @@ pragma solidity 0.8.28;
  *      [8] ASPRoot              - Input: ASP merkle root
  *      [9] ASPTreeDepth         - Input: ASP tree depth
  *      [10] context             - Input: binding context hash
- *      [11] relayFeeBPS         - Input: relay fee (same as output)
- *      [12] refundFeeBPS        - Input: refund fee (same as output)
  */
 library CrosschainProofLib {
 
@@ -27,7 +25,7 @@ library CrosschainProofLib {
         uint256[2] pA;
         uint256[2][2] pB;
         uint256[2] pC;
-        uint256[13] pubSignals;
+        uint256[11] pubSignals;
     }
 
     function newCommitmentHash(CrosschainWithdrawProof memory _p) internal pure returns (uint256) {
