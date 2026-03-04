@@ -52,9 +52,6 @@ struct PoolStorageData {
 
     // Fee accounting
     uint256 accumulatedFees;
-
-    // Reentrancy guard
-    uint256 reentrancyStatus;
 }
 
 library PoolStorageLib {

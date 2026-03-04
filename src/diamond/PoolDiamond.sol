@@ -7,7 +7,6 @@ import {DiamondStorageData, DiamondStorageLib} from "./storage/DiamondStorage.so
 import {AccessControlStorageLib} from "./storage/AccessControlStorage.sol";
 import {DiamondOps} from "./libraries/DiamondOps.sol";
 import {AccessControlOps} from "./libraries/AccessControlOps.sol";
-import {PoolOps} from "./libraries/PoolOps.sol";
 
 /// @title PoolDiamond - ERC-8153 diamond proxy for Shinobi Cash privacy pools
 /// @notice Single-address pool supporting multiple operation types as facets
@@ -27,7 +26,6 @@ contract PoolDiamond {
         ps.asset = params.asset;
         ps.scope =
             uint256(keccak256(abi.encodePacked(address(this), block.chainid, params.asset))) % Constants.SNARK_SCALAR_FIELD;
-        ps.reentrancyStatus = PoolOps.NOT_ENTERED;
 
         // Initialize access control
         // ADMIN_ROLE is self-administering

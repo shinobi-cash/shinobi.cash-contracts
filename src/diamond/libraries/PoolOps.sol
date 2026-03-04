@@ -11,8 +11,6 @@ library PoolOps {
 
     uint32 internal constant ROOT_HISTORY_SIZE = 64;
     uint32 internal constant MAX_TREE_DEPTH = 32;
-    uint256 internal constant NOT_ENTERED = 1;
-    uint256 internal constant ENTERED = 2;
 
     event LeafInserted(uint256 _index, uint256 _leaf, uint256 _root);
 
