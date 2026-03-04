@@ -119,6 +119,8 @@ interface IPoolDiamond {
     function grantRole(bytes32 role, address account) external;
     function revokeRole(bytes32 role, address account) external;
     function renounceRole(bytes32 role, address callerConfirmation) external;
+    function transferAdmin(address newAdmin) external;
+    function acceptAdmin() external;
     function setAssetConfig(uint256 minimumDepositAmount, uint256 vettingFeeBPS, uint256 maxRelayFeeBPS) external;
     function setMaxSolverFeeBPS(uint256 maxSolverFeeBPS) external;
     function setWithdrawalInputSettler(address settler) external;
@@ -169,6 +171,7 @@ interface IPoolDiamond {
         view
         returns (bool isConfigured, uint32 fillDeadline, uint32 expiry, address withdrawalOutputSettler, address withdrawalFillOracle, address fillOracle);
     function hasRole(bytes32 role, address account) external view returns (bool);
+    function pendingAdmin() external view returns (address);
 
     // ── Loupe (ERC-8153) ──
 

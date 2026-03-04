@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {IFacet} from "../interfaces/IFacet.sol";
 import {PoolStorageData, PoolStorageLib, AssociationSetData, WithdrawalChainConfig} from "../storage/PoolStorage.sol";
 import {DiamondStorageData, DiamondStorageLib} from "../storage/DiamondStorage.sol";
+import {AccessControlStorageLib} from "../storage/AccessControlStorage.sol";
 import {AccessControlOps} from "../libraries/AccessControlOps.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 
@@ -149,6 +150,10 @@ contract ViewFacet is IFacet {
         return AccessControlOps.hasRole(role, account);
     }
 
+    function pendingAdmin() external view returns (address) {
+        return AccessControlStorageLib.layout().pendingAdmin;
+    }
+
     // ── ERC-8153 Loupe ──
 
     function facetAddress(bytes4 selector) external view returns (address) {
@@ -191,6 +196,7 @@ contract ViewFacet is IFacet {
             this.depositOutputSettler.selector,
             this.withdrawalChainConfig.selector,
             this.hasRole.selector,
+            this.pendingAdmin.selector,
             this.facetAddress.selector,
             this.facetAddresses.selector,
             this.facetFunctionSelectors.selector

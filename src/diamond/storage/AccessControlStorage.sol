@@ -9,6 +9,7 @@ struct RoleData {
 /// @title AccessControlStorage - Role-based access control state
 struct AccessControlStorageData {
     mapping(bytes32 => RoleData) roles;
+    address pendingAdmin;
 }
 
 library AccessControlStorageLib {

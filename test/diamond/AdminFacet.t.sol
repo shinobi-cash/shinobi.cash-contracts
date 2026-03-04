@@ -51,6 +51,68 @@ contract AdminFacetTest is DiamondTestBase {
     }
 
     /*//////////////////////////////////////////////////////////////
+                       2-STEP ADMIN TRANSFER
+    //////////////////////////////////////////////////////////////*/
+
+    function test_transferAdmin_success() public {
+        address newAdmin = makeAddr("newAdmin");
+
+        vm.prank(admin);
+        pool.transferAdmin(newAdmin);
+
+        assertEq(pool.pendingAdmin(), newAdmin);
+    }
+
+    function test_transferAdmin_revertsForNonAdmin() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AccessControlOps.AccessControlUnauthorized.selector, user, AccessControlStorageLib.ADMIN_ROLE
+            )
+        );
+        vm.prank(user);
+        pool.transferAdmin(user);
+    }
+
+    function test_transferAdmin_revertsForZeroAddress() public {
+        vm.expectRevert(AdminFacet.InvalidAddress.selector);
+        vm.prank(admin);
+        pool.transferAdmin(address(0));
+    }
+
+    function test_acceptAdmin_success() public {
+        address newAdmin = makeAddr("newAdmin");
+
+        vm.prank(admin);
+        pool.transferAdmin(newAdmin);
+
+        vm.prank(newAdmin);
+        pool.acceptAdmin();
+
+        assertTrue(pool.hasRole(AccessControlStorageLib.ADMIN_ROLE, newAdmin));
+        assertEq(pool.pendingAdmin(), address(0));
+    }
+
+    function test_acceptAdmin_revertsForNonPending() public {
+        vm.expectRevert(AdminFacet.NotPendingAdmin.selector);
+        vm.prank(user);
+        pool.acceptAdmin();
+    }
+
+    function test_acceptAdmin_oldAdminRetainsRole() public {
+        address newAdmin = makeAddr("newAdmin");
+
+        vm.prank(admin);
+        pool.transferAdmin(newAdmin);
+
+        vm.prank(newAdmin);
+        pool.acceptAdmin();
+
+        // Old admin still has role (must be explicitly revoked)
+        assertTrue(pool.hasRole(AccessControlStorageLib.ADMIN_ROLE, admin));
+        assertTrue(pool.hasRole(AccessControlStorageLib.ADMIN_ROLE, newAdmin));
+    }
+
+    /*//////////////////////////////////////////////////////////////
                           ASSET CONFIG
     //////////////////////////////////////////////////////////////*/
 

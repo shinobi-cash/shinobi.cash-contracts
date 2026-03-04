@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {IFacet} from "../interfaces/IFacet.sol";
 import {FacetBase} from "./FacetBase.sol";
 import {PoolStorageData, PoolStorageLib, AssociationSetData, WithdrawalChainConfig} from "../storage/PoolStorage.sol";
-import {AccessControlStorageLib} from "../storage/AccessControlStorage.sol";
+import {AccessControlStorageData, AccessControlStorageLib} from "../storage/AccessControlStorage.sol";
 import {AccessControlOps} from "../libraries/AccessControlOps.sol";
 import {DiamondOps} from "../libraries/DiamondOps.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
@@ -27,6 +27,8 @@ contract AdminFacet is FacetBase, IFacet {
     );
     event PoolDied();
     event FeesWithdrawn(address indexed recipient, uint256 amount);
+    event AdminTransferStarted(address indexed currentAdmin, address indexed pendingAdmin);
+    event AdminTransferCompleted(address indexed newAdmin);
 
     // Errors
     error InvalidIPFSCIDLength();
@@ -36,6 +38,7 @@ contract AdminFacet is FacetBase, IFacet {
     error InvalidChainId();
     error DeadlineTooShort();
     error ExpiryBeforeFillDeadline();
+    error NotPendingAdmin();
 
     // ── Role Management ──
 
@@ -49,6 +52,23 @@ contract AdminFacet is FacetBase, IFacet {
 
     function renounceRole(bytes32 role, address callerConfirmation) external {
         AccessControlOps.renounceRole(role, callerConfirmation);
+    }
+
+    // ── 2-Step Admin Transfer ──
+
+    function transferAdmin(address newAdmin) external onlyRole(AccessControlStorageLib.ADMIN_ROLE) {
+        if (newAdmin == address(0)) revert InvalidAddress();
+        AccessControlStorageData storage acs = AccessControlStorageLib.layout();
+        acs.pendingAdmin = newAdmin;
+        emit AdminTransferStarted(msg.sender, newAdmin);
+    }
+
+    function acceptAdmin() external {
+        AccessControlStorageData storage acs = AccessControlStorageLib.layout();
+        if (msg.sender != acs.pendingAdmin) revert NotPendingAdmin();
+        acs.pendingAdmin = address(0);
+        AccessControlOps.grantRole(AccessControlStorageLib.ADMIN_ROLE, msg.sender);
+        emit AdminTransferCompleted(msg.sender);
     }
 
     // ── Pool Configuration ──
@@ -193,6 +213,8 @@ contract AdminFacet is FacetBase, IFacet {
             this.grantRole.selector,
             this.revokeRole.selector,
             this.renounceRole.selector,
+            this.transferAdmin.selector,
+            this.acceptAdmin.selector,
             this.setAssetConfig.selector,
             this.setMaxSolverFeeBPS.selector,
             this.setWithdrawalInputSettler.selector,
