@@ -57,7 +57,7 @@ contract AdminFacet is FacetBase, IFacet {
         external
         onlyRole(AccessControlStorageLib.ADMIN_ROLE)
     {
-        if (vettingFeeBPS > 10_000 || maxRelayFeeBPS > 10_000) revert InvalidFeeBPS();
+        if (vettingFeeBPS >= 10_000 || maxRelayFeeBPS >= 10_000) revert InvalidFeeBPS();
         PoolStorageData storage s = PoolStorageLib.layout();
         s.minimumDepositAmount = minimumDepositAmount;
         s.vettingFeeBPS = vettingFeeBPS;
@@ -69,7 +69,7 @@ contract AdminFacet is FacetBase, IFacet {
         external
         onlyRole(AccessControlStorageLib.ADMIN_ROLE)
     {
-        if (maxSolverFeeBPS > 10_000) revert InvalidFeeBPS();
+        if (maxSolverFeeBPS >= 10_000) revert InvalidFeeBPS();
         PoolStorageData storage s = PoolStorageLib.layout();
         emit MaxSolverFeeBPSUpdated(s.maxSolverFeeBPS, maxSolverFeeBPS);
         s.maxSolverFeeBPS = maxSolverFeeBPS;
@@ -104,7 +104,10 @@ contract AdminFacet is FacetBase, IFacet {
         uint32 expiry
     ) external onlyRole(AccessControlStorageLib.ADMIN_ROLE) {
         if (chainId == 0) revert InvalidChainId();
-        if (fillDeadline == 0) revert DeadlineTooShort();
+        if (outputSettler == address(0) || outputOracle == address(0) || fillOracle == address(0)) {
+            revert InvalidAddress();
+        }
+        if (fillDeadline < 300 || expiry < 300) revert DeadlineTooShort();
         if (expiry <= fillDeadline) revert ExpiryBeforeFillDeadline();
 
         PoolStorageData storage s = PoolStorageLib.layout();
@@ -128,7 +131,8 @@ contract AdminFacet is FacetBase, IFacet {
         returns (uint256 index)
     {
         if (root == 0) revert EmptyRoot();
-        if (bytes(ipfsCID).length == 0) revert InvalidIPFSCIDLength();
+        uint256 cidLength = bytes(ipfsCID).length;
+        if (cidLength < 32 || cidLength > 64) revert InvalidIPFSCIDLength();
 
         PoolStorageData storage s = PoolStorageLib.layout();
         s.associationSets.push(AssociationSetData({root: root, ipfsCID: ipfsCID, timestamp: block.timestamp}));

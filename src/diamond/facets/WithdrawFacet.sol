@@ -68,7 +68,7 @@ contract WithdrawFacet is FacetBase, IFacet {
         }
 
         emit Withdrawn(address(this), withdrawnValue, proof.existingNullifierHash(), proof.newCommitmentHash());
-        emit WithdrawalRelayed(msg.sender, relayData.recipient, s.asset, recipientAmount, relayFee);
+        emit WithdrawalRelayed(msg.sender, relayData.recipient, s.asset, withdrawnValue, relayFee);
     }
 
     // ── ERC-8153 ──

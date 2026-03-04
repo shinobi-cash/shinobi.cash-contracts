@@ -154,19 +154,19 @@ contract AdminFacetTest is DiamondTestBase {
 
     function test_updateRoot() public {
         vm.prank(aspPostman);
-        uint256 index = pool.updateRoot(123, "QmNewRoot");
+        uint256 index = pool.updateRoot(123, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
 
         assertEq(pool.latestRoot(), 123);
         (uint256 root, string memory cid, uint256 ts) = pool.associationSets(index);
         assertEq(root, 123);
-        assertEq(cid, "QmNewRoot");
+        assertEq(cid, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
         assertEq(ts, block.timestamp);
     }
 
     function test_updateRoot_revertsForEmptyRoot() public {
         vm.expectRevert(AdminFacet.EmptyRoot.selector);
         vm.prank(aspPostman);
-        pool.updateRoot(0, "QmTest");
+        pool.updateRoot(0, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
     }
 
     function test_updateRoot_revertsForEmptyCID() public {
@@ -182,7 +182,7 @@ contract AdminFacetTest is DiamondTestBase {
             )
         );
         vm.prank(user);
-        pool.updateRoot(123, "QmTest");
+        pool.updateRoot(123, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
     }
 
     /*//////////////////////////////////////////////////////////////

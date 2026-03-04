@@ -25,6 +25,7 @@ library PoolOps {
     error FailedToSendNativeAsset();
     error NoRootsAvailable();
     error InvalidWithdrawalAmount();
+    error MaxTreeDepthReached();
 
     /// @notice Mark a nullifier as spent, revert if already spent
     function spend(PoolStorageData storage s, uint256 nullifierHash) internal {
@@ -35,10 +36,11 @@ library PoolOps {
     /// @notice Insert a leaf into the Merkle tree, update the circular root buffer
     function insert(PoolStorageData storage s, uint256 leaf) internal returns (uint256 updatedRoot) {
         updatedRoot = s.merkleTree._insert(leaf);
+        if (s.merkleTree.depth > MAX_TREE_DEPTH) revert MaxTreeDepthReached();
         uint32 newIndex = (s.currentRootIndex + 1) % ROOT_HISTORY_SIZE;
         s.currentRootIndex = newIndex;
         s.roots[newIndex] = updatedRoot;
-        emit LeafInserted(s.merkleTree.size - 1, leaf, updatedRoot);
+        emit LeafInserted(s.merkleTree.size, leaf, updatedRoot);
     }
 
     /// @notice Check if a root is in the circular buffer history

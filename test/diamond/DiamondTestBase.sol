@@ -217,7 +217,7 @@ abstract contract DiamondTestBase is Test {
 
         // Set initial ASP root
         vm.prank(aspPostman);
-        pool.updateRoot(42, "QmTest");
+        pool.updateRoot(42, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
 
         // Fund test accounts
         vm.deal(user, 100 ether);
