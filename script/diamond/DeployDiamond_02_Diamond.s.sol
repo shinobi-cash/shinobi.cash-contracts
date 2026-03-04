@@ -66,14 +66,12 @@ contract DeployDiamond_02_Diamond is Script {
         require(crosschainWithdraw2Facet != address(0), "CrosschainWithdraw2Facet not deployed");
         require(ragequitFacet != address(0), "RagequitFacet not deployed");
 
-        // Roles: admin = deployer, aspPostman = deployer (updated later), diamondAdmin = deployer
+        // Roles: admin = deployer, aspPostman = deployer (updated later)
         address admin = vm.envOr("DIAMOND_ADMIN", deployer);
         address aspPostman = vm.envOr("ASP_POSTMAN", deployer);
-        address diamondAdmin = vm.envOr("DIAMOND_UPGRADE_ADMIN", deployer);
 
         console.log("Admin:", admin);
         console.log("ASP Postman:", aspPostman);
-        console.log("Diamond Admin:", diamondAdmin);
         console.log("Asset: ETH (native)");
         console.log("");
 
@@ -94,7 +92,6 @@ contract DeployDiamond_02_Diamond is Script {
             asset: Constants.NATIVE_ASSET,
             admin: admin,
             aspPostman: aspPostman,
-            diamondAdmin: diamondAdmin,
             facets: facets
         });
 

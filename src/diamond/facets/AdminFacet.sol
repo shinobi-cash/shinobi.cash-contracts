@@ -167,7 +167,7 @@ contract AdminFacet is FacetBase, IFacet {
         address[] calldata addFacets,
         address[] calldata removeFacets,
         ReplaceAction[] calldata replaceFacets
-    ) external onlyRole(AccessControlStorageLib.DIAMOND_ADMIN_ROLE) {
+    ) external onlyRole(AccessControlStorageLib.ADMIN_ROLE) {
         for (uint256 i; i < removeFacets.length; ++i) {
             DiamondOps.removeFacet(removeFacets[i]);
         }

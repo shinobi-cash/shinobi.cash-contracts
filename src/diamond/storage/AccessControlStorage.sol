@@ -17,7 +17,6 @@ library AccessControlStorageLib {
 
     bytes32 internal constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 internal constant ASP_POSTMAN_ROLE = keccak256("ASP_POSTMAN_ROLE");
-    bytes32 internal constant DIAMOND_ADMIN_ROLE = keccak256("DIAMOND_ADMIN_ROLE");
 
     function layout() internal pure returns (AccessControlStorageData storage s) {
         bytes32 slot = SLOT;

@@ -16,7 +16,6 @@ contract PoolDiamond {
         address asset;
         address admin;
         address aspPostman;
-        address diamondAdmin;
         address[] facets;
     }
 
@@ -38,10 +37,6 @@ contract PoolDiamond {
         // ASP_POSTMAN_ROLE administered by ADMIN_ROLE
         AccessControlOps.setAdminRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, AccessControlStorageLib.ADMIN_ROLE);
         AccessControlOps.grantRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, params.aspPostman);
-
-        // DIAMOND_ADMIN_ROLE is self-administering
-        AccessControlOps.setAdminRole(AccessControlStorageLib.DIAMOND_ADMIN_ROLE, AccessControlStorageLib.DIAMOND_ADMIN_ROLE);
-        AccessControlOps.grantRole(AccessControlStorageLib.DIAMOND_ADMIN_ROLE, params.diamondAdmin);
 
         // Register all facets via ERC-8153 on-chain discovery
         for (uint256 i; i < params.facets.length; ++i) {
