@@ -25,6 +25,7 @@ contract DepositFacet is FacetBase, IFacet {
     error PrecommitmentAlreadyUsed();
     error InvalidDepositValue();
     error OnlyDepositOutputSettler();
+    error InvalidAsset();
 
     /// @notice Same-chain native ETH deposit
     function deposit(uint256 precommitment) external payable nonReentrant whenAlive returns (uint256 commitment) {
@@ -56,6 +57,7 @@ contract DepositFacet is FacetBase, IFacet {
         PoolStorageData storage s = PoolStorageLib.layout();
         if (msg.sender != s.depositOutputSettler) revert OnlyDepositOutputSettler();
         if (msg.value != amount) revert PoolOps.InvalidWithdrawalAmount();
+        if (amount < s.minimumDepositAmount) revert MinimumDepositAmount();
         if (amount >= type(uint128).max) revert InvalidDepositValue();
         if (s.usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
         s.usedPrecommitments[precommitment] = true;
@@ -80,6 +82,8 @@ contract DepositFacet is FacetBase, IFacet {
     {
         PoolStorageData storage s = PoolStorageLib.layout();
         if (msg.sender != s.depositOutputSettler) revert OnlyDepositOutputSettler();
+        if (address(asset) == Constants.NATIVE_ASSET) revert InvalidAsset();
+        if (amount < s.minimumDepositAmount) revert MinimumDepositAmount();
         if (amount >= type(uint128).max) revert InvalidDepositValue();
         if (s.usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
         s.usedPrecommitments[precommitment] = true;
