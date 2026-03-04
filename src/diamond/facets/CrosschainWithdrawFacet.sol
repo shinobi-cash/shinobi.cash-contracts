@@ -39,6 +39,7 @@ contract CrosschainWithdrawFacet is FacetBase, IFacet {
     error OnlyWithdrawalInputSettler();
     error ScopeMismatch();
     error RefundFeeTransferFailed();
+    error RefundFeeGreaterThanMax();
 
     constructor(ICrosschainWithdrawalProofVerifier verifier) {
         VERIFIER = verifier;
@@ -100,15 +101,18 @@ contract CrosschainWithdrawFacet is FacetBase, IFacet {
         PoolStorageData storage s = PoolStorageLib.layout();
         if (msg.sender != s.withdrawalInputSettler) revert OnlyWithdrawalInputSettler();
         if (scope != s.scope) revert ScopeMismatch();
+        if (refundFeeBPS > s.maxRelayFeeBPS) revert RefundFeeGreaterThanMax();
 
         uint256 refundFee = PoolOps.calculateFee(msg.value, refundFeeBPS);
         uint256 refundAmount = msg.value - refundFee;
 
+        // State changes first (CEI pattern)
+        PoolOps.insert(s, refundCommitmentHash);
+
+        // External interaction last
         if (refundFee > 0) {
             PoolOps.transferETH(feeRecipient, refundFee);
         }
-
-        PoolOps.insert(s, refundCommitmentHash);
 
         emit RefundCommitmentInserted(refundCommitmentHash, refundAmount);
         emit Refunded(refundAmount, refundCommitmentHash, refundFee, feeRecipient);

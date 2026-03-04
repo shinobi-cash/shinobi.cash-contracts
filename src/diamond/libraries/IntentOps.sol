@@ -32,6 +32,8 @@ library IntentOps {
         uint256 solverFee;
     }
 
+    error RefundFeeGreaterThanMax();
+
     function openIntent(
         PoolStorageData storage s,
         uint256 destChainId,
@@ -42,6 +44,8 @@ library IntentOps {
         bytes32 nullifierHash,
         bytes32 refundCommitmentHash
     ) internal returns (IntentResult memory result) {
+        if (refundFeeBPS > s.maxRelayFeeBPS) revert RefundFeeGreaterThanMax();
+
         result.relayFee = PoolOps.calculateFee(withdrawnValue, relayFeeBPS);
         result.solverFee = PoolOps.calculateFee(withdrawnValue, data.solverFeeBPS);
         uint256 escrowAmount = withdrawnValue - result.relayFee;
