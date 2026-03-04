@@ -148,6 +148,36 @@ contract DepositFacetTest is DiamondTestBase {
     }
 
     /*//////////////////////////////////////////////////////////////
+                       FEE ACCOUNTING
+    //////////////////////////////////////////////////////////////*/
+
+    function test_deposit_accumulatesVettingFees() public {
+        vm.prank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+
+        uint256 expectedFee = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
+        assertEq(pool.accumulatedFees(), expectedFee);
+    }
+
+    function test_deposit_accumulatesFeesAcrossDeposits() public {
+        vm.startPrank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(1);
+        pool.deposit{value: DEPOSIT_AMOUNT}(2);
+        vm.stopPrank();
+
+        uint256 feePerDeposit = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
+        assertEq(pool.accumulatedFees(), feePerDeposit * 2);
+    }
+
+    function test_crosschainDeposit_accumulatesVettingFees() public {
+        vm.prank(depositSettler);
+        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+
+        uint256 expectedFee = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
+        assertEq(pool.accumulatedFees(), expectedFee);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                        OVERFLOW PROTECTION
     //////////////////////////////////////////////////////////////*/
 

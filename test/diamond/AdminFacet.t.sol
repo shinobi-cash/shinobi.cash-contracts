@@ -236,17 +236,43 @@ contract AdminFacetTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_withdrawFees_success() public {
-        // Send some ETH to the diamond
-        vm.deal(address(diamond), 1 ether);
+        // Deposit to accumulate vetting fees
+        vm.prank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+
+        uint256 expectedFee = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
+        assertEq(pool.accumulatedFees(), expectedFee);
 
         address recipient = makeAddr("feeCollector");
         uint256 recipientBefore = recipient.balance;
+        uint256 diamondBefore = address(diamond).balance;
 
         vm.prank(admin);
         pool.withdrawFees(recipient);
 
-        assertEq(recipient.balance - recipientBefore, 1 ether);
-        assertEq(address(diamond).balance, 0);
+        assertEq(recipient.balance - recipientBefore, expectedFee);
+        assertEq(pool.accumulatedFees(), 0);
+        // Diamond keeps user deposits (minus fees withdrawn)
+        assertEq(address(diamond).balance, diamondBefore - expectedFee);
+    }
+
+    function test_withdrawFees_onlyWithdrawsAccumulatedFees() public {
+        // Deposit to accumulate fees, then deal extra ETH (simulating user funds)
+        vm.prank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+
+        uint256 expectedFee = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
+        vm.deal(address(diamond), address(diamond).balance + 5 ether); // extra user funds
+
+        address recipient = makeAddr("feeCollector");
+        uint256 diamondBefore = address(diamond).balance;
+
+        vm.prank(admin);
+        pool.withdrawFees(recipient);
+
+        // Only accumulated fees withdrawn, not the extra ETH
+        assertEq(recipient.balance, expectedFee);
+        assertEq(address(diamond).balance, diamondBefore - expectedFee);
     }
 
     function test_withdrawFees_revertsForZeroAddress() public {
@@ -256,17 +282,14 @@ contract AdminFacetTest is DiamondTestBase {
     }
 
     function test_withdrawFees_noOpForZeroBalance() public {
-        // Diamond has no balance (beyond what setUp added)
-        // Deploy fresh diamond with no ETH
         address recipient = makeAddr("feeCollector");
         uint256 recipientBefore = recipient.balance;
-        uint256 diamondBalance = address(diamond).balance;
 
         vm.prank(admin);
         pool.withdrawFees(recipient);
 
-        // Recipient gets whatever was in the diamond
-        assertEq(recipient.balance - recipientBefore, diamondBalance);
+        // No fees accumulated, nothing transferred
+        assertEq(recipient.balance, recipientBefore);
     }
 
     function test_withdrawFees_revertsForUnauthorized() public {

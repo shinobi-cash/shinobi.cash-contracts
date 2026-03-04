@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {DiamondTestBase, MockInputSettler} from "./DiamondTestBase.sol";
 import {CrosschainWithdrawFacet} from "../../src/diamond/facets/CrosschainWithdrawFacet.sol";
+import {IntentOps} from "../../src/diamond/libraries/IntentOps.sol";
 import {PoolOps} from "../../src/diamond/libraries/PoolOps.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {CrosschainProofLib} from "../../src/core/libraries/CrosschainProofLib.sol";
@@ -201,5 +202,46 @@ contract CrosschainWithdrawFacetTest is DiamondTestBase {
         uint256 relayFee = WITHDRAW_VALUE * RELAY_FEE_BPS / 10_000;
         uint256 escrowAmount = WITHDRAW_VALUE - relayFee;
         assertEq(address(mockSettler).balance - settlerBalanceBefore, escrowAmount);
+    }
+
+    function test_crosschainWithdraw_revertsForExcessiveRefundFee() public {
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeCrosschainRelayData(SOLVER_FEE_BPS, DEST_CHAIN_ID, recipient)
+        });
+
+        // refundFeeBPS exceeds maxRelayFeeBPS
+        CrosschainProofLib.CrosschainWithdrawProof memory proof =
+            _makeCrosschainWithdrawProof(111, WITHDRAW_VALUE, 222, 333, RELAY_FEE_BPS, MAX_RELAY_FEE_BPS + 1);
+        proof.pubSignals[10] = _computeContext(withdrawal);
+
+        vm.expectRevert(IntentOps.RefundFeeGreaterThanMax.selector);
+        vm.prank(relayer);
+        pool.crosschainWithdraw(withdrawal, proof);
+    }
+
+    function test_handleRefund_revertsForExcessiveRefundFee() public {
+        uint256 scope = pool.SCOPE();
+
+        vm.expectRevert(CrosschainWithdrawFacet.RefundFeeGreaterThanMax.selector);
+        vm.prank(address(mockSettler));
+        pool.handleRefund{value: 1 ether}(42, feeRecipient, MAX_RELAY_FEE_BPS + 1, scope);
+    }
+
+    function test_handleRefund_success() public {
+        uint256 scope = pool.SCOPE();
+        uint256 refundAmount = 1 ether;
+        uint256 refundFeeBPS = 100; // 1%
+        uint256 treeSizeBefore = pool.currentTreeSize();
+        uint256 feeBefore = feeRecipient.balance;
+
+        vm.prank(address(mockSettler));
+        pool.handleRefund{value: refundAmount}(42, feeRecipient, refundFeeBPS, scope);
+
+        // Commitment inserted
+        assertEq(pool.currentTreeSize(), treeSizeBefore + 1);
+        // Fee paid
+        uint256 expectedFee = refundAmount * refundFeeBPS / 10_000;
+        assertEq(feeRecipient.balance - feeBefore, expectedFee);
     }
 }
