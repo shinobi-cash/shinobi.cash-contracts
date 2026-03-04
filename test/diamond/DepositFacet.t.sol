@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {DiamondTestBase} from "./DiamondTestBase.sol";
 import {DepositFacet} from "../../src/diamond/facets/DepositFacet.sol";
 import {PoolOps} from "../../src/diamond/libraries/PoolOps.sol";
+import {Constants} from "contracts/lib/Constants.sol";
 
 contract DepositFacetTest is DiamondTestBase {
     /*//////////////////////////////////////////////////////////////
@@ -109,5 +110,60 @@ contract DepositFacetTest is DiamondTestBase {
         vm.expectRevert(PoolOps.InvalidWithdrawalAmount.selector);
         vm.prank(depositSettler);
         pool.crosschainDeposit{value: 0.5 ether}(user, DEPOSIT_AMOUNT, 12345);
+    }
+
+    function test_crosschainDeposit_revertsForMinAmount() public {
+        uint256 tooSmall = MIN_DEPOSIT - 1;
+        vm.expectRevert(DepositFacet.MinimumDepositAmount.selector);
+        vm.prank(depositSettler);
+        pool.crosschainDeposit{value: tooSmall}(user, tooSmall, 12345);
+    }
+
+    function test_crosschainDeposit_revertsForDeadPool() public {
+        vm.prank(admin);
+        pool.windDown();
+
+        vm.expectRevert(PoolOps.PoolIsDead.selector);
+        vm.prank(depositSettler);
+        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+    }
+
+    function test_crosschainDeposit_revertsForReusedPrecommitment() public {
+        vm.prank(depositSettler);
+        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+
+        vm.expectRevert(DepositFacet.PrecommitmentAlreadyUsed.selector);
+        vm.prank(depositSettler);
+        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+    }
+
+    function test_crosschainDeposit_setsCorrectDepositor() public {
+        address depositor = makeAddr("crosschainDepositor");
+        vm.prank(depositSettler);
+        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(depositor, DEPOSIT_AMOUNT, 77777);
+
+        // Depositor should be the param, not msg.sender (depositSettler)
+        uint256 label = uint256(keccak256(abi.encodePacked(pool.SCOPE(), pool.nonce()))) % Constants.SNARK_SCALAR_FIELD;
+        assertEq(pool.depositors(label), depositor);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       OVERFLOW PROTECTION
+    //////////////////////////////////////////////////////////////*/
+
+    function test_deposit_revertsForUint128Overflow() public {
+        uint256 hugeAmount = type(uint128).max;
+        vm.deal(user, hugeAmount + 1 ether);
+        vm.expectRevert(DepositFacet.InvalidDepositValue.selector);
+        vm.prank(user);
+        pool.deposit{value: hugeAmount}(88888);
+    }
+
+    function test_crosschainDeposit_revertsForUint128Overflow() public {
+        uint256 hugeAmount = type(uint128).max;
+        vm.deal(depositSettler, hugeAmount + 1 ether);
+        vm.expectRevert(DepositFacet.InvalidDepositValue.selector);
+        vm.prank(depositSettler);
+        pool.crosschainDeposit{value: hugeAmount}(user, hugeAmount, 88888);
     }
 }

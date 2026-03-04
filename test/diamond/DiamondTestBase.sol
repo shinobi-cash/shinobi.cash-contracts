@@ -22,6 +22,11 @@ import {IWithdraw2Verifier} from "../../src/core/interfaces/IWithdraw2Verifier.s
 import {ICrosschainWithdraw2Verifier} from "../../src/core/interfaces/ICrosschainWithdraw2Verifier.sol";
 import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
 import {ProofLib} from "contracts/lib/ProofLib.sol";
+import {CrosschainProofLib} from "../../src/core/libraries/CrosschainProofLib.sol";
+import {Withdraw2ProofLib} from "../../src/core/libraries/Withdraw2ProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "../../src/core/libraries/CrosschainWithdraw2ProofLib.sol";
+import {IShinobiCashCrosschainHandler} from "../../src/core/interfaces/IShinobiCashCrosschainHandler.sol";
+import {ShinobiIntent} from "../../src/oif/libraries/ShinobiIntentType.sol";
 
 /*//////////////////////////////////////////////////////////////
                           MOCK CONTRACTS
@@ -102,13 +107,12 @@ contract MockCrosschainWithdraw2Verifier is ICrosschainWithdraw2Verifier {
 contract MockInputSettler {
     struct OpenCall {
         uint256 value;
-        bytes intentData;
     }
 
     OpenCall[] public openCalls;
 
-    function open(bytes calldata intent) external payable {
-        openCalls.push(OpenCall({value: msg.value, intentData: intent}));
+    function open(ShinobiIntent calldata) external payable {
+        openCalls.push(OpenCall({value: msg.value}));
     }
 
     function openCallCount() external view returns (uint256) {
@@ -149,7 +153,6 @@ abstract contract DiamondTestBase is Test {
     // Test accounts
     address public admin = makeAddr("admin");
     address public aspPostman = makeAddr("aspPostman");
-    address public diamondAdmin = makeAddr("diamondAdmin");
     address public user = makeAddr("user");
     address public relayer = makeAddr("relayer");
     address public feeRecipient = makeAddr("feeRecipient");
@@ -198,7 +201,6 @@ abstract contract DiamondTestBase is Test {
                 asset: NATIVE_ASSET,
                 admin: admin,
                 aspPostman: aspPostman,
-                diamondAdmin: diamondAdmin,
                 facets: facets
             })
         );
@@ -260,5 +262,130 @@ abstract contract DiamondTestBase is Test {
             feeRecipient,
             relayFeeBPS
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         WITHDRAW2 PROOF HELPER
+    //////////////////////////////////////////////////////////////*/
+
+    function _makeWithdraw2Proof(uint256 nullifier0, uint256 nullifier1, uint256 value, uint256 newCommitment)
+        internal
+        view
+        returns (Withdraw2ProofLib.Withdraw2Proof memory proof)
+    {
+        proof.pubSignals[0] = newCommitment;
+        proof.pubSignals[1] = nullifier0;
+        proof.pubSignals[2] = nullifier1;
+        proof.pubSignals[3] = value;
+        proof.pubSignals[4] = pool.currentRoot();
+        proof.pubSignals[5] = pool.currentTreeDepth();
+        proof.pubSignals[6] = pool.latestRoot();
+        proof.pubSignals[7] = 1; // ASPTreeDepth
+        // [8] context - set by caller
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    CROSSCHAIN WITHDRAW PROOF HELPER
+    //////////////////////////////////////////////////////////////*/
+
+    uint256 internal constant DEST_CHAIN_ID = 84532;
+
+    function _setupCrosschainConfig() internal {
+        vm.startPrank(admin);
+        pool.setMaxSolverFeeBPS(500);
+        pool.setWithdrawalChainConfig(
+            DEST_CHAIN_ID,
+            makeAddr("outputSettler"),
+            makeAddr("outputOracle"),
+            makeAddr("fillOracle"),
+            3600,
+            7200
+        );
+        vm.stopPrank();
+    }
+
+    function _encodeCrosschainDestination(uint256 chainId, address recipient) internal pure returns (bytes32) {
+        return bytes32(chainId << 224 | uint256(uint160(recipient)));
+    }
+
+    function _makeCrosschainRelayData(uint256 solverFeeBPS, uint256 destChainId, address recipient)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return abi.encode(
+            IShinobiCashCrosschainHandler.CrosschainRelayData({
+                feeRecipient: feeRecipient,
+                solverFeeBPS: solverFeeBPS,
+                encodedDestination: _encodeCrosschainDestination(destChainId, recipient)
+            })
+        );
+    }
+
+    function _makeCrosschainWithdrawProof(
+        uint256 nullifier,
+        uint256 value,
+        uint256 newCommitment,
+        uint256 refundCommitment,
+        uint256 relayFeeBPS,
+        uint256 refundFeeBPS
+    ) internal view returns (CrosschainProofLib.CrosschainWithdrawProof memory proof) {
+        proof.pubSignals[0] = newCommitment;
+        proof.pubSignals[1] = nullifier;
+        proof.pubSignals[2] = refundCommitment;
+        proof.pubSignals[3] = relayFeeBPS;
+        proof.pubSignals[4] = refundFeeBPS;
+        proof.pubSignals[5] = value;
+        proof.pubSignals[6] = pool.currentRoot();
+        proof.pubSignals[7] = pool.currentTreeDepth();
+        proof.pubSignals[8] = pool.latestRoot();
+        proof.pubSignals[9] = 1; // ASPTreeDepth
+        // [10] context - set by caller
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                 CROSSCHAIN WITHDRAW2 PROOF HELPER
+    //////////////////////////////////////////////////////////////*/
+
+    function _makeCrosschainWithdraw2Proof(
+        uint256 nullifier0,
+        uint256 nullifier1,
+        uint256 value,
+        uint256 newCommitment,
+        uint256 refundCommitment,
+        uint256 relayFeeBPS,
+        uint256 refundFeeBPS
+    ) internal view returns (CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof) {
+        proof.pubSignals[0] = newCommitment;
+        proof.pubSignals[1] = nullifier0;
+        proof.pubSignals[2] = nullifier1;
+        proof.pubSignals[3] = refundCommitment;
+        proof.pubSignals[4] = relayFeeBPS;
+        proof.pubSignals[5] = refundFeeBPS;
+        proof.pubSignals[6] = value;
+        proof.pubSignals[7] = pool.currentRoot();
+        proof.pubSignals[8] = pool.currentTreeDepth();
+        proof.pubSignals[9] = pool.latestRoot();
+        proof.pubSignals[10] = 1; // ASPTreeDepth
+        // [11] context - set by caller
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         RAGEQUIT PROOF HELPER
+    //////////////////////////////////////////////////////////////*/
+
+    function _makeRagequitProof(uint256 commitmentHash, uint256 nullifierHash, uint256 value, uint256 label)
+        internal
+        pure
+        returns (ProofLib.RagequitProof memory proof)
+    {
+        proof.pubSignals[0] = commitmentHash;
+        proof.pubSignals[1] = nullifierHash;
+        proof.pubSignals[2] = value;
+        proof.pubSignals[3] = label;
+    }
+
+    function _computeLabel(uint256 nonceValue) internal view returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(pool.SCOPE(), nonceValue))) % Constants.SNARK_SCALAR_FIELD;
     }
 }

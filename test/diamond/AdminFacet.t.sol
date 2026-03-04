@@ -208,7 +208,7 @@ contract AdminFacetTest is DiamondTestBase {
         address[] memory removeFacets = new address[](0);
         IPoolDiamond.ReplaceAction[] memory replaceFacets = new IPoolDiamond.ReplaceAction[](0);
 
-        vm.prank(diamondAdmin);
+        vm.prank(admin);
         pool.upgradeDiamond(addFacets, removeFacets, replaceFacets);
 
         // Verify the new selector routes to the new facet
@@ -224,11 +224,144 @@ contract AdminFacetTest is DiamondTestBase {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AccessControlOps.AccessControlUnauthorized.selector, admin, AccessControlStorageLib.DIAMOND_ADMIN_ROLE
+                AccessControlOps.AccessControlUnauthorized.selector, user, AccessControlStorageLib.ADMIN_ROLE
             )
         );
-        vm.prank(admin);
+        vm.prank(user);
         pool.upgradeDiamond(empty, empty, emptyReplace);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          WITHDRAW FEES
+    //////////////////////////////////////////////////////////////*/
+
+    function test_withdrawFees_success() public {
+        // Send some ETH to the diamond
+        vm.deal(address(diamond), 1 ether);
+
+        address recipient = makeAddr("feeCollector");
+        uint256 recipientBefore = recipient.balance;
+
+        vm.prank(admin);
+        pool.withdrawFees(recipient);
+
+        assertEq(recipient.balance - recipientBefore, 1 ether);
+        assertEq(address(diamond).balance, 0);
+    }
+
+    function test_withdrawFees_revertsForZeroAddress() public {
+        vm.expectRevert(AdminFacet.InvalidAddress.selector);
+        vm.prank(admin);
+        pool.withdrawFees(address(0));
+    }
+
+    function test_withdrawFees_noOpForZeroBalance() public {
+        // Diamond has no balance (beyond what setUp added)
+        // Deploy fresh diamond with no ETH
+        address recipient = makeAddr("feeCollector");
+        uint256 recipientBefore = recipient.balance;
+        uint256 diamondBalance = address(diamond).balance;
+
+        vm.prank(admin);
+        pool.withdrawFees(recipient);
+
+        // Recipient gets whatever was in the diamond
+        assertEq(recipient.balance - recipientBefore, diamondBalance);
+    }
+
+    function test_withdrawFees_revertsForUnauthorized() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AccessControlOps.AccessControlUnauthorized.selector, user, AccessControlStorageLib.ADMIN_ROLE
+            )
+        );
+        vm.prank(user);
+        pool.withdrawFees(user);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    CHAIN CONFIG EDGE CASES
+    //////////////////////////////////////////////////////////////*/
+
+    function test_setWithdrawalChainConfig_revertsForZeroOutputSettler() public {
+        vm.expectRevert(AdminFacet.InvalidAddress.selector);
+        vm.prank(admin);
+        pool.setWithdrawalChainConfig(84532, address(0), address(1), address(1), 3600, 7200);
+    }
+
+    function test_setWithdrawalChainConfig_revertsForZeroOutputOracle() public {
+        vm.expectRevert(AdminFacet.InvalidAddress.selector);
+        vm.prank(admin);
+        pool.setWithdrawalChainConfig(84532, address(1), address(0), address(1), 3600, 7200);
+    }
+
+    function test_setWithdrawalChainConfig_revertsForZeroFillOracle() public {
+        vm.expectRevert(AdminFacet.InvalidAddress.selector);
+        vm.prank(admin);
+        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(0), 3600, 7200);
+    }
+
+    function test_setWithdrawalChainConfig_revertsForShortDeadline() public {
+        vm.expectRevert(AdminFacet.DeadlineTooShort.selector);
+        vm.prank(admin);
+        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 299, 7200);
+    }
+
+    function test_setWithdrawalChainConfig_revertsForShortExpiry() public {
+        vm.expectRevert(AdminFacet.DeadlineTooShort.selector);
+        vm.prank(admin);
+        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 3600, 299);
+    }
+
+    function test_setWithdrawalChainConfig_revertsForExpiryBeforeDeadline() public {
+        vm.expectRevert(AdminFacet.ExpiryBeforeFillDeadline.selector);
+        vm.prank(admin);
+        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 3600, 3600);
+    }
+
+    function test_setDepositOutputSettler_revertsForZeroAddress() public {
+        vm.expectRevert(AdminFacet.InvalidAddress.selector);
+        vm.prank(admin);
+        pool.setDepositOutputSettler(address(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    ASP ROOT EDGE CASES
+    //////////////////////////////////////////////////////////////*/
+
+    function test_updateRoot_revertsForShortCID() public {
+        vm.expectRevert(AdminFacet.InvalidIPFSCIDLength.selector);
+        vm.prank(aspPostman);
+        pool.updateRoot(123, "QmShort"); // 7 chars, needs 32-64
+    }
+
+    function test_updateRoot_revertsForLongCID() public {
+        // 65 character string (exceeds max of 64)
+        string memory longCid = "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdGExtraCharsHereNow!!";
+        assert(bytes(longCid).length > 64);
+        vm.expectRevert(AdminFacet.InvalidIPFSCIDLength.selector);
+        vm.prank(aspPostman);
+        pool.updateRoot(123, longCid);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    MAX SOLVER FEE EDGE CASES
+    //////////////////////////////////////////////////////////////*/
+
+    function test_setMaxSolverFeeBPS_revertsForUnauthorized() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AccessControlOps.AccessControlUnauthorized.selector, user, AccessControlStorageLib.ADMIN_ROLE
+            )
+        );
+        vm.prank(user);
+        pool.setMaxSolverFeeBPS(500);
+    }
+
+    function test_setMaxSolverFeeBPS_allowsZero() public {
+        vm.prank(admin);
+        pool.setMaxSolverFeeBPS(0);
+        assertEq(pool.maxSolverFeeBPS(), 0);
     }
 }
 

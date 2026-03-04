@@ -9,6 +9,8 @@ import {ProofLib} from "contracts/lib/ProofLib.sol";
 import {Constants} from "contracts/lib/Constants.sol";
 import {IFacet} from "../../src/diamond/interfaces/IFacet.sol";
 import {IPoolDiamond} from "../../src/diamond/interfaces/IPoolDiamond.sol";
+import {PoolOps} from "../../src/diamond/libraries/PoolOps.sol";
+import {CrosschainProofLib} from "../../src/core/libraries/CrosschainProofLib.sol";
 
 contract IntegrationTest is DiamondTestBase {
     /*//////////////////////////////////////////////////////////////
@@ -87,7 +89,7 @@ contract IntegrationTest is DiamondTestBase {
         address[] memory removeFacets = new address[](0);
         IPoolDiamond.ReplaceAction[] memory replaceFacets = new IPoolDiamond.ReplaceAction[](0);
 
-        vm.prank(diamondAdmin);
+        vm.prank(admin);
         pool.upgradeDiamond(addFacets, removeFacets, replaceFacets);
 
         // Call the new function through the diamond
@@ -165,6 +167,171 @@ contract IntegrationTest is DiamondTestBase {
         assertTrue(commitment != 0);
         assertEq(pool.nonce(), 1);
         assertTrue(pool.usedPrecommitments(precommitment));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    DEPOSIT → RAGEQUIT FLOW
+    //////////////////////////////////////////////////////////////*/
+
+    function test_depositAndRagequit() public {
+        // 1. Deposit
+        vm.prank(user);
+        uint256 commitment = pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+
+        // 2. Compute expected label and net amount
+        uint256 label = _computeLabel(1);
+        uint256 netAmount = DEPOSIT_AMOUNT - (DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000);
+
+        // 3. Build ragequit proof
+        ProofLib.RagequitProof memory proof = _makeRagequitProof(commitment, 111, netAmount, label);
+
+        // 4. Ragequit
+        uint256 balanceBefore = user.balance;
+        vm.prank(user);
+        pool.ragequit(proof);
+
+        // 5. Verify
+        assertEq(user.balance - balanceBefore, netAmount);
+        assertTrue(pool.nullifierHashes(111));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    WITHDRAW AFTER WIND DOWN
+    //////////////////////////////////////////////////////////////*/
+
+    function test_withdrawAfterWindDown() public {
+        // 1. Deposit
+        vm.prank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+
+        // 2. Wind down
+        vm.prank(admin);
+        pool.windDown();
+        assertTrue(pool.dead());
+
+        // 3. New deposits should fail
+        vm.expectRevert(PoolOps.PoolIsDead.selector);
+        vm.prank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(12346);
+
+        // 4. But withdrawal should still work
+        address recipient = makeAddr("recipient");
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: abi.encode(IEntrypoint.RelayData({
+                recipient: recipient,
+                feeRecipient: feeRecipient,
+                relayFeeBPS: 100
+            }))
+        });
+
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[7] = _computeContext(withdrawal);
+
+        vm.deal(address(diamond), 10 ether);
+        uint256 recipientBefore = recipient.balance;
+
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+
+        uint256 fee = 0.5 ether * 100 / 10_000;
+        assertEq(recipient.balance - recipientBefore, 0.5 ether - fee);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    CROSSCHAIN WITHDRAWAL E2E
+    //////////////////////////////////////////////////////////////*/
+
+    function test_crosschainWithdrawIntentCreation() public {
+        // 1. Setup crosschain config
+        _setupCrosschainConfig();
+
+        // 2. Deposit
+        vm.prank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+        vm.deal(address(diamond), 10 ether);
+
+        // 3. Build crosschain withdrawal
+        address ccRecipient = makeAddr("ccRecipient");
+        uint256 solverFeeBPS = 200;
+        uint256 relayFeeBPS = 100;
+        uint256 refundFeeBPS = 50;
+        uint256 withdrawValue = 0.5 ether;
+
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeCrosschainRelayData(solverFeeBPS, DEST_CHAIN_ID, ccRecipient)
+        });
+
+        CrosschainProofLib.CrosschainWithdrawProof memory proof =
+            _makeCrosschainWithdrawProof(111, withdrawValue, 222, 333, relayFeeBPS, refundFeeBPS);
+        proof.pubSignals[10] = _computeContext(withdrawal);
+
+        uint256 feeBefore = feeRecipient.balance;
+        uint256 settlerBefore = address(mockSettler).balance;
+
+        // 4. Execute
+        vm.prank(relayer);
+        pool.crosschainWithdraw(withdrawal, proof);
+
+        // 5. Verify
+        uint256 relayFee = withdrawValue * relayFeeBPS / 10_000;
+        uint256 escrowAmount = withdrawValue - relayFee;
+
+        assertEq(feeRecipient.balance - feeBefore, relayFee);
+        assertEq(address(mockSettler).balance - settlerBefore, escrowAmount);
+        assertTrue(pool.nullifierHashes(111));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    MULTIPLE SEQUENTIAL WITHDRAWALS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_multipleWithdrawals() public {
+        // 1. Multiple deposits
+        vm.startPrank(user);
+        pool.deposit{value: DEPOSIT_AMOUNT}(1);
+        pool.deposit{value: DEPOSIT_AMOUNT}(2);
+        vm.stopPrank();
+
+        vm.deal(address(diamond), 10 ether);
+
+        // 2. First withdrawal
+        address recipient1 = makeAddr("recipient1");
+        IPrivacyPool.Withdrawal memory w1 = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: abi.encode(IEntrypoint.RelayData({
+                recipient: recipient1,
+                feeRecipient: feeRecipient,
+                relayFeeBPS: 100
+            }))
+        });
+        ProofLib.WithdrawProof memory p1 = _makeWithdrawProof(111, 0.5 ether, 222);
+        p1.pubSignals[7] = _computeContext(w1);
+
+        vm.prank(relayer);
+        pool.withdraw(w1, p1);
+
+        // 3. Second withdrawal with different nullifier
+        address recipient2 = makeAddr("recipient2");
+        IPrivacyPool.Withdrawal memory w2 = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: abi.encode(IEntrypoint.RelayData({
+                recipient: recipient2,
+                feeRecipient: feeRecipient,
+                relayFeeBPS: 0
+            }))
+        });
+        ProofLib.WithdrawProof memory p2 = _makeWithdrawProof(333, 0.3 ether, 444);
+        p2.pubSignals[7] = _computeContext(w2);
+
+        vm.prank(relayer);
+        pool.withdraw(w2, p2);
+
+        // 4. Verify both nullifiers spent
+        assertTrue(pool.nullifierHashes(111));
+        assertTrue(pool.nullifierHashes(333));
+        assertEq(recipient2.balance, 0.3 ether);
     }
 }
 

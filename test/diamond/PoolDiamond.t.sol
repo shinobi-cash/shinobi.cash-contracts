@@ -23,7 +23,7 @@ contract PoolDiamondTest is DiamondTestBase {
     function test_constructor_grantsRoles() public view {
         assertTrue(pool.hasRole(keccak256("ADMIN_ROLE"), admin));
         assertTrue(pool.hasRole(keccak256("ASP_POSTMAN_ROLE"), aspPostman));
-        assertTrue(pool.hasRole(keccak256("DIAMOND_ADMIN_ROLE"), diamondAdmin));
+        // DIAMOND_ADMIN_ROLE removed — admin handles upgrades
     }
 
     function test_fallback_revertsForUnknownSelector() public {

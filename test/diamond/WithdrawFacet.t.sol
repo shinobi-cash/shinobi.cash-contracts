@@ -123,4 +123,120 @@ contract WithdrawFacetTest is DiamondTestBase {
         vm.prank(relayer);
         pool.withdraw(withdrawal, proof);
     }
+
+    function test_withdraw_revertsForContextMismatch() public {
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeRelayData(user, 100)
+        });
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[7] = 12345; // wrong context
+
+        vm.expectRevert(PoolOps.ContextMismatch.selector);
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+    }
+
+    function test_withdraw_revertsForUnknownStateRoot() public {
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeRelayData(user, 100)
+        });
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[3] = 99999; // unknown state root
+        proof.pubSignals[7] = _computeContext(withdrawal);
+
+        vm.expectRevert(PoolOps.UnknownStateRoot.selector);
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+    }
+
+    function test_withdraw_revertsForIncorrectASPRoot() public {
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeRelayData(user, 100)
+        });
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[5] = 99999; // wrong ASP root
+        proof.pubSignals[7] = _computeContext(withdrawal);
+
+        vm.expectRevert(PoolOps.IncorrectASPRoot.selector);
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+    }
+
+    function test_withdraw_revertsForInvalidTreeDepth() public {
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeRelayData(user, 100)
+        });
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[4] = 33; // exceeds MAX_TREE_DEPTH (32)
+        proof.pubSignals[7] = _computeContext(withdrawal);
+
+        vm.expectRevert(PoolOps.InvalidTreeDepth.selector);
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+    }
+
+    function test_withdraw_withZeroRelayFee() public {
+        address recipient = makeAddr("recipient");
+
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeRelayData(recipient, 0)
+        });
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[7] = _computeContext(withdrawal);
+
+        vm.deal(address(diamond), 10 ether);
+        uint256 recipientBefore = recipient.balance;
+
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+
+        // Full amount goes to recipient
+        assertEq(recipient.balance - recipientBefore, 0.5 ether);
+    }
+
+    function test_withdraw_insertsNewCommitment() public {
+        uint256 treeSizeBefore = pool.currentTreeSize();
+
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeRelayData(user, 100)
+        });
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[7] = _computeContext(withdrawal);
+
+        vm.deal(address(diamond), 10 ether);
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+
+        // New commitment (change) should be in tree
+        assertEq(pool.currentTreeSize(), treeSizeBefore + 1);
+    }
+
+    function test_withdraw_worksWhenPoolIsDead() public {
+        vm.prank(admin);
+        pool.windDown();
+        assertTrue(pool.dead());
+
+        address recipient = makeAddr("recipient");
+        IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
+            processooor: address(diamond),
+            data: _makeRelayData(recipient, 100)
+        });
+        ProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
+        proof.pubSignals[7] = _computeContext(withdrawal);
+
+        vm.deal(address(diamond), 10 ether);
+        uint256 recipientBefore = recipient.balance;
+
+        vm.prank(relayer);
+        pool.withdraw(withdrawal, proof);
+
+        uint256 fee = 0.5 ether * 100 / 10_000;
+        assertEq(recipient.balance - recipientBefore, 0.5 ether - fee);
+    }
 }
