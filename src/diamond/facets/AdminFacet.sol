@@ -154,10 +154,12 @@ contract AdminFacet is FacetBase, IFacet {
         onlyRole(AccessControlStorageLib.ADMIN_ROLE)
     {
         if (recipient == address(0)) revert InvalidAddress();
-        uint256 balance = address(this).balance;
-        if (balance > 0) {
-            PoolOps.transferETH(recipient, balance);
-            emit FeesWithdrawn(recipient, balance);
+        PoolStorageData storage s = PoolStorageLib.layout();
+        uint256 fees = s.accumulatedFees;
+        if (fees > 0) {
+            s.accumulatedFees = 0;
+            PoolOps.transferETH(recipient, fees);
+            emit FeesWithdrawn(recipient, fees);
         }
     }
 

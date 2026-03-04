@@ -161,6 +161,7 @@ interface IPoolDiamond {
     function associationSets(uint256 index) external view returns (uint256 root, string memory ipfsCID, uint256 timestamp);
     function assetConfig() external view returns (uint256 minimumDepositAmount, uint256 vettingFeeBPS, uint256 maxRelayFeeBPS);
     function maxSolverFeeBPS() external view returns (uint256);
+    function accumulatedFees() external view returns (uint256);
     function withdrawalInputSettler() external view returns (address);
     function depositOutputSettler() external view returns (address);
     function withdrawalChainConfig(uint256 chainId)

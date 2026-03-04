@@ -36,6 +36,7 @@ contract DepositFacet is FacetBase, IFacet {
         s.usedPrecommitments[precommitment] = true;
 
         uint256 netAmount = PoolOps.deductFee(msg.value, s.vettingFeeBPS);
+        s.accumulatedFees += msg.value - netAmount;
 
         uint256 label = uint256(keccak256(abi.encodePacked(s.scope, ++s.nonce))) % Constants.SNARK_SCALAR_FIELD;
         s.depositors[label] = msg.sender;
@@ -63,6 +64,7 @@ contract DepositFacet is FacetBase, IFacet {
         s.usedPrecommitments[precommitment] = true;
 
         uint256 netAmount = PoolOps.deductFee(amount, s.vettingFeeBPS);
+        s.accumulatedFees += amount - netAmount;
 
         uint256 label = uint256(keccak256(abi.encodePacked(s.scope, ++s.nonce))) % Constants.SNARK_SCALAR_FIELD;
         s.depositors[label] = depositor;
@@ -83,6 +85,7 @@ contract DepositFacet is FacetBase, IFacet {
         PoolStorageData storage s = PoolStorageLib.layout();
         if (msg.sender != s.depositOutputSettler) revert OnlyDepositOutputSettler();
         if (address(asset) == Constants.NATIVE_ASSET) revert InvalidAsset();
+        if (address(asset) != s.asset) revert InvalidAsset();
         if (amount < s.minimumDepositAmount) revert MinimumDepositAmount();
         if (amount >= type(uint128).max) revert InvalidDepositValue();
         if (s.usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
@@ -90,6 +93,7 @@ contract DepositFacet is FacetBase, IFacet {
 
         asset.safeTransferFrom(msg.sender, address(this), amount);
         uint256 netAmount = PoolOps.deductFee(amount, s.vettingFeeBPS);
+        s.accumulatedFees += amount - netAmount;
 
         uint256 label = uint256(keccak256(abi.encodePacked(s.scope, ++s.nonce))) % Constants.SNARK_SCALAR_FIELD;
         s.depositors[label] = depositor;

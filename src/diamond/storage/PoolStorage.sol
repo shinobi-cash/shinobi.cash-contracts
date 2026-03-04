@@ -50,6 +50,9 @@ struct PoolStorageData {
     uint256 maxSolverFeeBPS;
     mapping(uint256 => WithdrawalChainConfig) withdrawalChainConfig;
 
+    // Fee accounting
+    uint256 accumulatedFees;
+
     // Reentrancy guard
     uint256 reentrancyStatus;
 }

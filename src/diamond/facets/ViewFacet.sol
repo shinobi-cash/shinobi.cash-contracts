@@ -106,6 +106,10 @@ contract ViewFacet is IFacet {
         return PoolStorageLib.layout().maxSolverFeeBPS;
     }
 
+    function accumulatedFees() external view returns (uint256) {
+        return PoolStorageLib.layout().accumulatedFees;
+    }
+
     // ── Cross-chain Config ──
 
     function withdrawalInputSettler() external view returns (address) {
@@ -182,6 +186,7 @@ contract ViewFacet is IFacet {
             this.associationSets.selector,
             this.assetConfig.selector,
             this.maxSolverFeeBPS.selector,
+            this.accumulatedFees.selector,
             this.withdrawalInputSettler.selector,
             this.depositOutputSettler.selector,
             this.withdrawalChainConfig.selector,
