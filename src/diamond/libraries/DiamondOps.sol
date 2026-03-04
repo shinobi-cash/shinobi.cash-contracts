@@ -18,7 +18,7 @@ library DiamondOps {
     error SelectorConflict(bytes4 selector, address existingFacet, address newFacet);
 
     function addFacet(address facet) internal {
-        if (facet == address(0)) revert InvalidFacetAddress();
+        if (facet == address(0) || facet.code.length == 0) revert InvalidFacetAddress();
 
         DiamondStorageData storage ds = DiamondStorageLib.layout();
 
@@ -47,7 +47,9 @@ library DiamondOps {
     }
 
     function replaceFacet(address oldFacet, address newFacet) internal {
-        if (oldFacet == address(0) || newFacet == address(0)) revert InvalidFacetAddress();
+        if (oldFacet == address(0) || newFacet == address(0) || newFacet.code.length == 0) {
+            revert InvalidFacetAddress();
+        }
 
         DiamondStorageData storage ds = DiamondStorageLib.layout();
 
