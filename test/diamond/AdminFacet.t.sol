@@ -215,7 +215,7 @@ contract AdminFacetTest is DiamondTestBase {
         assertEq(pool.facetAddress(MockExtraFacet.extraFunction.selector), address(newFacet));
 
         // Verify total facets increased
-        assertEq(pool.facetAddresses().length, 10);
+        assertEq(pool.facetAddresses().length, 9);
     }
 
     function test_upgradeDiamond_revertsForUnauthorized() public {

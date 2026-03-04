@@ -15,7 +15,6 @@ import {CrosschainWithdrawFacet} from "../../src/diamond/facets/CrosschainWithdr
 import {Withdraw2Facet} from "../../src/diamond/facets/Withdraw2Facet.sol";
 import {CrosschainWithdraw2Facet} from "../../src/diamond/facets/CrosschainWithdraw2Facet.sol";
 import {RagequitFacet} from "../../src/diamond/facets/RagequitFacet.sol";
-import {RefundFacet} from "../../src/diamond/facets/RefundFacet.sol";
 
 // Verifier interfaces
 import {IVerifier} from "interfaces/IVerifier.sol";
@@ -25,7 +24,7 @@ import {ICrosschainWithdraw2Verifier} from "../../src/core/interfaces/ICrosschai
 
 /**
  * @title DeployDiamond_01_Facets
- * @notice Deploy all 9 diamond facets (reuses existing verifiers)
+ * @notice Deploy all 8 diamond facets (reuses existing verifiers)
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (verifiers)
  * Output: deployments/{POOL_KEY}.json (facet addresses)
@@ -100,9 +99,6 @@ contract DeployDiamond_01_Facets is Script {
         // 8. RagequitFacet
         _deploy(poolKey, "diamondRagequitFacet", "RagequitFacet",
             address(new RagequitFacet(IVerifier(commitmentVerifier))));
-
-        // 9. RefundFacet
-        _deploy(poolKey, "diamondRefundFacet", "RefundFacet", address(new RefundFacet()));
 
         vm.stopBroadcast();
 

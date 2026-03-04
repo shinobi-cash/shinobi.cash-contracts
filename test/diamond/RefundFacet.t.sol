@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {DiamondTestBase} from "./DiamondTestBase.sol";
-import {RefundFacet} from "../../src/diamond/facets/RefundFacet.sol";
+import {CrosschainWithdrawFacet} from "../../src/diamond/facets/CrosschainWithdrawFacet.sol";
 
 contract RefundFacetTest is DiamondTestBase {
     function test_handleRefund_success() public {
@@ -27,13 +27,13 @@ contract RefundFacetTest is DiamondTestBase {
 
     function test_handleRefund_revertsForNonSettler() public {
         uint256 scope = pool.SCOPE();
-        vm.expectRevert(RefundFacet.OnlyWithdrawalInputSettler.selector);
+        vm.expectRevert(CrosschainWithdrawFacet.OnlyWithdrawalInputSettler.selector);
         vm.prank(user);
         pool.handleRefund{value: 1 ether}(42, feeRecipient, 100, scope);
     }
 
     function test_handleRefund_revertsForWrongScope() public {
-        vm.expectRevert(RefundFacet.ScopeMismatch.selector);
+        vm.expectRevert(CrosschainWithdrawFacet.ScopeMismatch.selector);
         vm.prank(address(mockSettler));
         pool.handleRefund{value: 1 ether}(42, feeRecipient, 100, 999);
     }

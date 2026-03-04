@@ -9,7 +9,7 @@ import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {PoolStorageData, WithdrawalChainConfig} from "../storage/PoolStorage.sol";
 import {PoolOps} from "./PoolOps.sol";
 
-/// @dev Selector for RefundFacet.handleRefund(uint256,address,uint256,uint256)
+/// @dev Selector for CrosschainWithdrawFacet.handleRefund(uint256,address,uint256,uint256)
 bytes4 constant HANDLE_REFUND_SELECTOR = bytes4(keccak256("handleRefund(uint256,address,uint256,uint256)"));
 
 /// @title IntentOps - Shared intent creation logic for crosschain facets

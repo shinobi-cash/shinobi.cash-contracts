@@ -11,7 +11,7 @@ import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 import {IntentOps} from "../libraries/IntentOps.sol";
 
-/// @title CrosschainWithdrawFacet - Cross-chain 1:1 withdrawal with OIF intent
+/// @title CrosschainWithdrawFacet - Cross-chain 1:1 withdrawal with OIF intent + refund handling
 contract CrosschainWithdrawFacet is FacetBase, IFacet {
     using CrosschainProofLib for CrosschainProofLib.CrosschainWithdrawProof;
 
@@ -26,6 +26,8 @@ contract CrosschainWithdrawFacet is FacetBase, IFacet {
         uint256 solverFee,
         bytes32 orderId
     );
+    event Refunded(uint256 amount, uint256 indexed refundCommitmentHash, uint256 refundFee, address indexed feeRecipient);
+    event RefundCommitmentInserted(uint256 indexed refundCommitmentHash, uint256 amount);
 
     error InvalidProcessooor();
     error InvalidProof();
@@ -34,6 +36,9 @@ contract CrosschainWithdrawFacet is FacetBase, IFacet {
     error DestinationChainNotConfigured();
     error RelayFeeGreaterThanMax();
     error SolverFeeGreaterThanMax();
+    error OnlyWithdrawalInputSettler();
+    error ScopeMismatch();
+    error RefundFeeTransferFailed();
 
     constructor(ICrosschainWithdrawalProofVerifier verifier) {
         VERIFIER = verifier;
@@ -86,9 +91,32 @@ contract CrosschainWithdrawFacet is FacetBase, IFacet {
         );
     }
 
+    /// @notice Handle a refund from the input settler for a failed intent
+    function handleRefund(uint256 refundCommitmentHash, address feeRecipient, uint256 refundFeeBPS, uint256 scope)
+        external
+        payable
+        nonReentrant
+    {
+        PoolStorageData storage s = PoolStorageLib.layout();
+        if (msg.sender != s.withdrawalInputSettler) revert OnlyWithdrawalInputSettler();
+        if (scope != s.scope) revert ScopeMismatch();
+
+        uint256 refundFee = PoolOps.calculateFee(msg.value, refundFeeBPS);
+        uint256 refundAmount = msg.value - refundFee;
+
+        if (refundFee > 0) {
+            PoolOps.transferETH(feeRecipient, refundFee);
+        }
+
+        PoolOps.insert(s, refundCommitmentHash);
+
+        emit RefundCommitmentInserted(refundCommitmentHash, refundAmount);
+        emit Refunded(refundAmount, refundCommitmentHash, refundFee, feeRecipient);
+    }
+
     // ── ERC-8153 ──
 
     function exportSelectors() external pure returns (bytes memory) {
-        return abi.encodePacked(this.crosschainWithdraw.selector);
+        return abi.encodePacked(this.crosschainWithdraw.selector, this.handleRefund.selector);
     }
 }

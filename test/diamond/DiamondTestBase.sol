@@ -8,7 +8,6 @@ import {ViewFacet} from "../../src/diamond/facets/ViewFacet.sol";
 import {DepositFacet} from "../../src/diamond/facets/DepositFacet.sol";
 import {WithdrawFacet} from "../../src/diamond/facets/WithdrawFacet.sol";
 import {RagequitFacet} from "../../src/diamond/facets/RagequitFacet.sol";
-import {RefundFacet} from "../../src/diamond/facets/RefundFacet.sol";
 import {CrosschainWithdrawFacet} from "../../src/diamond/facets/CrosschainWithdrawFacet.sol";
 import {Withdraw2Facet} from "../../src/diamond/facets/Withdraw2Facet.sol";
 import {CrosschainWithdraw2Facet} from "../../src/diamond/facets/CrosschainWithdraw2Facet.sol";
@@ -133,7 +132,6 @@ abstract contract DiamondTestBase is Test {
     DepositFacet public depositFacet;
     WithdrawFacet public withdrawFacet;
     RagequitFacet public ragequitFacet;
-    RefundFacet public refundFacet;
     CrosschainWithdrawFacet public crosschainWithdrawFacet;
     Withdraw2Facet public withdraw2Facet;
     CrosschainWithdraw2Facet public crosschainWithdraw2Facet;
@@ -179,22 +177,20 @@ abstract contract DiamondTestBase is Test {
         depositFacet = new DepositFacet();
         withdrawFacet = new WithdrawFacet(IVerifier(address(withdrawalVerifier)));
         ragequitFacet = new RagequitFacet(IVerifier(address(ragequitVerifier)));
-        refundFacet = new RefundFacet();
         crosschainWithdrawFacet = new CrosschainWithdrawFacet(crosschainVerifier);
         withdraw2Facet = new Withdraw2Facet(withdraw2Verifier);
         crosschainWithdraw2Facet = new CrosschainWithdraw2Facet(crosschainWithdraw2Verifier);
 
         // Build facets array
-        address[] memory facets = new address[](9);
+        address[] memory facets = new address[](8);
         facets[0] = address(adminFacet);
         facets[1] = address(viewFacet);
         facets[2] = address(depositFacet);
         facets[3] = address(withdrawFacet);
         facets[4] = address(ragequitFacet);
-        facets[5] = address(refundFacet);
-        facets[6] = address(crosschainWithdrawFacet);
-        facets[7] = address(withdraw2Facet);
-        facets[8] = address(crosschainWithdraw2Facet);
+        facets[5] = address(crosschainWithdrawFacet);
+        facets[6] = address(withdraw2Facet);
+        facets[7] = address(crosschainWithdraw2Facet);
 
         // Deploy diamond
         diamond = new PoolDiamond(

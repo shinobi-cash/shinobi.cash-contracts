@@ -56,7 +56,6 @@ contract DeployDiamond_02_Diamond is Script {
         address withdraw2Facet = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondWithdraw2Facet");
         address crosschainWithdraw2Facet = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondCrosschainWithdraw2Facet");
         address ragequitFacet = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondRagequitFacet");
-        address refundFacet = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondRefundFacet");
 
         require(adminFacet != address(0), "AdminFacet not deployed");
         require(viewFacet != address(0), "ViewFacet not deployed");
@@ -66,7 +65,6 @@ contract DeployDiamond_02_Diamond is Script {
         require(withdraw2Facet != address(0), "Withdraw2Facet not deployed");
         require(crosschainWithdraw2Facet != address(0), "CrosschainWithdraw2Facet not deployed");
         require(ragequitFacet != address(0), "RagequitFacet not deployed");
-        require(refundFacet != address(0), "RefundFacet not deployed");
 
         // Roles: admin = deployer, aspPostman = deployer (updated later), diamondAdmin = deployer
         address admin = vm.envOr("DIAMOND_ADMIN", deployer);
@@ -80,7 +78,7 @@ contract DeployDiamond_02_Diamond is Script {
         console.log("");
 
         // Build facets array
-        address[] memory facets = new address[](9);
+        address[] memory facets = new address[](8);
         facets[0] = adminFacet;
         facets[1] = viewFacet;
         facets[2] = depositFacet;
@@ -89,7 +87,6 @@ contract DeployDiamond_02_Diamond is Script {
         facets[5] = withdraw2Facet;
         facets[6] = crosschainWithdraw2Facet;
         facets[7] = ragequitFacet;
-        facets[8] = refundFacet;
 
         vm.startBroadcast(deployerPrivateKey);
 

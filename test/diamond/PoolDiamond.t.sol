@@ -17,7 +17,7 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_constructor_registersAllFacets() public view {
         address[] memory facets = pool.facetAddresses();
-        assertEq(facets.length, 9);
+        assertEq(facets.length, 8);
     }
 
     function test_constructor_grantsRoles() public view {
