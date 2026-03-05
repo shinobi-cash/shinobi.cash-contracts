@@ -311,7 +311,7 @@ contract ShinobiWithdrawalOutputSettlerTest is Test {
         assertEq(fillRecord, expectedRecord);
     }
 
-    function test_getFillRecord_returnsZeroForUnfilled() public {
+    function test_getFillRecord_returnsZeroForUnfilled() public view {
         bytes32 orderId = keccak256("nonexistent");
         bytes32 outputHash = keccak256("nonexistent");
 
@@ -343,14 +343,14 @@ contract ShinobiWithdrawalOutputSettlerTest is Test {
         assertTrue(settler.arePayloadsValid(payloads));
     }
 
-    function test_arePayloadsValid_returnsFalseForInvalidPayloads() public {
+    function test_arePayloadsValid_returnsFalseForInvalidPayloads() public view {
         bytes[] memory payloads = new bytes[](1);
         payloads[0] = abi.encode("invalid payload");
 
         assertFalse(settler.arePayloadsValid(payloads));
     }
 
-    function test_arePayloadsValid_returnsTrueForEmptyArray() public {
+    function test_arePayloadsValid_returnsTrueForEmptyArray() public view {
         bytes[] memory payloads = new bytes[](0);
         assertTrue(settler.arePayloadsValid(payloads));
     }

@@ -176,7 +176,6 @@ contract ShinobiDepositOutputSettlerTest is Test {
 
     function test_fill_success() public {
         ShinobiIntent memory intent = _createValidIntent();
-        bytes32 orderId = intent.orderIdentifier();
 
         // Set up oracle to return proven
         intentOracle.setProven(true);
@@ -483,7 +482,7 @@ contract MockDepositRecipient {
 
     function crosschainDeposit(
         address depositor,
-        uint256 amount,
+        uint256,
         uint256 precommitment
     ) external payable {
         depositCalled = true;
