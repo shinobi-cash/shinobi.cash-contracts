@@ -33,6 +33,8 @@ library ChainConfig {
         uint256 vettingFeeBPS;
         uint256 maxRelayFeeBPS;
         uint256 maxSolverFeeBPS;
+        uint256 maxRefundFeeBPS;
+        address vettingFeeRecipient;
     }
 
     /**
@@ -54,6 +56,8 @@ library ChainConfig {
         config.vettingFeeBPS = vm.parseJsonUint(json, ".config.vettingFeeBPS");
         config.maxRelayFeeBPS = vm.parseJsonUint(json, ".config.maxRelayFeeBPS");
         config.maxSolverFeeBPS = vm.parseJsonUint(json, ".config.maxSolverFeeBPS");
+        config.maxRefundFeeBPS = vm.parseJsonUint(json, ".config.maxRefundFeeBPS");
+        config.vettingFeeRecipient = vm.parseJsonAddress(json, ".config.vettingFeeRecipient");
     }
 
     /*//////////////////////////////////////////////////////////////

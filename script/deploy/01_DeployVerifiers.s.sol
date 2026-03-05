@@ -5,13 +5,13 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // ZK Verifiers - Standard withdrawal (1:1)
-import {WithdrawalVerifier} from "contracts/verifiers/WithdrawalVerifier.sol";
-import {CommitmentVerifier} from "contracts/verifiers/CommitmentVerifier.sol";
-import {CrosschainWithdrawalVerifier} from "../../src/core/verifiers/CrosschainWithdrawalVerifier.sol";
+import {WithdrawalVerifier} from "../../src/verifiers/WithdrawalVerifier.sol";
+import {CommitmentVerifier} from "../../src/verifiers/CommitmentVerifier.sol";
+import {CrosschainWithdrawalVerifier} from "../../src/verifiers/CrosschainWithdrawalVerifier.sol";
 
 // ZK Verifiers - Withdraw2 (2:1)
-import {Withdraw2Verifier} from "../../src/core/verifiers/Withdraw2Verifier.sol";
-import {CrosschainWithdraw2Verifier} from "../../src/core/verifiers/CrosschainWithdraw2Verifier.sol";
+import {Withdraw2Verifier} from "../../src/verifiers/Withdraw2Verifier.sol";
+import {CrosschainWithdraw2Verifier} from "../../src/verifiers/CrosschainWithdraw2Verifier.sol";
 
 /**
  * @title 01_DeployVerifiers

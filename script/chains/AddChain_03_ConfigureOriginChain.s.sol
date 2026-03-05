@@ -5,10 +5,10 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
-import {Constants} from "contracts/lib/Constants.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
 
 // Contracts to configure
-import {ShinobiCrosschainDepositEntrypoint} from "../../src/core/ShinobiCrosschainDepositEntrypoint.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../../src/crosschain/ShinobiCrosschainDepositEntrypoint.sol";
 import {IHyperlaneOracle} from "../../src/oif/interfaces/IHyperlaneOracle.sol";
 
 /**

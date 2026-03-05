@@ -2,9 +2,9 @@
 pragma solidity 0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
-import {ShinobiCrosschainDepositEntrypoint} from "../src/core/ShinobiCrosschainDepositEntrypoint.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../src/crosschain/ShinobiCrosschainDepositEntrypoint.sol";
 import {ShinobiIntent} from "../src/oif/libraries/ShinobiIntentType.sol";
-import {Constants} from "contracts/lib/Constants.sol";
+import {Constants} from "../src/pool/libraries/Constants.sol";
 
 contract ShinobiCrosschainDepositEntrypointTest is Test {
     ShinobiCrosschainDepositEntrypoint public entrypoint;
@@ -188,8 +188,6 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
 
     function test_deposit_emitsEvent() public {
         uint256 precommitment = 12345;
-        uint256 solverFee = (DEPOSIT_AMOUNT * 500) / 10000; // 5%
-        uint256 netAmount = DEPOSIT_AMOUNT - solverFee;
 
         vm.prank(user);
         entrypoint.deposit{value: DEPOSIT_AMOUNT}(precommitment);
@@ -695,20 +693,20 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
 
     function test_setHyperlaneConfig_success() public {
         uint32 destDomain = 421614;
-        address destHyperlaneOracle = makeAddr("destHyperlaneOracle");
+        address newDestOracle = makeAddr("destHyperlaneOracle");
         uint256 gasLimit = 300_000;
 
         vm.prank(owner);
         entrypoint.setHyperlaneConfig(
             address(hyperlaneOracle),
             destDomain,
-            destHyperlaneOracle,
+            newDestOracle,
             gasLimit
         );
 
         assertEq(address(entrypoint.hyperlaneOracle()), address(hyperlaneOracle));
         assertEq(entrypoint.destinationHyperlaneDomain(), destDomain);
-        assertEq(entrypoint.destinationHyperlaneOracle(), destHyperlaneOracle);
+        assertEq(entrypoint.destinationHyperlaneOracle(), newDestOracle);
         assertEq(entrypoint.hyperlaneGasLimit(), gasLimit);
     }
 
@@ -766,14 +764,14 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
         // The validIntentPayloads mapping should have an entry
     }
 
-    function test_arePayloadsValid_returnsFalseForInvalidPayloads() public {
+    function test_arePayloadsValid_returnsFalseForInvalidPayloads() public view {
         bytes[] memory payloads = new bytes[](1);
         payloads[0] = abi.encode(bytes32(uint256(999)));
 
         assertFalse(entrypoint.arePayloadsValid(payloads));
     }
 
-    function test_arePayloadsValid_returnsTrueForEmptyArray() public {
+    function test_arePayloadsValid_returnsTrueForEmptyArray() public view {
         bytes[] memory payloads = new bytes[](0);
         assertTrue(entrypoint.arePayloadsValid(payloads));
     }
@@ -818,10 +816,8 @@ contract MockInputSettler {
     bool public openCalled;
     ShinobiIntent public lastIntent;
 
-    function open(ShinobiIntent calldata intent) external payable {
+    function open(ShinobiIntent calldata) external payable {
         openCalled = true;
-        // Can't directly copy calldata to storage for dynamic arrays
-        // Just mark as called
     }
 
     function refund(ShinobiIntent calldata) external {

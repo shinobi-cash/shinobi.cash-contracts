@@ -1,0 +1,303 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 Karandeep Singh (https://github.com/KannuSingh)
+pragma solidity 0.8.28;
+
+import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
+import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
+import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
+import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
+
+import {IPoolDiamond} from "../pool/interfaces/IPoolDiamond.sol";
+import {WithdrawData} from "../pool/libraries/Types.sol";
+import {IWithdrawalVerifier} from "../verifiers/interfaces/IWithdrawalVerifier.sol";
+import {WithdrawProofLib} from "../proofLibs/WithdrawProofLib.sol";
+import {Constants} from "../pool/libraries/Constants.sol";
+
+/**
+ * @title WithdrawalPaymaster
+ * @author Karandeep Singh
+ * @notice ERC-4337 Paymaster for same-chain privacy pool withdrawals via PoolDiamond
+ * @dev Validates 8-signal ZK proofs and economics before sponsoring UserOperations
+ */
+contract WithdrawalPaymaster is BasePaymaster {
+    using WithdrawProofLib for WithdrawProofLib.WithdrawProof;
+    using UserOperationLib for PackedUserOperation;
+
+    /*//////////////////////////////////////////////////////////////
+                                CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+
+    uint256 public constant MIN_POST_OP_GAS_LIMIT = 80_000;
+    uint256 public constant MIN_CALL_GAS_LIMIT = 550_000;
+    uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 400_000;
+
+    IPoolDiamond public immutable POOL_DIAMOND;
+    IWithdrawalVerifier public immutable WITHDRAWAL_VERIFIER;
+    address public expectedSmartAccount;
+
+    /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    event PrivacyPoolWithdrawalSponsored(
+        address indexed userAccount,
+        bytes32 indexed userOpHash,
+        uint256 actualWithdrawalCost,
+        uint256 refunded,
+        bool success
+    );
+
+    event ExpectedSmartAccountUpdated(
+        address indexed previousAccount,
+        address indexed newAccount
+    );
+
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    error InvalidCallData();
+    error InsufficientPostOpGasLimit();
+    error InsufficientCallGasLimit();
+    error InsufficientPaymasterVerificationGas();
+    error WithdrawalValidationFailed();
+    error InsufficientPaymasterCost();
+    error WrongFeeRecipient();
+    error UnauthorizedCaller();
+    error InvalidProcessooor();
+    error InvalidScope();
+    error ZeroFeeNotAllowed();
+    error ExpectedSmartAccountNotSet();
+    error UnauthorizedSmartAccount();
+    error SmartAccountNotDeployed();
+    error InvalidAddress();
+    error RelayFeeGreaterThanMax();
+
+    /*//////////////////////////////////////////////////////////////
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(
+        IEntryPoint _entryPoint,
+        IPoolDiamond _poolDiamond,
+        IWithdrawalVerifier _withdrawalVerifier
+    ) BasePaymaster(_entryPoint) {
+        if (address(_poolDiamond) == address(0)) revert InvalidAddress();
+        if (address(_withdrawalVerifier) == address(0)) revert InvalidAddress();
+        POOL_DIAMOND = _poolDiamond;
+        WITHDRAWAL_VERIFIER = _withdrawalVerifier;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                RECEIVE
+    //////////////////////////////////////////////////////////////*/
+
+    receive() external payable {}
+
+    /*//////////////////////////////////////////////////////////////
+                        SMART ACCOUNT CONFIGURATION
+    //////////////////////////////////////////////////////////////*/
+
+    function setExpectedSmartAccount(address account) external onlyOwner {
+        if (account == address(0)) revert InvalidProcessooor();
+        address previousAccount = expectedSmartAccount;
+        expectedSmartAccount = account;
+        emit ExpectedSmartAccountUpdated(previousAccount, account);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        EMBEDDED WITHDRAWAL VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Internal validation matching diamond's withdraw() signature
+     * @dev Called via self-call to leverage Solidity's built-in dispatcher
+     */
+    function withdraw(
+        WithdrawData calldata data,
+        WithdrawProofLib.WithdrawProof calldata proof
+    ) external {
+        if (msg.sender != address(this)) revert UnauthorizedCaller();
+        if (data.feeRecipient != address(this)) revert WrongFeeRecipient();
+
+        uint256 scope = POOL_DIAMOND.SCOPE();
+
+        // Early relay fee validation
+        (, , uint256 maxRelayFeeBPS) = POOL_DIAMOND.assetConfig();
+        if (data.relayFeeBPS > maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
+        if (!_validateWithdrawProof(abi.encode(data), proof, scope)) revert WithdrawalValidationFailed();
+
+        uint256 withdrawnValue = proof.withdrawnValue();
+        uint256 relayFeeBPS = data.relayFeeBPS;
+        address withdrawalRecipient = data.recipient;
+
+        assembly {
+            tstore(0, withdrawnValue)
+            tstore(1, relayFeeBPS)
+            tstore(2, withdrawalRecipient)
+        }
+
+        if (relayFeeBPS == 0) revert ZeroFeeNotAllowed();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            POST-OP OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function _postOp(
+        IPaymaster.PostOpMode mode,
+        bytes calldata context,
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas
+    ) internal override {
+        (bytes32 userOpHash, address withdrawalRecipient, uint256 expectedFeeAmount) = abi
+            .decode(context, (bytes32, address, uint256));
+
+        uint256 postOpCost = MIN_POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
+        uint256 actualWithdrawalCost = actualGasCost + postOpCost;
+
+        uint256 refundAmount = 0;
+        bool executionSucceeded = mode == IPaymaster.PostOpMode.opSucceeded;
+
+        if (executionSucceeded && expectedFeeAmount > actualWithdrawalCost) {
+            refundAmount = expectedFeeAmount - actualWithdrawalCost;
+            (bool success, ) = withdrawalRecipient.call{value: refundAmount}("");
+            success;
+        }
+
+        if (actualWithdrawalCost > 0) {
+            entryPoint.depositTo{value: actualWithdrawalCost}(address(this));
+        }
+
+        emit PrivacyPoolWithdrawalSponsored(
+            withdrawalRecipient,
+            userOpHash,
+            actualWithdrawalCost,
+            refundAmount,
+            executionSucceeded
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          PAYMASTER VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    function _validatePaymasterUserOp(
+        PackedUserOperation calldata userOp,
+        bytes32 userOpHash,
+        uint256 maxCost
+    )
+        internal
+        override
+        returns (bytes memory context, uint256 validationData)
+    {
+        if (expectedSmartAccount == address(0)) revert ExpectedSmartAccountNotSet();
+        if (userOp.sender != expectedSmartAccount) revert UnauthorizedSmartAccount();
+        if (userOp.initCode.length > 0) revert SmartAccountNotDeployed();
+        if (userOp.unpackPostOpGasLimit() < MIN_POST_OP_GAS_LIMIT) revert InsufficientPostOpGasLimit();
+        if (userOp.unpackCallGasLimit() < MIN_CALL_GAS_LIMIT) revert InsufficientCallGasLimit();
+        if (userOp.unpackPaymasterVerificationGasLimit() < MIN_PAYMASTER_VERIFICATION_GAS) {
+            revert InsufficientPaymasterVerificationGas();
+        }
+
+        (address target, uint256 value, bytes memory data) = _extractExecuteCall(userOp.callData);
+
+        if (!_validatePrivacyPoolWithdrawal(target, value, data)) {
+            revert WithdrawalValidationFailed();
+        }
+
+        uint256 withdrawnValue;
+        uint256 relayFeeBPS;
+        address withdrawalRecipient;
+        assembly {
+            withdrawnValue := tload(0)
+            relayFeeBPS := tload(1)
+            withdrawalRecipient := tload(2)
+        }
+
+        uint256 expectedFeeAmount = (withdrawnValue * relayFeeBPS) / 10_000;
+        if (expectedFeeAmount < maxCost) revert InsufficientPaymasterCost();
+
+        assembly {
+            tstore(0, 0)
+            tstore(1, 0)
+            tstore(2, 0)
+        }
+
+        return (abi.encode(userOpHash, withdrawalRecipient, expectedFeeAmount), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        INTERNAL VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    function _validatePrivacyPoolWithdrawal(
+        address target,
+        uint256 value,
+        bytes memory data
+    ) internal returns (bool) {
+        if (target != address(POOL_DIAMOND)) return false;
+        if (value != 0) return false;
+
+        (bool success, ) = address(this).call(data);
+        return success;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         INTERNAL HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    function _validateWithdrawProof(
+        bytes memory withdrawalData,
+        WithdrawProofLib.WithdrawProof memory proof,
+        uint256 scope
+    ) internal view returns (bool) {
+        uint256 expectedContext = uint256(
+            keccak256(abi.encode(withdrawalData, scope))
+        ) % (Constants.SNARK_SCALAR_FIELD);
+
+        if (proof.context() != expectedContext) return false;
+
+        uint32 maxDepth = POOL_DIAMOND.MAX_TREE_DEPTH();
+        if (proof.stateTreeDepth() > maxDepth || proof.ASPTreeDepth() > maxDepth) return false;
+
+        if (!_isKnownRoot(proof.stateRoot())) return false;
+        if (proof.ASPRoot() != POOL_DIAMOND.latestRoot()) return false;
+        if (POOL_DIAMOND.nullifierHashes(proof.existingNullifierHash())) return false;
+
+        if (!WITHDRAWAL_VERIFIER.verifyProof(
+            proof.pA, proof.pB, proof.pC, proof.pubSignals
+        )) return false;
+
+        return true;
+    }
+
+    function _isKnownRoot(uint256 _root) internal view returns (bool) {
+        if (_root == 0) return false;
+
+        uint32 _index = POOL_DIAMOND.currentRootIndex();
+        uint32 historySize = POOL_DIAMOND.ROOT_HISTORY_SIZE();
+
+        for (uint32 _i = 0; _i < historySize; _i++) {
+            if (_root == POOL_DIAMOND.roots(_index)) return true;
+            _index = (_index + historySize - 1) % historySize;
+        }
+
+        return false;
+    }
+
+    function _extractExecuteCall(bytes calldata callData)
+        internal
+        pure
+        returns (address target, uint256 value, bytes memory data)
+    {
+        if (callData.length < 4) revert InvalidCallData();
+
+        bytes4 selector = bytes4(callData[:4]);
+        if (selector != 0xb61d27f6) revert InvalidCallData();
+
+        (target, value, data) = abi.decode(callData[4:], (address, uint256, bytes));
+    }
+}

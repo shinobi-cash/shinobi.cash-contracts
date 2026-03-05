@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 // Deposit Entrypoint
-import {ShinobiCrosschainDepositEntrypoint} from "../../src/core/ShinobiCrosschainDepositEntrypoint.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../../src/crosschain/ShinobiCrosschainDepositEntrypoint.sol";
 
 /**
  * @title 07_DeployDepositEntrypoint
