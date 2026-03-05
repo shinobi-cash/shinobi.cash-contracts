@@ -3,13 +3,13 @@ pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {ChainConfig} from "../../config/ChainConfig.sol";
-import {DeploymentWriter} from "../../config/DeploymentWriter.sol";
+import {ChainConfig} from "../config/ChainConfig.sol";
+import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
+import {IPoolDiamond} from "../../src/pool/interfaces/IPoolDiamond.sol";
 
 /**
- * @title DeployDiamond_05_WithdrawalChains
+ * @title Setup_WithdrawalChains
  * @notice Configure withdrawal chain(s) on the PoolDiamond for cross-chain withdrawals
  *
  * Reads origin chain config for fillDeadline/expiry and deployed addresses for
@@ -17,10 +17,10 @@ import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
  *
  * Usage:
  *   POOL_KEY=arbitrum-sepolia ORIGIN_KEY=base-sepolia \
- *     forge script script/pool/diamond/DeployDiamond_05_WithdrawalChains.s.sol:DeployDiamond_05_WithdrawalChains \
+ *     forge script script/pool/13_Setup_WithdrawalChains.s.sol:Setup_WithdrawalChains \
  *     --rpc-url arbitrum-sepolia --broadcast
  */
-contract DeployDiamond_05_WithdrawalChains is Script {
+contract Setup_WithdrawalChains is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         string memory originKey = vm.envString("ORIGIN_KEY");
@@ -47,7 +47,7 @@ contract DeployDiamond_05_WithdrawalChains is Script {
         require(outputFillOracle != address(0), "Origin HyperlaneOracle not deployed");
 
         console.log("==========================================================");
-        console.log("  DIAMOND SETUP - Step 5: Withdrawal Chain Config");
+        console.log("  Step 13: Withdrawal Chain Config");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);

@@ -3,24 +3,23 @@ pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {ChainConfig} from "../../config/ChainConfig.sol";
-import {DeploymentWriter} from "../../config/DeploymentWriter.sol";
-import {Constants} from "../../../src/pool/libraries/Constants.sol";
+import {ChainConfig} from "../config/ChainConfig.sol";
+import {DeploymentWriter} from "../config/DeploymentWriter.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
 
-import {PoolDiamond} from "../../../src/pool/PoolDiamond.sol";
+import {PoolDiamond} from "../../src/pool/PoolDiamond.sol";
 
 /**
- * @title DeployDiamond_02_Diamond
+ * @title Deploy_PoolDiamond
  * @notice Deploy the PoolDiamond proxy with all facets
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (facets)
- * Output: deployments/{POOL_KEY}.json (diamond address)
+ * Output: deployments/{POOL_KEY}.json (poolDiamond)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/diamond/DeployDiamond_02_Diamond.s.sol:DeployDiamond_02_Diamond \
- *     --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/09_Deploy_PoolDiamond.s.sol:Deploy_PoolDiamond --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract DeployDiamond_02_Diamond is Script {
+contract Deploy_PoolDiamond is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -31,7 +30,7 @@ contract DeployDiamond_02_Diamond is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  DIAMOND DEPLOYMENT - Step 2: PoolDiamond");
+        console.log("  Step 9: PoolDiamond");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -41,7 +40,7 @@ contract DeployDiamond_02_Diamond is Script {
 
         // Check if already deployed
         address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "poolDiamond");
-        if (existing != address(0)) {
+        if (existing != address(0) && existing.code.length > 0) {
             console.log("PoolDiamond already deployed:", existing);
             console.log("Skipping.");
             return;
@@ -59,7 +58,6 @@ contract DeployDiamond_02_Diamond is Script {
         console.log("");
 
         vm.startBroadcast(deployerPrivateKey);
-
         uint256 blockBefore = block.number;
         PoolDiamond diamond = new PoolDiamond(
             PoolDiamond.InitParams({
@@ -70,18 +68,13 @@ contract DeployDiamond_02_Diamond is Script {
             })
         );
         DeploymentWriter.writeContract(poolKey, "poolDiamond", address(diamond), blockBefore);
+        vm.stopBroadcast();
 
         console.log("PoolDiamond deployed:", address(diamond));
         console.log("Block:", blockBefore);
 
-        vm.stopBroadcast();
-
         console.log("");
-        console.log("==========================================================");
-        console.log("  DIAMOND DEPLOYED");
-        console.log("==========================================================");
-        console.log("");
-        console.log("Next: POOL_KEY=%s forge script DeployDiamond_03_Setup.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 10_Deploy_Settlers.s.sol ...", poolKey);
     }
 
     function _loadFacets(string memory poolKey) internal view returns (address[] memory facets) {

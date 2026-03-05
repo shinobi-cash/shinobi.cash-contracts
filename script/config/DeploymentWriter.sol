@@ -6,17 +6,14 @@ import {Vm} from "forge-std/Vm.sol";
 /**
  * @title DeploymentWriter
  * @notice Helper library for writing deployment output files with block numbers
- * @dev Uses Foundry's vm.writeJson to create deployment records for indexers
+ * @dev Uses Foundry's vm.writeJson to create deployment records for indexers.
+ *      vm.writeJson with a path selector can only overwrite existing keys, not insert new ones.
+ *      So we read the whole file, rebuild the category object with the new entry, and write it back.
  */
 library DeploymentWriter {
     Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     string constant DEPLOYMENTS_DIR = "deployments/";
-
-    struct DeployedContract {
-        address addr;
-        uint256 blockNumber;
-    }
 
     /**
      * @notice Get the deployment file path for a chain
@@ -72,13 +69,7 @@ library DeploymentWriter {
         address addr,
         uint256 blockNumber
     ) internal {
-        string memory path = getDeploymentPath(chainName);
-
-        string memory contractJson = "contract";
-        vm.serializeAddress(contractJson, "address", addr);
-        string memory finalContract = vm.serializeUint(contractJson, "blockNumber", blockNumber);
-
-        vm.writeJson(finalContract, path, string.concat(".verifiers.", name));
+        _writeEntry(chainName, "verifiers", name, addr, blockNumber);
     }
 
     /**
@@ -90,13 +81,7 @@ library DeploymentWriter {
         address addr,
         uint256 blockNumber
     ) internal {
-        string memory path = getDeploymentPath(chainName);
-
-        string memory contractJson = "contract";
-        vm.serializeAddress(contractJson, "address", addr);
-        string memory finalContract = vm.serializeUint(contractJson, "blockNumber", blockNumber);
-
-        vm.writeJson(finalContract, path, string.concat(".contracts.", name));
+        _writeEntry(chainName, "contracts", name, addr, blockNumber);
     }
 
     /**
@@ -108,13 +93,7 @@ library DeploymentWriter {
         address addr,
         uint256 blockNumber
     ) internal {
-        string memory path = getDeploymentPath(chainName);
-
-        string memory contractJson = "contract";
-        vm.serializeAddress(contractJson, "address", addr);
-        string memory finalContract = vm.serializeUint(contractJson, "blockNumber", blockNumber);
-
-        vm.writeJson(finalContract, path, string.concat(".paymasters.", name));
+        _writeEntry(chainName, "paymasters", name, addr, blockNumber);
     }
 
     /**
@@ -150,5 +129,56 @@ library DeploymentWriter {
         } catch {
             return false;
         }
+    }
+
+    /**
+     * @dev Write a deployment entry by reading the file, rebuilding the category with the
+     *      new entry appended, and writing the updated category back. This works because
+     *      vm.writeJson with a path selector can overwrite existing keys (the category exists).
+     */
+    function _writeEntry(
+        string memory chainName,
+        string memory category,
+        string memory name,
+        address addr,
+        uint256 blockNumber
+    ) private {
+        string memory path = getDeploymentPath(chainName);
+        string memory fileJson = vm.readFile(path);
+
+        // Build the new entry
+        string memory entryKey = "entry";
+        vm.serializeAddress(entryKey, "address", addr);
+        string memory entryJson = vm.serializeUint(entryKey, "blockNumber", blockNumber);
+
+        // Rebuild the category object: start with existing entries, then add the new one.
+        // We use the category name as the serialization namespace.
+        string memory catKey = category;
+        string memory categoryPath = string.concat(".", category);
+
+        // Parse all existing keys in this category and re-serialize them
+        string[] memory keys = vm.parseJsonKeys(fileJson, categoryPath);
+        for (uint256 i = 0; i < keys.length; i++) {
+            string memory existingPath = string.concat(categoryPath, ".", keys[i]);
+            // Skip _initialized marker and skip the key we're about to overwrite
+            if (keccak256(bytes(keys[i])) == keccak256("_initialized")) {
+                vm.serializeString(catKey, "_initialized", "true");
+            } else if (keccak256(bytes(keys[i])) != keccak256(bytes(name))) {
+                // Re-serialize existing entry as raw JSON
+                address existingAddr = vm.parseJsonAddress(fileJson, string.concat(existingPath, ".address"));
+                uint256 existingBlock = vm.parseJsonUint(fileJson, string.concat(existingPath, ".blockNumber"));
+
+                string memory reKey = string.concat("re_", keys[i]);
+                vm.serializeAddress(reKey, "address", existingAddr);
+                string memory reEntry = vm.serializeUint(reKey, "blockNumber", existingBlock);
+                vm.serializeString(catKey, keys[i], reEntry);
+            }
+        }
+
+        // Add the new entry
+        string memory updatedCategory = vm.serializeString(catKey, name, entryJson);
+
+        // Write the updated category back to the file
+        vm.writeJson(updatedCategory, path, categoryPath);
     }
 }

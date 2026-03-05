@@ -3,22 +3,21 @@ pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {ChainConfig} from "../../config/ChainConfig.sol";
-import {DeploymentWriter} from "../../config/DeploymentWriter.sol";
+import {ChainConfig} from "../config/ChainConfig.sol";
+import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
+import {IPoolDiamond} from "../../src/pool/interfaces/IPoolDiamond.sol";
 
 /**
- * @title DeployDiamond_03_Setup
- * @notice Configure the PoolDiamond
+ * @title Setup_PoolDiamond
+ * @notice Configure the PoolDiamond (asset config, fees, settlers)
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/diamond/DeployDiamond_03_Setup.s.sol:DeployDiamond_03_Setup \
- *     --rpc-url arbitrum-sepolia --broadcast
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/11_Setup_PoolDiamond.s.sol:Setup_PoolDiamond --rpc-url arbitrum-sepolia --broadcast
  */
-contract DeployDiamond_03_Setup is Script {
+contract Setup_PoolDiamond is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -38,7 +37,7 @@ contract DeployDiamond_03_Setup is Script {
         require(depositOutputSettler != address(0), "DepositOutputSettler not deployed");
 
         console.log("==========================================================");
-        console.log("  DIAMOND DEPLOYMENT - Step 3: Setup");
+        console.log("  Step 11: PoolDiamond Setup");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -83,8 +82,8 @@ contract DeployDiamond_03_Setup is Script {
 
         // 4. Set vetting fee recipient
         console.log("4. Setting vetting fee recipient...");
-        try diamond.setVettingFeeRecipient(poolConfig.vettingFeeRecipient) {
-            console.log("   Set to:", poolConfig.vettingFeeRecipient);
+        try diamond.setVettingFeeRecipient(deployer) {
+            console.log("   Set to:", deployer);
         } catch {
             console.log("   Already set, skipping.");
         }
@@ -109,9 +108,9 @@ contract DeployDiamond_03_Setup is Script {
 
         console.log("");
         console.log("==========================================================");
-        console.log("  DIAMOND SETUP COMPLETE");
+        console.log("  SETUP COMPLETE");
         console.log("==========================================================");
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script DeployDiamond_04_Paymasters.s.sol", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 12_Deploy_Paymasters.s.sol", poolKey);
     }
 }

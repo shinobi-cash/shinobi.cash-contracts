@@ -16,17 +16,16 @@ import {Withdraw2Verifier} from "../../src/verifiers/Withdraw2Verifier.sol";
 import {CrosschainWithdraw2Verifier} from "../../src/verifiers/CrosschainWithdraw2Verifier.sol";
 
 /**
- * @title DeployPool_01_Verifiers
+ * @title Deploy_Verifiers
  * @notice Deploy ZK verifiers on pool chain (skips already deployed)
  *
  * Input:  config/pools/{POOL_KEY}.json
  * Output: deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_01_Verifiers.s.sol:DeployPool_01_Verifiers \
- *     --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/01_Deploy_Verifiers.s.sol:Deploy_Verifiers --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract DeployPool_01_Verifiers is Script {
+contract Deploy_Verifiers is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -37,7 +36,7 @@ contract DeployPool_01_Verifiers is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  POOL DEPLOYMENT - Step 1: Verifiers");
+        console.log("  Step 1: Verifiers");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -53,12 +52,12 @@ contract DeployPool_01_Verifiers is Script {
         address existingWithdraw2 = DeploymentWriter.readContractAddress(poolKey, "verifiers", "withdraw2");
         address existingCrossChainWithdraw2 = DeploymentWriter.readContractAddress(poolKey, "verifiers", "crossChainWithdraw2");
 
-        // Check if all already deployed
-        if (existingWithdrawal != address(0) &&
-            existingCommitment != address(0) &&
-            existingCrossChain != address(0) &&
-            existingWithdraw2 != address(0) &&
-            existingCrossChainWithdraw2 != address(0)) {
+        // Check if all already deployed (verify on-chain code to avoid simulation-pass false positives)
+        if (existingWithdrawal != address(0) && existingWithdrawal.code.length > 0 &&
+            existingCommitment != address(0) && existingCommitment.code.length > 0 &&
+            existingCrossChain != address(0) && existingCrossChain.code.length > 0 &&
+            existingWithdraw2 != address(0) && existingWithdraw2.code.length > 0 &&
+            existingCrossChainWithdraw2 != address(0) && existingCrossChainWithdraw2.code.length > 0) {
             console.log("All verifiers already deployed:");
             console.log("  withdrawal:", existingWithdrawal);
             console.log("  commitment:", existingCommitment);
@@ -70,15 +69,15 @@ contract DeployPool_01_Verifiers is Script {
             return;
         }
 
-        vm.startBroadcast(deployerPrivateKey);
-
         // Initialize deployment file if needed
         if (!DeploymentWriter.deploymentExists(poolKey)) {
             DeploymentWriter.initDeployment(poolKey, poolConfig.chainId, deployer);
         }
 
+        vm.startBroadcast(deployerPrivateKey);
+
         // 1. Deploy WithdrawalVerifier
-        if (existingWithdrawal != address(0)) {
+        if (existingWithdrawal != address(0) && existingWithdrawal.code.length > 0) {
             console.log("1. WithdrawalVerifier already deployed:", existingWithdrawal);
         } else {
             console.log("1. Deploying WithdrawalVerifier...");
@@ -86,11 +85,10 @@ contract DeployPool_01_Verifiers is Script {
             address addr = address(new WithdrawalVerifier());
             DeploymentWriter.writeVerifier(poolKey, "withdrawal", addr, blockBefore);
             console.log("   Address:", addr);
-            console.log("   Block:", blockBefore);
         }
 
         // 2. Deploy CommitmentVerifier
-        if (existingCommitment != address(0)) {
+        if (existingCommitment != address(0) && existingCommitment.code.length > 0) {
             console.log("2. CommitmentVerifier already deployed:", existingCommitment);
         } else {
             console.log("2. Deploying CommitmentVerifier...");
@@ -98,11 +96,10 @@ contract DeployPool_01_Verifiers is Script {
             address addr = address(new CommitmentVerifier());
             DeploymentWriter.writeVerifier(poolKey, "commitment", addr, blockBefore);
             console.log("   Address:", addr);
-            console.log("   Block:", blockBefore);
         }
 
         // 3. Deploy CrosschainWithdrawalVerifier
-        if (existingCrossChain != address(0)) {
+        if (existingCrossChain != address(0) && existingCrossChain.code.length > 0) {
             console.log("3. CrosschainWithdrawalVerifier already deployed:", existingCrossChain);
         } else {
             console.log("3. Deploying CrosschainWithdrawalVerifier...");
@@ -110,11 +107,10 @@ contract DeployPool_01_Verifiers is Script {
             address addr = address(new CrosschainWithdrawalVerifier());
             DeploymentWriter.writeVerifier(poolKey, "crossChainWithdrawal", addr, blockBefore);
             console.log("   Address:", addr);
-            console.log("   Block:", blockBefore);
         }
 
         // 4. Deploy Withdraw2Verifier
-        if (existingWithdraw2 != address(0)) {
+        if (existingWithdraw2 != address(0) && existingWithdraw2.code.length > 0) {
             console.log("4. Withdraw2Verifier already deployed:", existingWithdraw2);
         } else {
             console.log("4. Deploying Withdraw2Verifier...");
@@ -122,11 +118,10 @@ contract DeployPool_01_Verifiers is Script {
             address addr = address(new Withdraw2Verifier());
             DeploymentWriter.writeVerifier(poolKey, "withdraw2", addr, blockBefore);
             console.log("   Address:", addr);
-            console.log("   Block:", blockBefore);
         }
 
         // 5. Deploy CrosschainWithdraw2Verifier
-        if (existingCrossChainWithdraw2 != address(0)) {
+        if (existingCrossChainWithdraw2 != address(0) && existingCrossChainWithdraw2.code.length > 0) {
             console.log("5. CrosschainWithdraw2Verifier already deployed:", existingCrossChainWithdraw2);
         } else {
             console.log("5. Deploying CrosschainWithdraw2Verifier...");
@@ -134,7 +129,6 @@ contract DeployPool_01_Verifiers is Script {
             address addr = address(new CrosschainWithdraw2Verifier());
             DeploymentWriter.writeVerifier(poolKey, "crossChainWithdraw2", addr, blockBefore);
             console.log("   Address:", addr);
-            console.log("   Block:", blockBefore);
         }
 
         vm.stopBroadcast();
@@ -144,6 +138,6 @@ contract DeployPool_01_Verifiers is Script {
         console.log("  VERIFIERS COMPLETE");
         console.log("==========================================================");
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script DeployPool_02_Entrypoint.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 02_Deploy_DepositFacet.s.sol ...", poolKey);
     }
 }

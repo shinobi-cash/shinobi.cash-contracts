@@ -3,36 +3,35 @@ pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {ChainConfig} from "../../config/ChainConfig.sol";
-import {DeploymentWriter} from "../../config/DeploymentWriter.sol";
+import {ChainConfig} from "../config/ChainConfig.sol";
+import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
 // Paymasters
-import {WithdrawalPaymaster} from "../../../src/paymaster/WithdrawalPaymaster.sol";
-import {CrosschainWithdrawalPaymaster} from "../../../src/paymaster/CrosschainWithdrawalPaymaster.sol";
-import {Withdraw2Paymaster} from "../../../src/paymaster/Withdraw2Paymaster.sol";
-import {CrosschainWithdraw2Paymaster} from "../../../src/paymaster/CrosschainWithdraw2Paymaster.sol";
+import {WithdrawalPaymaster} from "../../src/paymaster/WithdrawalPaymaster.sol";
+import {CrosschainWithdrawalPaymaster} from "../../src/paymaster/CrosschainWithdrawalPaymaster.sol";
+import {Withdraw2Paymaster} from "../../src/paymaster/Withdraw2Paymaster.sol";
+import {CrosschainWithdraw2Paymaster} from "../../src/paymaster/CrosschainWithdraw2Paymaster.sol";
 
 // Interfaces
 import {IEntryPoint as IERC4337EntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
-import {IWithdrawalVerifier} from "../../../src/verifiers/interfaces/IWithdrawalVerifier.sol";
-import {ICrosschainWithdrawalProofVerifier} from "../../../src/verifiers/interfaces/ICrosschainWithdrawalProofVerifier.sol";
-import {IWithdraw2Verifier} from "../../../src/verifiers/interfaces/IWithdraw2Verifier.sol";
-import {ICrosschainWithdraw2Verifier} from "../../../src/verifiers/interfaces/ICrosschainWithdraw2Verifier.sol";
-import {IShinobiInputSettler} from "../../../src/oif/interfaces/IShinobiInputSettler.sol";
+import {IPoolDiamond} from "../../src/pool/interfaces/IPoolDiamond.sol";
+import {IWithdrawalVerifier} from "../../src/verifiers/interfaces/IWithdrawalVerifier.sol";
+import {ICrosschainWithdrawalProofVerifier} from "../../src/verifiers/interfaces/ICrosschainWithdrawalProofVerifier.sol";
+import {IWithdraw2Verifier} from "../../src/verifiers/interfaces/IWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../../src/verifiers/interfaces/ICrosschainWithdraw2Verifier.sol";
+import {IShinobiInputSettler} from "../../src/oif/interfaces/IShinobiInputSettler.sol";
 
 /**
- * @title DeployDiamond_04_Paymasters
- * @notice Deploy 4 diamond paymasters for gas sponsorship
+ * @title Deploy_Paymasters
+ * @notice Deploy 4 paymasters for gas sponsorship
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json
  * Output: deployments/{POOL_KEY}.json (paymaster addresses)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/diamond/DeployDiamond_04_Paymasters.s.sol:DeployDiamond_04_Paymasters \
- *     --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/12_Deploy_Paymasters.s.sol:Deploy_Paymasters --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract DeployDiamond_04_Paymasters is Script {
+contract Deploy_Paymasters is Script {
     struct Addresses {
         address poolDiamond;
         address erc4337Entrypoint;
@@ -53,7 +52,7 @@ contract DeployDiamond_04_Paymasters is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         console.log("==========================================================");
-        console.log("  DIAMOND DEPLOYMENT - Step 4: Paymasters");
+        console.log("  Step 12: Paymasters");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -67,11 +66,11 @@ contract DeployDiamond_04_Paymasters is Script {
         address existingWithdraw2 = DeploymentWriter.readContractAddress(poolKey, "paymasters", "diamondWithdraw2");
         address existingCrosschainWithdraw2 = DeploymentWriter.readContractAddress(poolKey, "paymasters", "diamondCrossChainWithdraw2");
 
-        if (existingSimple != address(0) &&
-            existingCrosschain != address(0) &&
-            existingWithdraw2 != address(0) &&
-            existingCrosschainWithdraw2 != address(0)) {
-            console.log("All diamond paymasters already deployed. Skipping.");
+        if (existingSimple != address(0) && existingSimple.code.length > 0 &&
+            existingCrosschain != address(0) && existingCrosschain.code.length > 0 &&
+            existingWithdraw2 != address(0) && existingWithdraw2.code.length > 0 &&
+            existingCrosschainWithdraw2 != address(0) && existingCrosschainWithdraw2.code.length > 0) {
+            console.log("All paymasters already deployed. Skipping.");
             return;
         }
 
@@ -106,8 +105,10 @@ contract DeployDiamond_04_Paymasters is Script {
 
         console.log("");
         console.log("==========================================================");
-        console.log("  DIAMOND PAYMASTERS COMPLETE");
+        console.log("  PAYMASTERS COMPLETE");
         console.log("==========================================================");
+        console.log("");
+        console.log("Next: POOL_KEY=%s ORIGIN_KEY=<origin> forge script 13_Setup_WithdrawalChains.s.sol ...", poolKey);
     }
 
     function _deployWithdrawalPaymaster(
@@ -115,7 +116,7 @@ contract DeployDiamond_04_Paymasters is Script {
         Addresses memory addrs,
         address existing
     ) internal {
-        if (existing != address(0)) {
+        if (existing != address(0) && existing.code.length > 0) {
             console.log("1. WithdrawalPaymaster already deployed:", existing);
             return;
         }
@@ -126,9 +127,9 @@ contract DeployDiamond_04_Paymasters is Script {
             IPoolDiamond(addrs.poolDiamond),
             IWithdrawalVerifier(addrs.withdrawalVerifier)
         );
-        DeploymentWriter.writePaymaster(poolKey, "diamondSimple", address(pm), blockBefore);
         pm.deposit{value: 0.01 ether}();
         pm.setExpectedSmartAccount(addrs.expectedSmartAccount);
+        DeploymentWriter.writePaymaster(poolKey, "diamondSimple", address(pm), blockBefore);
         console.log("   Address:", address(pm));
     }
 
@@ -137,7 +138,7 @@ contract DeployDiamond_04_Paymasters is Script {
         Addresses memory addrs,
         address existing
     ) internal {
-        if (existing != address(0)) {
+        if (existing != address(0) && existing.code.length > 0) {
             console.log("2. CrosschainWithdrawalPaymaster already deployed:", existing);
             return;
         }
@@ -149,9 +150,9 @@ contract DeployDiamond_04_Paymasters is Script {
             ICrosschainWithdrawalProofVerifier(addrs.crosschainVerifier),
             IShinobiInputSettler(addrs.inputSettler)
         );
-        DeploymentWriter.writePaymaster(poolKey, "diamondCrossChain", address(pm), blockBefore);
         pm.deposit{value: 0.01 ether}();
         pm.setExpectedSmartAccount(addrs.expectedSmartAccount);
+        DeploymentWriter.writePaymaster(poolKey, "diamondCrossChain", address(pm), blockBefore);
         console.log("   Address:", address(pm));
     }
 
@@ -160,7 +161,7 @@ contract DeployDiamond_04_Paymasters is Script {
         Addresses memory addrs,
         address existing
     ) internal {
-        if (existing != address(0)) {
+        if (existing != address(0) && existing.code.length > 0) {
             console.log("3. Withdraw2Paymaster already deployed:", existing);
             return;
         }
@@ -171,9 +172,9 @@ contract DeployDiamond_04_Paymasters is Script {
             IPoolDiamond(addrs.poolDiamond),
             IWithdraw2Verifier(addrs.withdraw2Verifier)
         );
-        DeploymentWriter.writePaymaster(poolKey, "diamondWithdraw2", address(pm), blockBefore);
         pm.deposit{value: 0.01 ether}();
         pm.setExpectedSmartAccount(addrs.expectedSmartAccount);
+        DeploymentWriter.writePaymaster(poolKey, "diamondWithdraw2", address(pm), blockBefore);
         console.log("   Address:", address(pm));
     }
 
@@ -182,7 +183,7 @@ contract DeployDiamond_04_Paymasters is Script {
         Addresses memory addrs,
         address existing
     ) internal {
-        if (existing != address(0)) {
+        if (existing != address(0) && existing.code.length > 0) {
             console.log("4. CrosschainWithdraw2Paymaster already deployed:", existing);
             return;
         }
@@ -194,9 +195,9 @@ contract DeployDiamond_04_Paymasters is Script {
             ICrosschainWithdraw2Verifier(addrs.crosschainWithdraw2Verifier),
             IShinobiInputSettler(addrs.inputSettler)
         );
-        DeploymentWriter.writePaymaster(poolKey, "diamondCrossChainWithdraw2", address(pm), blockBefore);
         pm.deposit{value: 0.01 ether}();
         pm.setExpectedSmartAccount(addrs.expectedSmartAccount);
+        DeploymentWriter.writePaymaster(poolKey, "diamondCrossChainWithdraw2", address(pm), blockBefore);
         console.log("   Address:", address(pm));
     }
 }
