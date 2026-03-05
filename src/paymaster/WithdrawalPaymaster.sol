@@ -65,7 +65,7 @@ contract WithdrawalPaymaster is BasePaymaster {
     error InsufficientPaymasterCost();
     error WrongFeeRecipient();
     error UnauthorizedCaller();
-    error InvalidProcessooor();
+    error InvalidSmartAccount();
     error InvalidScope();
     error ZeroFeeNotAllowed();
     error ExpectedSmartAccountNotSet();
@@ -100,7 +100,7 @@ contract WithdrawalPaymaster is BasePaymaster {
     //////////////////////////////////////////////////////////////*/
 
     function setExpectedSmartAccount(address account) external onlyOwner {
-        if (account == address(0)) revert InvalidProcessooor();
+        if (account == address(0)) revert InvalidSmartAccount();
         address previousAccount = expectedSmartAccount;
         expectedSmartAccount = account;
         emit ExpectedSmartAccountUpdated(previousAccount, account);
