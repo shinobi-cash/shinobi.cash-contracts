@@ -18,8 +18,6 @@ bytes4 constant HANDLE_REFUND2_SELECTOR = bytes4(keccak256("handleRefund2(uint25
 contract CrosschainWithdraw2Facet is FacetBase, IFacet {
     using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
 
-    ICrosschainWithdraw2Verifier public immutable VERIFIER;
-
     struct Withdraw2Nullifiers {
         uint256 nullifierHash0;
         uint256 nullifierHash1;
@@ -35,6 +33,8 @@ contract CrosschainWithdraw2Facet is FacetBase, IFacet {
         bytes32 nullifierHash1;
         bytes32 newCommitment;
     }
+
+    ICrosschainWithdraw2Verifier public immutable VERIFIER;
 
     event CrosschainWithdraw2IntentRelayed(
         address indexed relayer,
@@ -90,6 +90,21 @@ contract CrosschainWithdraw2Facet is FacetBase, IFacet {
         _execute(s, data, proof, pd);
     }
 
+    /// @notice Handle a refund from the input settler for a failed intent
+    function handleRefund2(uint256 refundCommitment, address feeRecipient, uint256 refundFeeBPS, uint256 scope)
+        external
+        payable
+        nonReentrant
+    {
+        RefundOps.executeRefund(PoolStorageLib.layout(), refundCommitment, feeRecipient, refundFeeBPS, scope);
+    }
+
+    // ── ERC-8153 ──
+
+    function exportSelectors() external pure returns (bytes memory) {
+        return abi.encodePacked(this.crosschainWithdraw2.selector, this.handleRefund2.selector);
+    }
+
     function _execute(
         PoolStorageData storage s,
         CrosschainWithdrawData calldata data,
@@ -141,18 +156,4 @@ contract CrosschainWithdraw2Facet is FacetBase, IFacet {
         );
     }
 
-    /// @notice Handle a refund from the input settler for a failed intent
-    function handleRefund2(uint256 refundCommitment, address feeRecipient, uint256 refundFeeBPS, uint256 scope)
-        external
-        payable
-        nonReentrant
-    {
-        RefundOps.executeRefund(PoolStorageLib.layout(), refundCommitment, feeRecipient, refundFeeBPS, scope);
-    }
-
-    // ── ERC-8153 ──
-
-    function exportSelectors() external pure returns (bytes memory) {
-        return abi.encodePacked(this.crosschainWithdraw2.selector, this.handleRefund2.selector);
-    }
 }

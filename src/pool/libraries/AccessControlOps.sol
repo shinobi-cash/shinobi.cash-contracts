@@ -11,21 +11,6 @@ library AccessControlOps {
     error AccessControlUnauthorized(address account, bytes32 role);
     error AccessControlCannotRenounceOther(address account);
 
-    function checkAdmin(address account) internal view {
-        if (account != AccessControlStorageLib.layout().admin) revert OnlyAdmin();
-    }
-
-    function checkRole(bytes32 role, address account) internal view {
-        AccessControlStorageData storage s = AccessControlStorageLib.layout();
-        if (!s.roles[role].hasRole[account]) {
-            revert AccessControlUnauthorized(account, role);
-        }
-    }
-
-    function hasRole(bytes32 role, address account) internal view returns (bool) {
-        return AccessControlStorageLib.layout().roles[role].hasRole[account];
-    }
-
     function grantRole(bytes32 role, address account) internal {
         AccessControlStorageData storage s = AccessControlStorageLib.layout();
         if (!s.roles[role].hasRole[account]) {
@@ -52,4 +37,20 @@ library AccessControlOps {
             emit RoleRevoked(role, msg.sender, msg.sender);
         }
     }
+
+    function checkAdmin(address account) internal view {
+        if (account != AccessControlStorageLib.layout().admin) revert OnlyAdmin();
+    }
+
+    function checkRole(bytes32 role, address account) internal view {
+        AccessControlStorageData storage s = AccessControlStorageLib.layout();
+        if (!s.roles[role].hasRole[account]) {
+            revert AccessControlUnauthorized(account, role);
+        }
+    }
+
+    function hasRole(bytes32 role, address account) internal view returns (bool) {
+        return AccessControlStorageLib.layout().roles[role].hasRole[account];
+    }
+
 }

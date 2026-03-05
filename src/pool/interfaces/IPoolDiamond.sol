@@ -83,45 +83,6 @@ interface IPoolDiamond {
     function updateRoot(uint256 root, string calldata ipfsCID) external returns (uint256 index);
     function windDown() external;
 
-    // ── Views ──
-
-    function ASSET() external view returns (address);
-    function SCOPE() external view returns (uint256);
-    function nonce() external view returns (uint256);
-    function dead() external view returns (bool);
-    function roots(uint256 index) external view returns (uint256);
-    function currentRootIndex() external view returns (uint32);
-    function currentRoot() external view returns (uint256);
-    function currentTreeDepth() external view returns (uint256);
-    function currentTreeSize() external view returns (uint256);
-    function nullifierHashes(uint256 hash) external view returns (bool);
-    function depositors(uint256 label) external view returns (address);
-    function usedPrecommitments(uint256 precommitment) external view returns (bool);
-    function ROOT_HISTORY_SIZE() external pure returns (uint32);
-    function MAX_TREE_DEPTH() external pure returns (uint32);
-    function latestRoot() external view returns (uint256);
-    function rootByIndex(uint256 index) external view returns (uint256);
-    function associationSets(uint256 index) external view returns (uint256 root, string memory ipfsCID, uint256 timestamp);
-    function assetConfig() external view returns (uint256 minimumDepositAmount, uint256 vettingFeeBPS, uint256 maxRelayFeeBPS);
-    function maxSolverFeeBPS() external view returns (uint256);
-    function maxRefundFeeBPS() external view returns (uint256);
-    function vettingFeeRecipient() external view returns (address);
-    function withdrawalInputSettler() external view returns (address);
-    function depositOutputSettler() external view returns (address);
-    function withdrawalChainConfig(uint256 chainId)
-        external
-        view
-        returns (bool isConfigured, uint32 fillDeadline, uint32 expiry, address withdrawalOutputSettler, address outputFillOracle, address inputFillOracle);
-    function admin() external view returns (address);
-    function pendingAdmin() external view returns (address);
-    function hasRole(bytes32 role, address account) external view returns (bool);
-
-    // ── Loupe (ERC-8153) ──
-
-    function facetAddress(bytes4 selector) external view returns (address);
-    function facetAddresses() external view returns (address[] memory);
-    function facetFunctionSelectors(address facet) external view returns (bytes4[] memory);
-
     // ═══════════════════════════════════════════════════════════════
     //                     FACETS (delegatecall)
     // ═══════════════════════════════════════════════════════════════
@@ -167,4 +128,44 @@ interface IPoolDiamond {
     function handleRefund2(uint256 refundCommitment, address feeRecipient, uint256 refundFeeBPS, uint256 scope)
         external
         payable;
+
+    // ── Views ──
+
+    function ASSET() external view returns (address);
+    function SCOPE() external view returns (uint256);
+    function nonce() external view returns (uint256);
+    function dead() external view returns (bool);
+    function roots(uint256 index) external view returns (uint256);
+    function currentRootIndex() external view returns (uint32);
+    function currentRoot() external view returns (uint256);
+    function currentTreeDepth() external view returns (uint256);
+    function currentTreeSize() external view returns (uint256);
+    function nullifierHashes(uint256 hash) external view returns (bool);
+    function depositors(uint256 label) external view returns (address);
+    function usedPrecommitments(uint256 precommitment) external view returns (bool);
+    function latestRoot() external view returns (uint256);
+    function rootByIndex(uint256 index) external view returns (uint256);
+    function associationSets(uint256 index) external view returns (uint256 root, string memory ipfsCID, uint256 timestamp);
+    function assetConfig() external view returns (uint256 minimumDepositAmount, uint256 vettingFeeBPS, uint256 maxRelayFeeBPS);
+    function maxSolverFeeBPS() external view returns (uint256);
+    function maxRefundFeeBPS() external view returns (uint256);
+    function vettingFeeRecipient() external view returns (address);
+    function withdrawalInputSettler() external view returns (address);
+    function depositOutputSettler() external view returns (address);
+    function withdrawalChainConfig(uint256 chainId)
+        external
+        view
+        returns (bool isConfigured, uint32 fillDeadline, uint32 expiry, address withdrawalOutputSettler, address outputFillOracle, address inputFillOracle);
+    function admin() external view returns (address);
+    function pendingAdmin() external view returns (address);
+    function hasRole(bytes32 role, address account) external view returns (bool);
+
+    // ── Loupe (ERC-8153) ──
+
+    function facetAddress(bytes4 selector) external view returns (address);
+    function facetAddresses() external view returns (address[] memory);
+    function facetFunctionSelectors(address facet) external view returns (bytes4[] memory);
+    function ROOT_HISTORY_SIZE() external pure returns (uint32);
+    function MAX_TREE_DEPTH() external pure returns (uint32);
+
 }

@@ -25,19 +25,6 @@ contract PoolDiamond is FacetBase {
         address newFacet;
     }
 
-    // ── Errors ──
-
-    error FunctionNotFound(bytes4 selector);
-    error InvalidIPFSCIDLength();
-    error EmptyRoot();
-    error InvalidFeeBPS();
-    error InvalidAssetConfig();
-    error InvalidAddress();
-    error InvalidChainId();
-    error DeadlineTooShort();
-    error ExpiryBeforeFillDeadline();
-    error NotPendingAdmin();
-
     // ── Events ──
 
     event RootUpdated(uint256 root, string ipfsCID, uint256 timestamp);
@@ -59,6 +46,19 @@ contract PoolDiamond is FacetBase {
     event AdminTransferStarted(address indexed currentAdmin, address indexed newAdmin);
     event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
+    // ── Errors ──
+
+    error FunctionNotFound(bytes4 selector);
+    error InvalidIPFSCIDLength();
+    error EmptyRoot();
+    error InvalidFeeBPS();
+    error InvalidAssetConfig();
+    error InvalidAddress();
+    error InvalidChainId();
+    error DeadlineTooShort();
+    error ExpiryBeforeFillDeadline();
+    error NotPendingAdmin();
+
     // ── Constructor ──
 
     constructor(InitParams memory params) payable {
@@ -79,6 +79,8 @@ contract PoolDiamond is FacetBase {
         }
     }
 
+    receive() external payable {}
+
     // ── Fallback (facet routing) ──
 
     fallback() external payable {
@@ -96,7 +98,6 @@ contract PoolDiamond is FacetBase {
         }
     }
 
-    receive() external payable {}
 
     // ═══════════════════════════════════════════════════════════════
     //                         GOVERNANCE
@@ -311,16 +312,6 @@ contract PoolDiamond is FacetBase {
         return PoolStorageLib.layout().usedPrecommitments[precommitment];
     }
 
-    // ── Constants ──
-
-    function ROOT_HISTORY_SIZE() external pure returns (uint32) {
-        return PoolOps.ROOT_HISTORY_SIZE;
-    }
-
-    function MAX_TREE_DEPTH() external pure returns (uint32) {
-        return PoolOps.MAX_TREE_DEPTH;
-    }
-
     // ── ASP State ──
 
     function latestRoot() external view returns (uint256) {
@@ -423,4 +414,15 @@ contract PoolDiamond is FacetBase {
     function facetFunctionSelectors(address facet) external view returns (bytes4[] memory) {
         return DiamondStorageLib.layout().facetSelectors[facet];
     }
+
+    // ── Constants ──
+
+    function ROOT_HISTORY_SIZE() external pure returns (uint32) {
+        return PoolOps.ROOT_HISTORY_SIZE;
+    }
+
+    function MAX_TREE_DEPTH() external pure returns (uint32) {
+        return PoolOps.MAX_TREE_DEPTH;
+    }
+
 }

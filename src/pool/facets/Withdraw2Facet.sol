@@ -13,12 +13,12 @@ import {PoolOps} from "../libraries/PoolOps.sol";
 contract Withdraw2Facet is FacetBase, IFacet {
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
 
-    IWithdraw2Verifier public immutable VERIFIER;
-
-    struct Withdraw2Nullifiers {
+   struct Withdraw2Nullifiers {
         uint256 nullifierHash0;
         uint256 nullifierHash1;
     }
+
+    IWithdraw2Verifier public immutable VERIFIER;
 
     event Withdraw2Relayed(
         address indexed relayer,

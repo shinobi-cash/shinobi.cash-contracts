@@ -41,6 +41,12 @@ library PoolOps {
         emit LeafInserted(s.merkleTree.size, leaf, updatedRoot);
     }
 
+    /// @notice Transfer native ETH to a recipient
+    function transferETH(address to, uint256 amount) internal {
+        (bool success,) = to.call{value: amount}("");
+        if (!success) revert FailedToSendNativeAsset();
+    }
+
     /// @notice Check if a root is in the circular buffer history
     function isKnownRoot(PoolStorageData storage s, uint256 root) internal view returns (bool) {
         if (root == 0) return false;
@@ -60,10 +66,25 @@ library PoolOps {
         return s.associationSets[len - 1].root;
     }
 
-    /// @notice Transfer native ETH to a recipient
-    function transferETH(address to, uint256 amount) internal {
-        (bool success,) = to.call{value: amount}("");
-        if (!success) revert FailedToSendNativeAsset();
+    /// @notice Validate proof context matches keccak256(withdrawalData, scope) % SNARK_SCALAR_FIELD
+    function validateProofContext(
+        PoolStorageData storage s,
+        bytes memory withdrawalData,
+        uint256 context
+    ) internal view {
+        uint256 expectedContext =
+            uint256(keccak256(abi.encode(withdrawalData, s.scope))) % Constants.SNARK_SCALAR_FIELD;
+        if (context != expectedContext) revert ContextMismatch();
+    }
+
+    /// @notice Validate the state root is known
+    function validateStateRoot(PoolStorageData storage s, uint256 root) internal view {
+        if (!isKnownRoot(s, root)) revert UnknownStateRoot();
+    }
+
+    /// @notice Validate the ASP root matches the latest
+    function validateASPRoot(PoolStorageData storage s, uint256 aspRoot) internal view {
+        if (aspRoot != latestASPRoot(s)) revert IncorrectASPRoot();
     }
 
     /// @notice Deduct a fee from an amount
@@ -76,17 +97,6 @@ library PoolOps {
         return amount * feeBPS / 10_000;
     }
 
-    /// @notice Validate proof context matches keccak256(withdrawalData, scope) % SNARK_SCALAR_FIELD
-    function validateProofContext(
-        PoolStorageData storage s,
-        bytes memory withdrawalData,
-        uint256 context
-    ) internal view {
-        uint256 expectedContext =
-            uint256(keccak256(abi.encode(withdrawalData, s.scope))) % Constants.SNARK_SCALAR_FIELD;
-        if (context != expectedContext) revert ContextMismatch();
-    }
-
     /// @notice Validate tree depths are within max
     function validateTreeDepths(uint256 stateDepth, uint256 aspDepth) internal pure {
         if (stateDepth > MAX_TREE_DEPTH || aspDepth > MAX_TREE_DEPTH) {
@@ -94,13 +104,4 @@ library PoolOps {
         }
     }
 
-    /// @notice Validate the state root is known
-    function validateStateRoot(PoolStorageData storage s, uint256 root) internal view {
-        if (!isKnownRoot(s, root)) revert UnknownStateRoot();
-    }
-
-    /// @notice Validate the ASP root matches the latest
-    function validateASPRoot(PoolStorageData storage s, uint256 aspRoot) internal view {
-        if (aspRoot != latestASPRoot(s)) revert IncorrectASPRoot();
-    }
 }
