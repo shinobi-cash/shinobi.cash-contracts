@@ -24,10 +24,9 @@ import {IHyperlaneOracle} from "../../src/oif/interfaces/IHyperlaneOracle.sol";
  */
 contract AddChain_03_ConfigureOriginChain is Script {
     struct PoolAddresses {
-        address entrypoint;
+        address poolDiamond;
         address depositOutputSettler;
         address hyperlaneOracle;
-        address ethPool;
     }
 
     struct OriginAddresses {
@@ -73,7 +72,7 @@ contract AddChain_03_ConfigureOriginChain is Script {
         _configureSettlerAndOracles(entrypoint, origin, pool);
         _configureDestination(entrypoint, poolConfig.chainId, pool);
         _configureDeadlinesAndFees(entrypoint, originConfig);
-        _configureAssetPool(entrypoint, pool.ethPool);
+        _configureAssetPool(entrypoint, pool.poolDiamond);
         _configureHyperlane(entrypoint, origin.hyperlaneOracle, poolConfig.hyperlaneDomainId, pool.hyperlaneOracle);
 
         vm.stopBroadcast();
@@ -88,15 +87,13 @@ contract AddChain_03_ConfigureOriginChain is Script {
 
     function _readPoolAddresses(string memory chainName) internal view returns (PoolAddresses memory) {
         PoolAddresses memory pool;
-        pool.entrypoint = DeploymentWriter.readContractAddress(chainName, "contracts", "entrypoint");
+        pool.poolDiamond = DeploymentWriter.readContractAddress(chainName, "contracts", "poolDiamond");
         pool.depositOutputSettler = DeploymentWriter.readContractAddress(chainName, "contracts", "depositOutputSettler");
         pool.hyperlaneOracle = DeploymentWriter.readContractAddress(chainName, "contracts", "hyperlaneOracle");
-        pool.ethPool = DeploymentWriter.readContractAddress(chainName, "contracts", "ethPool");
 
-        require(pool.entrypoint != address(0), "Pool Entrypoint not deployed");
+        require(pool.poolDiamond != address(0), "PoolDiamond not deployed");
         require(pool.depositOutputSettler != address(0), "Pool DepositOutputSettler not deployed");
         require(pool.hyperlaneOracle != address(0), "Pool HyperlaneOracle not deployed");
-        require(pool.ethPool != address(0), "Pool ETH Pool not deployed");
 
         return pool;
     }
@@ -151,19 +148,19 @@ contract AddChain_03_ConfigureOriginChain is Script {
     ) internal {
         console.log("4. Setting Destination Configuration...");
         if (entrypoint.destinationChainId() == poolChainId &&
-            entrypoint.destinationEntrypoint() == pool.entrypoint &&
+            entrypoint.destinationEntrypoint() == pool.poolDiamond &&
             entrypoint.destinationOutputSettler() == pool.depositOutputSettler &&
             entrypoint.destinationOracle() == pool.hyperlaneOracle) {
             console.log("   Already configured, skipping.");
         } else {
             entrypoint.setDestinationConfig(
                 poolChainId,
-                pool.entrypoint,
+                pool.poolDiamond,
                 pool.depositOutputSettler,
                 pool.hyperlaneOracle
             );
             console.log("   Destination Chain ID:", poolChainId);
-            console.log("   Pool Entrypoint:", pool.entrypoint);
+            console.log("   Pool Diamond:", pool.poolDiamond);
             console.log("   Pool DepositOutputSettler:", pool.depositOutputSettler);
         }
     }
