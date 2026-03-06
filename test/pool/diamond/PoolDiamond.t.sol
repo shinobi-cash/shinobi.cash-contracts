@@ -230,6 +230,7 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_setDepositOutputSettler() public {
         address newSettler = makeAddr("newSettler");
+        vm.etch(newSettler, hex"00");
         vm.prank(admin);
         pool.setDepositOutputSettler(newSettler);
         assertEq(pool.depositOutputSettler(), newSettler);
@@ -239,6 +240,13 @@ contract PoolDiamondTest is DiamondTestBase {
         vm.expectRevert(PoolDiamond.InvalidAddress.selector);
         vm.prank(admin);
         pool.setDepositOutputSettler(address(0));
+    }
+
+    function test_setDepositOutputSettler_revertsForEOA() public {
+        address eoa = makeAddr("eoa");
+        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.prank(admin);
+        pool.setDepositOutputSettler(eoa);
     }
 
     /*//////////////////////////////////////////////////////////////

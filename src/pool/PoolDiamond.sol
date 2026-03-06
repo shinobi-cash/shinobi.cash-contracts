@@ -193,6 +193,7 @@ contract PoolDiamond is FacetBase {
 
     function setDepositOutputSettler(address settler) external onlyAdmin {
         if (settler == address(0)) revert InvalidAddress();
+        if (settler.code.length == 0) revert InvalidAddress();
         PoolStorageData storage s = PoolStorageLib.layout();
         emit DepositOutputSettlerUpdated(s.depositOutputSettler, settler);
         s.depositOutputSettler = settler;

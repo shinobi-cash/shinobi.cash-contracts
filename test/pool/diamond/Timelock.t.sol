@@ -156,10 +156,11 @@ contract TimelockTest is DiamondTestBase {
 
     function test_timelocked_setDepositOutputSettler() public {
         address newSettler = makeAddr("newSettler");
-        bytes memory data = abi.encodeCall(IPoolDiamond.setDepositOutputSettler, (newSettler));
+        vm.etch(newSettler, hex"00");
+        bytes memory data = abi.encodeCall(IPoolDiamond.setDepositOutputSettler, (address(newSettler)));
         _scheduleAndExecute(address(diamond), data, keccak256("d-settler"));
 
-        assertEq(pool.depositOutputSettler(), newSettler);
+        assertEq(pool.depositOutputSettler(), address(newSettler));
     }
 
     function test_timelocked_setVettingFeeRecipient() public {

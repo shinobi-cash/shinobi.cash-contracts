@@ -215,6 +215,7 @@ abstract contract DiamondTestBase is Test {
 
         // Configure settlers and fee recipient
         mockSettler.setEntrypoint(address(diamond));
+        vm.etch(depositSettler, hex"00"); // needs code for contract check
         vm.startPrank(admin);
         pool.setWithdrawalInputSettler(address(mockSettler));
         pool.setDepositOutputSettler(depositSettler);
