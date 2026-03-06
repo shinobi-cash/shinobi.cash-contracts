@@ -214,9 +214,21 @@ contract ShinobiWithdrawalOutputSettlerTest is Test {
     function test_fill_revertsWhenInsufficientETH() public {
         ShinobiIntent memory intent = _createValidIntent();
 
-        vm.expectRevert(BaseShinobiOutputSettler.ETHTransferFailed.selector);
+        vm.expectRevert(ShinobiWithdrawalOutputSettler.InsufficientFillValue.selector);
         vm.prank(solver);
         settler.fill{value: AMOUNT - 1}(intent); // Insufficient ETH
+    }
+
+    function test_fill_revertsWhenZeroValueWithAccumulatedBalance() public {
+        // Simulate ETH accumulating in the settler
+        vm.deal(address(settler), 10 ether);
+
+        ShinobiIntent memory intent = _createValidIntent();
+
+        // Attacker tries to fill with msg.value=0, stealing settler's balance
+        vm.expectRevert(ShinobiWithdrawalOutputSettler.InsufficientFillValue.selector);
+        vm.prank(solver);
+        settler.fill{value: 0}(intent);
     }
 
     /*//////////////////////////////////////////////////////////////

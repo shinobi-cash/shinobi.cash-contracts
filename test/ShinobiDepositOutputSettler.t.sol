@@ -321,6 +321,17 @@ contract ShinobiDepositOutputSettlerTest is Test {
         settler.fill{value: AMOUNT}(intent);
     }
 
+    function test_fill_revertsWhenZeroValueWithAccumulatedBalance() public {
+        vm.deal(address(settler), 10 ether);
+
+        ShinobiIntent memory intent = _createValidIntent();
+        intentOracle.setProven(true);
+
+        vm.expectRevert(ShinobiDepositOutputSettler.InsufficientFillValue.selector);
+        vm.prank(solver);
+        settler.fill{value: 0}(intent);
+    }
+
     function test_fill_revertsWhenAlreadyFilled() public {
         ShinobiIntent memory intent = _createValidIntent();
         intentOracle.setProven(true);

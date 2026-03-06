@@ -57,6 +57,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
     error OriginChainNotConfigured(uint256 chainId);
     error InvalidAddress();
     error InvalidChainId();
+    error InsufficientFillValue();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -133,6 +134,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
 
     function _fillOutput(bytes32 orderId, MandateOutput calldata output, address solver) internal {
         _validateOutput(output);
+        if (msg.value < output.amount) revert InsufficientFillValue();
         _createAndStoreFillRecord(orderId, output, solver);
 
         address recipient = address(uint160(uint256(output.recipient)));
