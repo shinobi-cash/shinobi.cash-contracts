@@ -174,7 +174,7 @@ contract ShinobiInputSettler is IShinobiInputSettler, Ownable2Step, Pausable {
             expectedEthValue += inputs[i][1];
         }
 
-        if (msg.value < expectedEthValue) revert InvalidAmount();
+        if (msg.value != expectedEthValue) revert InvalidAmount();
     }
 
     function _validateFills(
