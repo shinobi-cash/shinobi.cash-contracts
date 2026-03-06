@@ -394,12 +394,10 @@ contract ShinobiInputSettlerTest is Test {
     }
 
     function test_refund_withCustomCalldata() public {
-        MockRefundTarget refundTarget = new MockRefundTarget();
-
         ShinobiIntent memory intent = _createValidIntent();
         intent.refundCalldata = abi.encode(
-            address(refundTarget),
-            abi.encodeWithSelector(MockRefundTarget.handleRefund.selector, user)
+            address(entrypoint),
+            abi.encodeWithSelector(MockEntrypoint.handleRefund.selector, user)
         );
 
         entrypoint.openIntent{value: AMOUNT}(intent);
@@ -407,8 +405,8 @@ contract ShinobiInputSettlerTest is Test {
 
         settler.refund(intent);
 
-        assertEq(refundTarget.lastAmount(), AMOUNT);
-        assertEq(refundTarget.lastRecipient(), user);
+        assertEq(entrypoint.lastRefundAmount(), AMOUNT);
+        assertEq(entrypoint.lastRefundRecipient(), user);
     }
 
     function test_refund_revertsInvalidRefundCalldataLength() public {
@@ -424,7 +422,8 @@ contract ShinobiInputSettlerTest is Test {
 
     function test_refund_revertsInvalidRefundTarget() public {
         ShinobiIntent memory intent = _createValidIntent();
-        intent.refundCalldata = abi.encode(address(0), abi.encodeWithSelector(bytes4(0)));
+        // Use an arbitrary address that is not the entrypoint
+        intent.refundCalldata = abi.encode(makeAddr("attacker"), abi.encodeWithSelector(bytes4(0)));
 
         entrypoint.openIntent{value: AMOUNT}(intent);
         vm.warp(intent.expires + 1);
@@ -556,6 +555,8 @@ contract ShinobiInputSettlerTest is Test {
  */
 contract MockEntrypoint {
     ShinobiInputSettler public settler;
+    uint256 public lastRefundAmount;
+    address public lastRefundRecipient;
 
     function setSettler(address _settler) external {
         settler = ShinobiInputSettler(payable(_settler));
@@ -563,6 +564,11 @@ contract MockEntrypoint {
 
     function openIntent(ShinobiIntent calldata intent) external payable {
         settler.open{value: msg.value}(intent);
+    }
+
+    function handleRefund(address recipient) external payable {
+        lastRefundAmount = msg.value;
+        lastRefundRecipient = recipient;
     }
 
     receive() external payable {}

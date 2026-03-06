@@ -134,7 +134,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
             (address target, bytes memory functionCalldata) =
                 abi.decode(intent.refundCalldata, (address, bytes));
 
-            if (target == address(0)) revert InvalidRefundTarget();
+            if (target != entrypoint) revert InvalidRefundTarget();
 
             (bool success,) = target.call{value: totalAmount}(functionCalldata);
             if (!success) revert ETHTransferFailed();
