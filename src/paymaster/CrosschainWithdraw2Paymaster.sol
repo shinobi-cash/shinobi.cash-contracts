@@ -109,6 +109,7 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
     error SolverFeeGreaterThanMax();
     error RefundFeeGreaterThanMax();
     error RefundFeeBPSZero();
+    error CombinedFeesTooHigh();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -176,6 +177,7 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
         if (relayFeeBPS > maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
 
         if (data.solverFeeBPS > maxSolver) revert SolverFeeGreaterThanMax();
+        if (relayFeeBPS + data.solverFeeBPS >= 10_000) revert CombinedFeesTooHigh();
 
         uint256 maxRefund = POOL_DIAMOND.maxRefundFeeBPS();
         if (maxRefund == 0) revert MaxRefundFeeBPSNotSet();
@@ -258,30 +260,26 @@ contract CrosschainWithdraw2Paymaster is BasePaymaster {
         uint256 postOpCost = MIN_POST_OP_GAS_LIMIT * actualUserOpFeePerGas;
         uint256 actualCost = actualGasCost + postOpCost;
 
+        bool success = mode == IPaymaster.PostOpMode.opSucceeded;
+
         if (opType == OperationType.Withdrawal) {
             (, bytes32 userOpHash, address withdrawalRecipient, uint256 expectedFeeAmount) =
                 abi.decode(context, (OperationType, bytes32, address, uint256));
 
-            if (expectedFeeAmount > 0) {
+            if (success && expectedFeeAmount > 0) {
                 entryPoint.depositTo{value: expectedFeeAmount}(address(this));
             }
 
-            emit CrosschainWithdraw2Sponsored(
-                withdrawalRecipient, userOpHash, actualCost,
-                mode == IPaymaster.PostOpMode.opSucceeded
-            );
+            emit CrosschainWithdraw2Sponsored(withdrawalRecipient, userOpHash, actualCost, success);
         } else if (opType == OperationType.Refund) {
             (, bytes32 userOpHash, bytes32 orderId, uint256 expectedFeeAmount) =
                 abi.decode(context, (OperationType, bytes32, bytes32, uint256));
 
-            if (expectedFeeAmount > 0) {
+            if (success && expectedFeeAmount > 0) {
                 entryPoint.depositTo{value: expectedFeeAmount}(address(this));
             }
 
-            emit RefundSponsored(
-                orderId, userOpHash, actualCost,
-                mode == IPaymaster.PostOpMode.opSucceeded
-            );
+            emit RefundSponsored(orderId, userOpHash, actualCost, success);
         }
     }
 
