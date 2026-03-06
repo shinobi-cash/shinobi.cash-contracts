@@ -130,6 +130,7 @@ contract CrosschainWithdraw2Facet is FacetBase, IFacet {
         if (!VERIFIER.verifyProof(proof.pA, proof.pB, proof.pC, proof.pubSignals)) {
             revert InvalidProof();
         }
+        if (proof.refundCommitment() == 0) revert InvalidProof();
 
         // State updates
         PoolOps.spend(s, uint256(pd.nullifierHash0));
