@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {DiamondTestBase} from "./DiamondTestBase.sol";
 import {CrosschainWithdraw2Facet} from "../../../src/pool/facets/CrosschainWithdraw2Facet.sol";
 import {PoolOps} from "../../../src/pool/libraries/PoolOps.sol";
+import {IntentOps} from "../../../src/pool/libraries/IntentOps.sol";
 import {CrosschainWithdrawData} from "../../../src/pool/libraries/Types.sol";
 import {CrosschainWithdraw2ProofLib} from "../../../src/proofLibs/CrosschainWithdraw2ProofLib.sol";
 import {Constants} from "../../../src/pool/libraries/Constants.sol";
@@ -125,6 +126,24 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
         proof.pubSignals[11] = _computeContext(abi.encode(data));
 
         vm.expectRevert(CrosschainWithdraw2Facet.SolverFeeGreaterThanMax.selector);
+        vm.prank(relayer);
+        pool.crosschainWithdraw2(data, proof);
+    }
+
+    function test_crosschainWithdraw2_revertsForCombinedFeesTooHigh() public {
+        vm.startPrank(admin);
+        pool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, 9000);
+        pool.setMaxSolverFeeBPS(9000);
+        vm.stopPrank();
+
+        CrosschainWithdrawData memory data =
+            _makeCrosschainWithdrawData(5000, DEST_CHAIN_ID, recipient);
+
+        CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof =
+            _makeCrosschainWithdraw2Proof(111, 222, WITHDRAW_VALUE, 333, 444, 5000, REFUND_FEE_BPS);
+        proof.pubSignals[11] = _computeContext(abi.encode(data));
+
+        vm.expectRevert(IntentOps.CombinedFeesTooHigh.selector);
         vm.prank(relayer);
         pool.crosschainWithdraw2(data, proof);
     }
