@@ -47,8 +47,10 @@ contract RagequitFacet is FacetBase, IFacet {
         // Emit event before external call (CEI)
         emit Ragequit(msg.sender, proof.commitmentHash(), proof.label(), proof.value());
 
-        // Transfer value to depositor
+        // Balance invariant: pool should not lose more than proof.value()
+        uint256 balanceBefore = address(this).balance;
         PoolOps.transferETH(msg.sender, proof.value());
+        if (balanceBefore - address(this).balance > proof.value()) revert PoolOps.InvalidPoolState();
     }
 
     // ── ERC-8153 ──
