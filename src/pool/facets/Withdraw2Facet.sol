@@ -47,6 +47,10 @@ contract Withdraw2Facet is FacetBase, IFacet {
         PoolStorageData storage s = PoolStorageLib.layout();
         if (s.maxRelayFeeBPS == 0) revert AssetConfigNotSet();
 
+        // Fee validation (cheap checks before expensive ZK verification)
+        if (data.relayFeeBPS == 0) revert RelayFeeBPSZero();
+        if (data.relayFeeBPS > s.maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
+
         // ZK validation
         PoolOps.validateProofContext(s, abi.encode(data), proof.context());
         PoolOps.validateTreeDepths(proof.stateTreeDepth(), proof.ASPTreeDepth());
@@ -61,10 +65,6 @@ contract Withdraw2Facet is FacetBase, IFacet {
         PoolOps.spend(s, proof.nullifierHash0());
         PoolOps.spend(s, proof.nullifierHash1());
         PoolOps.insert(s, proof.newCommitment());
-
-        // Distribute funds
-        if (data.relayFeeBPS == 0) revert RelayFeeBPSZero();
-        if (data.relayFeeBPS > s.maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
 
         uint256 withdrawnValue = proof.withdrawnValue();
         uint256 relayFee = PoolOps.calculateFee(withdrawnValue, data.relayFeeBPS);
