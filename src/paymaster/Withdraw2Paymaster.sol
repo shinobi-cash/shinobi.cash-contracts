@@ -48,6 +48,8 @@ contract Withdraw2Paymaster is BasePaymaster {
         bool success
     );
 
+    event RefundFailed(address indexed recipient, uint256 amount);
+
     event ExpectedSmartAccountUpdated(
         address indexed previousAccount,
         address indexed newAccount
@@ -162,8 +164,11 @@ contract Withdraw2Paymaster is BasePaymaster {
 
         if (executionSucceeded && expectedFeeAmount > actualWithdrawalCost) {
             refundAmount = expectedFeeAmount - actualWithdrawalCost;
-            (bool success, ) = withdrawalRecipient.call{value: refundAmount}("");
-            success;
+            (bool refundSuccess, ) = withdrawalRecipient.call{value: refundAmount}("");
+            if (!refundSuccess) {
+                emit RefundFailed(withdrawalRecipient, refundAmount);
+                refundAmount = 0;
+            }
         }
 
         if (actualWithdrawalCost > 0) {
