@@ -16,6 +16,7 @@ contract DepositFacet is FacetBase, IFacet {
 
     error MinimumDepositAmount();
     error PrecommitmentAlreadyUsed();
+    error PrecommitmentOutOfField();
     error InvalidDepositValue();
     error VettingFeeRecipientNotSet();
     error AssetConfigNotSet();
@@ -27,6 +28,7 @@ contract DepositFacet is FacetBase, IFacet {
         if (s.vettingFeeRecipient == address(0)) revert VettingFeeRecipientNotSet();
         if (msg.value < s.minimumDepositAmount) revert MinimumDepositAmount();
         if (msg.value >= type(uint128).max) revert InvalidDepositValue();
+        if (precommitment >= Constants.SNARK_SCALAR_FIELD) revert PrecommitmentOutOfField();
         if (s.usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
         s.usedPrecommitments[precommitment] = true;
 

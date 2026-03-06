@@ -113,6 +113,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
     error HyperlaneNotConfigured();
     error InsufficientFundsForHyperlane(uint256 available, uint256 required);
     error PrecommitmentAlreadyUsed();
+    error PrecommitmentOutOfField();
     error ExpiryBeforeFillDeadline();
     error DeadlineTooShort();
 
@@ -166,6 +167,7 @@ contract ShinobiCrosschainDepositEntrypoint is ReentrancyGuard, Ownable2Step, IP
         _validateConfiguration();
 
         // Prevent duplicate precommitment usage on this chain
+        if (precommitment >= Constants.SNARK_SCALAR_FIELD) revert PrecommitmentOutOfField();
         if (usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
         usedPrecommitments[precommitment] = true;
 

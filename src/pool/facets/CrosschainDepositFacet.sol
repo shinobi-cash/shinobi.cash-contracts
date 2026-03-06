@@ -16,6 +16,7 @@ contract CrosschainDepositFacet is FacetBase, IFacet {
 
     error MinimumDepositAmount();
     error PrecommitmentAlreadyUsed();
+    error PrecommitmentOutOfField();
     error InvalidDepositValue();
     error OnlyDepositOutputSettler();
     error VettingFeeRecipientNotSet();
@@ -37,6 +38,7 @@ contract CrosschainDepositFacet is FacetBase, IFacet {
         if (msg.value != amount) revert PoolOps.InvalidWithdrawalAmount();
         if (amount < s.minimumDepositAmount) revert MinimumDepositAmount();
         if (amount >= type(uint128).max) revert InvalidDepositValue();
+        if (precommitment >= Constants.SNARK_SCALAR_FIELD) revert PrecommitmentOutOfField();
         if (s.usedPrecommitments[precommitment]) revert PrecommitmentAlreadyUsed();
         s.usedPrecommitments[precommitment] = true;
 

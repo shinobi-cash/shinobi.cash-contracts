@@ -784,7 +784,7 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
         // Bound to reasonable range: enough to cover fee and minimum
         vm.assume(amount >= 0.02 ether && amount <= 10 ether);
 
-        uint256 precommitment = uint256(keccak256(abi.encode(amount)));
+        uint256 precommitment = uint256(keccak256(abi.encode(amount))) % Constants.SNARK_SCALAR_FIELD;
 
         vm.prank(user);
         entrypoint.deposit{value: amount}(precommitment);
@@ -795,7 +795,7 @@ contract ShinobiCrosschainDepositEntrypointTest is Test {
     function testFuzz_depositWithCustomParams_variousFees(uint256 feeBPS) public {
         vm.assume(feeBPS <= 1000); // Max 10%
 
-        uint256 precommitment = uint256(keccak256(abi.encode(feeBPS)));
+        uint256 precommitment = uint256(keccak256(abi.encode(feeBPS))) % Constants.SNARK_SCALAR_FIELD;
 
         vm.prank(user);
         entrypoint.depositWithCustomParams{value: DEPOSIT_AMOUNT}(
