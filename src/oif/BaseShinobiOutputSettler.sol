@@ -134,9 +134,12 @@ abstract contract BaseShinobiOutputSettler is IShinobiOutputSettler, IPayloadCre
 
     error WithdrawFailed();
 
+    event ETHWithdrawn(address indexed recipient, uint256 amount);
+
     function withdrawETH(address payable recipient, uint256 amount) external onlyOwner {
         (bool success,) = recipient.call{value: amount}("");
         if (!success) revert WithdrawFailed();
+        emit ETHWithdrawn(recipient, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
