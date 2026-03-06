@@ -172,7 +172,7 @@ contract WithdrawalPaymaster is BasePaymaster {
             }
         }
 
-        if (actualWithdrawalCost > 0) {
+        if (executionSucceeded && actualWithdrawalCost > 0) {
             entryPoint.depositTo{value: actualWithdrawalCost}(address(this));
         }
 
