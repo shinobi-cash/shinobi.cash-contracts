@@ -44,8 +44,6 @@ library IntentOps {
         bytes32 refundCommitment,
         bytes4 refundSelector
     ) internal returns (IntentResult memory result) {
-        if (relayFeeBPS + data.solverFeeBPS >= 10_000) revert CombinedFeesTooHigh();
-
         result.relayFee = PoolOps.calculateFee(withdrawnValue, relayFeeBPS);
         result.solverFee = PoolOps.calculateFee(withdrawnValue, data.solverFeeBPS);
         uint256 escrowAmount = withdrawnValue - result.relayFee;

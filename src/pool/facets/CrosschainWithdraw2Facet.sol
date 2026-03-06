@@ -120,6 +120,7 @@ contract CrosschainWithdraw2Facet is FacetBase, IFacet {
         if (data.solverFeeBPS > s.maxSolverFeeBPS) revert SolverFeeGreaterThanMax();
         if (pd.refundFeeBPS == 0) revert RefundFeeBPSZero();
         if (pd.refundFeeBPS > s.maxRefundFeeBPS) revert RefundFeeGreaterThanMax();
+        if (pd.relayFeeBPS + data.solverFeeBPS >= 10_000) revert IntentOps.CombinedFeesTooHigh();
 
         // ZK validation
         PoolOps.validateProofContext(s, abi.encode(data), proof.context());

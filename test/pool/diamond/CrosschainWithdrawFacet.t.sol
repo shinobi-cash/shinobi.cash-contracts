@@ -227,6 +227,27 @@ contract CrosschainWithdrawFacetTest is DiamondTestBase {
         pool.crosschainWithdraw(data, proof);
     }
 
+    function test_crosschainWithdraw_combinedFeeCheckBeforeProofVerification() public {
+        crosschainVerifier.setShouldPass(false);
+
+        vm.startPrank(admin);
+        pool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, 9000);
+        pool.setMaxSolverFeeBPS(9000);
+        vm.stopPrank();
+
+        CrosschainWithdrawData memory data =
+            _makeCrosschainWithdrawData(5000, DEST_CHAIN_ID, recipient);
+
+        CrosschainProofLib.CrosschainWithdrawProof memory proof =
+            _makeCrosschainWithdrawProof(111, WITHDRAW_VALUE, 222, 333, 5000, REFUND_FEE_BPS);
+        proof.pubSignals[10] = _computeContext(abi.encode(data));
+
+        // Should revert with CombinedFeesTooHigh, NOT InvalidProof
+        vm.expectRevert(IntentOps.CombinedFeesTooHigh.selector);
+        vm.prank(relayer);
+        pool.crosschainWithdraw(data, proof);
+    }
+
     function test_handleRefund_revertsForExcessiveRefundFee() public {
         uint256 scope = pool.SCOPE();
 
