@@ -7,6 +7,8 @@ import {IShinobiInputSettler} from "../src/oif/interfaces/IShinobiInputSettler.s
 import {ShinobiIntent} from "../src/oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../src/oif/libraries/ShinobiIntentLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
+import {Pausable} from "@oz/utils/Pausable.sol";
 
 contract ShinobiInputSettlerTest is Test {
     using ShinobiIntentLib for ShinobiIntent;
@@ -15,6 +17,7 @@ contract ShinobiInputSettlerTest is Test {
     MockEntrypoint public entrypoint;
     MockFillOracle public fillOracle;
 
+    address public owner = makeAddr("owner");
     address public user = makeAddr("user");
     address public solver = makeAddr("solver");
     address public intentOracle = makeAddr("intentOracle");
@@ -29,7 +32,7 @@ contract ShinobiInputSettlerTest is Test {
     function setUp() public {
         fillOracle = new MockFillOracle();
         entrypoint = new MockEntrypoint();
-        settler = new ShinobiInputSettler(address(entrypoint));
+        settler = new ShinobiInputSettler(address(entrypoint), owner);
         entrypoint.setSettler(address(settler));
 
         vm.deal(address(entrypoint), 100 ether);
@@ -46,7 +49,11 @@ contract ShinobiInputSettlerTest is Test {
 
     function test_constructor_revertsZeroEntrypoint() public {
         vm.expectRevert(ShinobiInputSettler.InvalidEntrypoint.selector);
-        new ShinobiInputSettler(address(0));
+        new ShinobiInputSettler(address(0), owner);
+    }
+
+    function test_constructor_ownerIsSet() public view {
+        assertEq(settler.owner(), owner);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -509,6 +516,104 @@ contract ShinobiInputSettlerTest is Test {
         (bool success,) = address(settler).call{value: amount}("");
         assertTrue(success);
         assertEq(address(settler).balance, amount);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         EMERGENCY PAUSE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_pause_onlyOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.pause();
+    }
+
+    function test_unpause_onlyOwner() public {
+        vm.prank(owner);
+        settler.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.unpause();
+    }
+
+    function test_pause_success() public {
+        vm.prank(owner);
+        settler.pause();
+        assertTrue(settler.paused());
+    }
+
+    function test_unpause_success() public {
+        vm.prank(owner);
+        settler.pause();
+
+        vm.prank(owner);
+        settler.unpause();
+        assertFalse(settler.paused());
+    }
+
+    function test_finalise_revertsWhenPaused() public {
+        ShinobiIntent memory intent = _createValidIntent();
+        entrypoint.openIntent{value: AMOUNT}(intent);
+
+        vm.prank(owner);
+        settler.pause();
+
+        bytes32 solverBytes = bytes32(uint256(uint160(solver)));
+        IShinobiInputSettler.SolveParams[] memory solveParams = new IShinobiInputSettler.SolveParams[](1);
+        solveParams[0] = IShinobiInputSettler.SolveParams({
+            timestamp: uint32(block.timestamp),
+            solver: solverBytes
+        });
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(solver);
+        settler.finalise(intent, solveParams, solverBytes);
+    }
+
+    function test_finalise_worksAfterUnpause() public {
+        ShinobiIntent memory intent = _createValidIntent();
+        entrypoint.openIntent{value: AMOUNT}(intent);
+
+        vm.prank(owner);
+        settler.pause();
+        vm.prank(owner);
+        settler.unpause();
+
+        bytes32 solverBytes = bytes32(uint256(uint160(solver)));
+        IShinobiInputSettler.SolveParams[] memory solveParams = new IShinobiInputSettler.SolveParams[](1);
+        solveParams[0] = IShinobiInputSettler.SolveParams({
+            timestamp: uint32(block.timestamp),
+            solver: solverBytes
+        });
+
+        vm.prank(solver);
+        settler.finalise(intent, solveParams, solverBytes);
+
+        assertEq(uint256(settler.orderStatus(intent.orderIdentifier())), uint256(IShinobiInputSettler.OrderStatus.Claimed));
+    }
+
+    function test_open_worksWhenPaused() public {
+        vm.prank(owner);
+        settler.pause();
+
+        ShinobiIntent memory intent = _createValidIntent();
+        entrypoint.openIntent{value: AMOUNT}(intent);
+
+        assertEq(uint256(settler.orderStatus(intent.orderIdentifier())), uint256(IShinobiInputSettler.OrderStatus.Deposited));
+    }
+
+    function test_refund_worksWhenPaused() public {
+        ShinobiIntent memory intent = _createValidIntent();
+        entrypoint.openIntent{value: AMOUNT}(intent);
+
+        vm.prank(owner);
+        settler.pause();
+
+        vm.warp(intent.expires + 1);
+        settler.refund(intent);
+
+        assertEq(uint256(settler.orderStatus(intent.orderIdentifier())), uint256(IShinobiInputSettler.OrderStatus.Refunded));
     }
 
     /*//////////////////////////////////////////////////////////////

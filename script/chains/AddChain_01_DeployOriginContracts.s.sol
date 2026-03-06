@@ -135,7 +135,7 @@ contract AddChain_01_DeployOriginContracts is Script {
         } else {
             console.log("3. Deploying ShinobiInputSettler...");
             uint256 blockBefore = block.number;
-            ShinobiInputSettler inputSettler = new ShinobiInputSettler(depositEntrypointAddr);
+            ShinobiInputSettler inputSettler = new ShinobiInputSettler(depositEntrypointAddr, deployer);
             DeploymentWriter.writeContract(chainName, "inputSettler", address(inputSettler), blockBefore);
             console.log("   Address:", address(inputSettler));
             console.log("   Block:", blockBefore);

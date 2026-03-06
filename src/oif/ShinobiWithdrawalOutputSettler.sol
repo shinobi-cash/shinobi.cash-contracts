@@ -50,7 +50,7 @@ contract ShinobiWithdrawalOutputSettler is BaseShinobiOutputSettler {
      * @notice Fill a withdrawal intent on user's chain (destination)
      * @dev Optimistic settlement - no intent proof validation (ZK proof validated on origin)
      */
-    function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
+    function fill(ShinobiIntent calldata intent) external payable override nonReentrant whenNotPaused {
         if (intent.outputs.length != 1) revert InvalidOutput();
         if (intent.outputs[0].chainId != block.chainid) revert InvalidChain();
         if (block.timestamp > intent.fillDeadline) revert FillDeadlinePassed();

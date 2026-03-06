@@ -103,7 +103,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
      * @notice Fill a deposit intent on pool chain (destination)
      * @dev Validates intent proof via configured intentOracle before filling
      */
-    function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
+    function fill(ShinobiIntent calldata intent) external payable override nonReentrant whenNotPaused {
         if (intent.outputs.length != 1) revert InvalidOutput();
         if (intent.outputs[0].chainId != block.chainid) revert InvalidChain();
         if (block.timestamp > intent.fillDeadline) revert FillDeadlinePassed();

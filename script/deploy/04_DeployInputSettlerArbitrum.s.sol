@@ -38,7 +38,7 @@ contract DeployInputSettlerArbitrum is Script {
 
         // Deploy Input Settler (for withdrawal intents originating on Arbitrum)
         console.log("Deploying Input Settler...");
-        address inputSettler = address(new ShinobiInputSettler(entrypoint));
+        address inputSettler = address(new ShinobiInputSettler(entrypoint, deployer));
         console.log("   Shinobi Input Settler:", inputSettler);
 
         vm.stopBroadcast();

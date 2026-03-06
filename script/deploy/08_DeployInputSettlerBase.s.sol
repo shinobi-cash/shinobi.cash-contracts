@@ -38,7 +38,7 @@ contract DeployInputSettlerBase is Script {
 
         // Deploy Input Settler (for deposit intents originating on Base)
         console.log("Deploying Input Settler...");
-        address inputSettler = address(new ShinobiInputSettler(depositEntrypoint));
+        address inputSettler = address(new ShinobiInputSettler(depositEntrypoint, deployer));
         console.log("   Shinobi Input Settler:", inputSettler);
 
         vm.stopBroadcast();

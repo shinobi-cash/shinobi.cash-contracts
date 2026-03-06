@@ -87,7 +87,7 @@ contract Deploy_Settlers is Script {
         } else {
             console.log("2. Deploying ShinobiInputSettler...");
             uint256 blockBefore = block.number;
-            address addr = address(new ShinobiInputSettler(poolDiamond));
+            address addr = address(new ShinobiInputSettler(poolDiamond, deployer));
             DeploymentWriter.writeContract(poolKey, "inputSettler", addr, blockBefore);
             console.log("   Address:", addr);
         }

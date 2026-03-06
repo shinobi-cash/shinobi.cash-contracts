@@ -8,6 +8,8 @@ import {ShinobiIntent} from "../src/oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../src/oif/libraries/ShinobiIntentLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
+import {Pausable} from "@oz/utils/Pausable.sol";
 
 contract ShinobiDepositOutputSettlerTest is Test {
     using ShinobiIntentLib for ShinobiIntent;
@@ -355,6 +357,66 @@ contract ShinobiDepositOutputSettlerTest is Test {
         vm.expectRevert(BaseShinobiOutputSettler.InvalidAsset.selector);
         vm.prank(solver);
         settler.fill{value: AMOUNT}(intent);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         EMERGENCY PAUSE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_pause_onlyOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.pause();
+    }
+
+    function test_unpause_onlyOwner() public {
+        vm.prank(owner);
+        settler.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.unpause();
+    }
+
+    function test_pause_success() public {
+        vm.prank(owner);
+        settler.pause();
+        assertTrue(settler.paused());
+    }
+
+    function test_unpause_success() public {
+        vm.prank(owner);
+        settler.pause();
+        vm.prank(owner);
+        settler.unpause();
+        assertFalse(settler.paused());
+    }
+
+    function test_fill_revertsWhenPaused() public {
+        vm.prank(owner);
+        settler.pause();
+
+        ShinobiIntent memory intent = _createValidIntent();
+        intentOracle.setProven(true);
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(solver);
+        settler.fill{value: AMOUNT}(intent);
+    }
+
+    function test_fill_worksAfterUnpause() public {
+        vm.prank(owner);
+        settler.pause();
+        vm.prank(owner);
+        settler.unpause();
+
+        ShinobiIntent memory intent = _createValidIntent();
+        intentOracle.setProven(true);
+
+        vm.prank(solver);
+        settler.fill{value: AMOUNT}(intent);
+
+        assertTrue(depositRecipient.depositCalled());
     }
 
     /*//////////////////////////////////////////////////////////////
