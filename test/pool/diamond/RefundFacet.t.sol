@@ -54,4 +54,38 @@ contract RefundFacetTest is DiamondTestBase {
         // No fee deducted, commitment still inserted
         assertEq(pool.currentTreeSize(), treeSizeBefore + 1);
     }
+
+    function test_handleRefund_nonPayableFeeRecipient_stillSucceeds() public {
+        // Deploy a contract that rejects ETH
+        NonPayableContract rejecter = new NonPayableContract();
+        uint256 refundAmount = 1 ether;
+        uint256 refundFeeBPS = 100; // 1%
+        uint256 scope = pool.SCOPE();
+
+        uint256 poolBalBefore = address(diamond).balance;
+        uint256 treeSizeBefore = pool.currentTreeSize();
+
+        vm.expectEmit(true, false, false, true);
+        emit RefundOps.RefundFeeTransferFailed(address(rejecter), refundAmount * refundFeeBPS / 10_000);
+
+        vm.prank(address(mockSettler));
+        pool.handleRefund{value: refundAmount}(42, address(rejecter), refundFeeBPS, scope);
+
+        // Commitment should still be inserted
+        assertEq(pool.currentTreeSize(), treeSizeBefore + 1);
+        // Fee stays in pool as surplus (full refundAmount retained)
+        assertEq(address(diamond).balance - poolBalBefore, refundAmount);
+        assertEq(address(rejecter).balance, 0);
+    }
+
+    function test_handleRefund_refundFeeExceedsMax_reverts() public {
+        uint256 scope = pool.SCOPE();
+        vm.expectRevert(RefundOps.RefundFeeGreaterThanMax.selector);
+        vm.prank(address(mockSettler));
+        pool.handleRefund{value: 1 ether}(42, feeRecipient, 501, scope); // max is 500
+    }
+}
+
+contract NonPayableContract {
+    // Intentionally does not have receive() or fallback()
 }

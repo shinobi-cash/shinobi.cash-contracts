@@ -7,6 +7,7 @@ import {PoolOps} from "./PoolOps.sol";
 /// @title RefundOps - Shared refund logic for crosschain withdrawal facets
 library RefundOps {
     event Refunded(uint256 amount, uint256 indexed refundCommitment, uint256 refundFee, address indexed feeRecipient);
+    event RefundFeeTransferFailed(address indexed feeRecipient, uint256 amount);
 
     error OnlyWithdrawalInputSettler();
     error ScopeMismatch();
@@ -29,9 +30,11 @@ library RefundOps {
         // State changes first (CEI pattern)
         PoolOps.insert(ps, refundCommitment);
 
-        // External interaction last
+        // External interaction last — non-reverting to prevent a non-payable
+        // feeRecipient from permanently locking the refund commitment
         if (refundFee > 0) {
-            PoolOps.transferETH(feeRecipient, refundFee);
+            (bool ok,) = feeRecipient.call{value: refundFee}("");
+            if (!ok) emit RefundFeeTransferFailed(feeRecipient, refundFee);
         }
 
         emit Refunded(refundAmount, refundCommitment, refundFee, feeRecipient);
