@@ -9,6 +9,7 @@ import {DiamondOps} from "./libraries/DiamondOps.sol";
 import {AccessControlOps} from "./libraries/AccessControlOps.sol";
 import {PoolOps} from "./libraries/PoolOps.sol";
 import {FacetBase} from "./facets/FacetBase.sol";
+import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
 
 /// @title PoolDiamond - ERC-8153 diamond proxy for Shinobi Cash privacy pools
 /// @notice Single-address pool with built-in governance, config, and views. Operational facets are delegatecalled via fallback.
@@ -58,6 +59,7 @@ contract PoolDiamond is FacetBase {
     error DeadlineTooShort();
     error ExpiryBeforeFillDeadline();
     error NotPendingAdmin();
+    error InvalidSettlerEntrypoint();
 
     // ── Constructor ──
 
@@ -183,6 +185,7 @@ contract PoolDiamond is FacetBase {
 
     function setWithdrawalInputSettler(address settler) external onlyAdmin {
         if (settler == address(0)) revert InvalidAddress();
+        if (IShinobiInputSettler(settler).entrypoint() != address(this)) revert InvalidSettlerEntrypoint();
         PoolStorageData storage s = PoolStorageLib.layout();
         emit WithdrawalInputSettlerUpdated(s.withdrawalInputSettler, settler);
         s.withdrawalInputSettler = settler;

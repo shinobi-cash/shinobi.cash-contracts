@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase} from "./DiamondTestBase.sol";
+import {DiamondTestBase, MockInputSettler} from "./DiamondTestBase.sol";
 import {TimelockController} from "@oz/governance/TimelockController.sol";
 import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
 import {IFacet} from "../../../src/pool/interfaces/IFacet.sol";
@@ -146,11 +146,12 @@ contract TimelockTest is DiamondTestBase {
     }
 
     function test_timelocked_setWithdrawalInputSettler() public {
-        address newSettler = makeAddr("newSettler");
-        bytes memory data = abi.encodeCall(IPoolDiamond.setWithdrawalInputSettler, (newSettler));
+        MockInputSettler newSettler = new MockInputSettler();
+        newSettler.setEntrypoint(address(diamond));
+        bytes memory data = abi.encodeCall(IPoolDiamond.setWithdrawalInputSettler, (address(newSettler)));
         _scheduleAndExecute(address(diamond), data, keccak256("w-settler"));
 
-        assertEq(pool.withdrawalInputSettler(), newSettler);
+        assertEq(pool.withdrawalInputSettler(), address(newSettler));
     }
 
     function test_timelocked_setDepositOutputSettler() public {

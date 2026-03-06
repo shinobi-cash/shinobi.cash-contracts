@@ -109,7 +109,12 @@ contract MockInputSettler {
         uint256 value;
     }
 
+    address public entrypoint;
     OpenCall[] public openCalls;
+
+    function setEntrypoint(address _entrypoint) external {
+        entrypoint = _entrypoint;
+    }
 
     function open(ShinobiIntent calldata) external payable {
         openCalls.push(OpenCall({value: msg.value}));
@@ -209,6 +214,7 @@ abstract contract DiamondTestBase is Test {
         pool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, MAX_RELAY_FEE_BPS);
 
         // Configure settlers and fee recipient
+        mockSettler.setEntrypoint(address(diamond));
         vm.startPrank(admin);
         pool.setWithdrawalInputSettler(address(mockSettler));
         pool.setDepositOutputSettler(depositSettler);

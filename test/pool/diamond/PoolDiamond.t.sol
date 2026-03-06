@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase} from "./DiamondTestBase.sol";
+import {DiamondTestBase, MockInputSettler} from "./DiamondTestBase.sol";
 import {PoolDiamond} from "../../../src/pool/PoolDiamond.sol";
 import {AccessControlOps} from "../../../src/pool/libraries/AccessControlOps.sol";
 import {AccessControlStorageLib} from "../../../src/pool/storage/AccessControlStorage.sol";
@@ -207,16 +207,25 @@ contract PoolDiamondTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_setWithdrawalInputSettler() public {
-        address newSettler = makeAddr("newSettler");
+        MockInputSettler newSettler = new MockInputSettler();
+        newSettler.setEntrypoint(address(diamond));
         vm.prank(admin);
-        pool.setWithdrawalInputSettler(newSettler);
-        assertEq(pool.withdrawalInputSettler(), newSettler);
+        pool.setWithdrawalInputSettler(address(newSettler));
+        assertEq(pool.withdrawalInputSettler(), address(newSettler));
     }
 
     function test_setWithdrawalInputSettler_revertsForZeroAddress() public {
         vm.expectRevert(PoolDiamond.InvalidAddress.selector);
         vm.prank(admin);
         pool.setWithdrawalInputSettler(address(0));
+    }
+
+    function test_setWithdrawalInputSettler_revertsForWrongEntrypoint() public {
+        MockInputSettler wrongSettler = new MockInputSettler();
+        wrongSettler.setEntrypoint(makeAddr("wrongPool"));
+        vm.expectRevert(PoolDiamond.InvalidSettlerEntrypoint.selector);
+        vm.prank(admin);
+        pool.setWithdrawalInputSettler(address(wrongSettler));
     }
 
     function test_setDepositOutputSettler() public {

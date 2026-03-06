@@ -80,6 +80,12 @@ interface IShinobiInputSettler {
     //////////////////////////////////////////////////////////////*/
 
     /**
+     * @notice The entrypoint (pool or deposit entrypoint) this settler is bound to
+     * @return The entrypoint address
+     */
+    function entrypoint() external view returns (address);
+
+    /**
      * @notice Get the status of an order
      * @param orderId The order identifier
      * @return The current status of the order
