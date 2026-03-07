@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with the Shinobi.cash sm
 
 Shinobi.cash Contracts is a cross-chain privacy protocol enabling users to deposit on one blockchain and withdraw privately on another. The system combines:
 - **Zero-knowledge proofs** (Groth16 SNARKs) for privacy
-- **ERC-8153 Diamond proxy** (PoolDiamond) as single-address privacy pool
+- **ERC-8153 Diamond proxy** (ShinobiPool) as single-address privacy pool
 - **Open Intent Framework (OIF)** for cross-chain settlement
 - **ERC-4337 Account Abstraction** for gasless withdrawals
 - **Hyperlane** for cross-chain intent proof relay
@@ -32,8 +32,8 @@ forge test -vvv         # Verbose test output
 forge test --match-test testDeposit  # Run specific test
 forge test --gas-report # Gas report
 
-# Deploy Diamond (example)
-POOL_KEY=arbitrum-sepolia forge script script/pool/diamond/DeployDiamond_01_Facets.s.sol \
+# Deploy (example — pool chain pipeline)
+POOL_KEY=arbitrum-sepolia forge script script/pool/09_Deploy_ShinobiPool.s.sol:Deploy_ShinobiPool \
   --rpc-url arbitrum-sepolia --broadcast --verify
 ```
 
@@ -45,31 +45,31 @@ POOL_KEY=arbitrum-sepolia forge script script/pool/diamond/DeployDiamond_01_Face
 shinobi.cash-contracts/
 ├── src/
 │   ├── pool/                          # ERC-8153 diamond pool (pool chain)
-│   │   ├── PoolDiamond.sol            #   Diamond proxy (fallback routing + built-in governance/views)
+│   │   ├── ShinobiPool.sol             #   Diamond proxy (fallback routing + built-in governance/views)
+│   │   ├── FacetBase.sol              #   Shared modifiers (reentrancy, admin, roles, lifecycle)
 │   │   ├── facets/                    #   Operational facets (delegatecall targets)
-│   │   │   ├── FacetBase.sol          #     Shared modifiers (reentrancy, admin, roles, lifecycle)
-│   │   │   ├── DepositFacet.sol       #     Same-chain deposits
-│   │   │   ├── CrosschainDepositFacet.sol  # Cross-chain deposits (called by settler)
-│   │   │   ├── WithdrawFacet.sol      #     Same-chain 1:1 withdrawal (8-signal proof)
-│   │   │   ├── Withdraw2Facet.sol     #     Same-chain 2:1 merge (9-signal proof)
-│   │   │   ├── CrosschainWithdrawFacet.sol   # Cross-chain 1:1 (11-signal) + handleRefund
-│   │   │   ├── CrosschainWithdraw2Facet.sol  # Cross-chain 2:1 (12-signal) + handleRefund2
-│   │   │   └── RagequitFacet.sol      #     Emergency withdrawal by depositor (4-signal)
+│   │   │   ├── DepositAction.sol      #     Same-chain deposits
+│   │   │   ├── CrosschainDepositAction.sol  # Cross-chain deposits (called by settler)
+│   │   │   ├── WithdrawAction.sol     #     Same-chain 1:1 withdrawal (8-signal proof)
+│   │   │   ├── Withdraw2Action.sol    #     Same-chain 2:1 merge (9-signal proof)
+│   │   │   ├── CrosschainWithdrawAction.sol # Cross-chain 1:1 (11-signal) + handleRefund
+│   │   │   ├── CrosschainWithdraw2Action.sol# Cross-chain 2:1 (12-signal) + handleRefund2
+│   │   │   └── RagequitAction.sol     #     Emergency withdrawal by depositor (4-signal)
 │   │   ├── storage/                   #   Diamond storage (EIP-7201 namespaced slots)
 │   │   │   ├── PoolStorage.sol        #     All pool state: Merkle tree, nullifiers, config
-│   │   │   ├── DiamondStorage.sol     #     Selector → facet routing
+│   │   │   ├── RoutingStorage.sol     #     Selector → facet routing
 │   │   │   └── AccessControlStorage.sol  #  Admin + role-based access
 │   │   ├── libraries/                 #   Shared internal logic
 │   │   │   ├── Types.sol              #     WithdrawData, CrosschainWithdrawData structs
 │   │   │   ├── Constants.sol          #     SNARK_SCALAR_FIELD, NATIVE_ASSET
 │   │   │   ├── PoolOps.sol            #     Insert, spend, validate, fees, context
-│   │   │   ├── DiamondOps.sol         #     Facet add/replace/remove
+│   │   │   ├── RoutingOps.sol         #     Facet add/replace/remove
 │   │   │   ├── AccessControlOps.sol   #     Admin check + role grant/revoke
 │   │   │   ├── IntentOps.sol          #     Cross-chain OIF intent construction
 │   │   │   └── RefundOps.sol          #     Shared refund logic for crosschain facets
 │   │   └── interfaces/
 │   │       ├── IFacet.sol             #     ERC-8153 selector export
-│   │       └── IPoolDiamond.sol       #     Combined interface for callers
+│   │       └── IShinobiPool.sol        #     Combined interface for callers
 │   │
 │   ├── crosschain/                    # Deployed on origin chains (e.g., Base)
 │   │   └── ShinobiCrosschainDepositEntrypoint.sol  # User deposits here
@@ -108,45 +108,45 @@ shinobi.cash-contracts/
 │   └── ARCHITECTURE.md                # Detailed architecture documentation
 │
 ├── script/
-│   ├── pool/diamond/                  # Diamond deployment pipeline
-│   │   ├── DeployDiamond_01_Facets.s.sol      # Deploy all 7 facets
-│   │   ├── DeployDiamond_02_Diamond.s.sol     # Deploy PoolDiamond proxy
-│   │   ├── DeployDiamond_03_Setup.s.sol       # Configure pool settings
-│   │   ├── DeployDiamond_04_Paymasters.s.sol  # Deploy 4 paymasters
-│   │   └── DeployDiamond_05_WithdrawalChains.s.sol  # Configure destination chains
-│   ├── pool/
-│   │   ├── DeployPool_01_Verifiers.s.sol      # Deploy ZK verifiers
-│   │   └── DeployPool_04_Settlers.s.sol       # Deploy OIF settlers
-│   ├── deploy/                        # Legacy/shared deployment scripts
-│   │   ├── 00_DeployMockOracles.s.sol
-│   │   ├── 01_DeployVerifiers.s.sol
-│   │   ├── 04-09_Deploy*.s.sol        # Settlers, oracles, entrypoints
-│   ├── setup/                         # Configuration scripts
-│   │   ├── 11_SetupDepositEntrypoint.s.sol
-│   │   └── 12_SetupDepositOutputSettler.s.sol
+│   ├── pool/                          # Pool chain deployment pipeline (steps 01-14)
+│   │   ├── 01_Deploy_Verifiers.s.sol          # Deploy 5 ZK verifiers
+│   │   ├── 02_Deploy_DepositAction.s.sol      # Deploy DepositAction facet
+│   │   ├── 03_Deploy_CrosschainDepositAction.s.sol
+│   │   ├── 04_Deploy_WithdrawAction.s.sol
+│   │   ├── 05_Deploy_CrosschainWithdrawAction.s.sol
+│   │   ├── 06_Deploy_Withdraw2Action.s.sol
+│   │   ├── 07_Deploy_CrosschainWithdraw2Action.s.sol
+│   │   ├── 08_Deploy_RagequitAction.s.sol
+│   │   ├── 09_Deploy_ShinobiPool.s.sol         # Deploy ShinobiPool proxy
+│   │   ├── 10_Deploy_Settlers.s.sol           # Deploy InputSettler, Oracle, DepositOutputSettler
+│   │   ├── 11_Setup_ShinobiPool.s.sol          # Configure pool settings
+│   │   ├── 12_Deploy_Paymasters.s.sol         # Deploy 4 paymasters
+│   │   ├── 13_Setup_WithdrawalChains.s.sol    # Configure destination chains
+│   │   └── 14_Deploy_Timelock.s.sol           # Deploy TimelockController + bootstrap
 │   ├── chains/                        # Add new origin chains
-│   │   ├── AddChain_01_DeployOriginContracts.s.sol
-│   │   └── AddChain_03_ConfigureOriginChain.s.sol
+│   │   ├── AddChain_01_DeployOriginContracts.s.sol   # Deploy all origin-chain contracts
+│   │   ├── AddChain_02_ConfigurePoolChain.s.sol      # Configure deposit settler for origin
+│   │   └── AddChain_03_ConfigureOriginChain.s.sol    # Configure origin entrypoint + oracles
 │   ├── config/                        # Configuration helpers
 │   │   ├── ChainConfig.sol
 │   │   ├── DeploymentWriter.sol
-│   │   ├── chains.json
 │   │   ├── pools/*.json               # Per-pool config
 │   │   └── origins/*.json             # Per-origin config
 │   └── utils/WithdrawPaymasterDeposits.s.sol
 │
 ├── test/
-│   ├── pool/diamond/                  # Diamond pool tests
-│   │   ├── DiamondTestBase.sol        #   Shared test utilities
-│   │   ├── PoolDiamond.t.sol          #   Diamond admin/config tests
-│   │   ├── DepositFacet.t.sol
-│   │   ├── WithdrawFacet.t.sol
-│   │   ├── Withdraw2Facet.t.sol
-│   │   ├── CrosschainWithdrawFacet.t.sol
-│   │   ├── CrosschainWithdraw2Facet.t.sol
-│   │   ├── RagequitFacet.t.sol
-│   │   ├── RefundFacet.t.sol
-│   │   └── Integration.t.sol
+│   ├── pool/                          # Pool tests
+│   │   ├── PoolTestBase.sol           #   Shared test utilities
+│   │   ├── ShinobiPool.t.sol           #   Pool admin/config tests
+│   │   ├── DepositAction.t.sol
+│   │   ├── WithdrawAction.t.sol
+│   │   ├── Withdraw2Action.t.sol
+│   │   ├── CrosschainWithdrawAction.t.sol
+│   │   ├── CrosschainWithdraw2Action.t.sol
+│   │   ├── RagequitAction.t.sol
+│   │   ├── RefundAction.t.sol
+│   │   ├── Integration.t.sol
+│   │   └── Timelock.t.sol
 │   ├── ShinobiInputSettler.t.sol
 │   ├── ShinobiDepositOutputSettler.t.sol
 │   ├── ShinobiWithdrawalOutputSettler.t.sol
@@ -207,7 +207,7 @@ poseidon-solidity/=node_modules/poseidon-solidity/
 
 ## Architecture Overview
 
-The pool is a single-address **ERC-8153 diamond proxy** (`PoolDiamond`). All pool operations (deposit, withdraw, ragequit) are implemented as facets that execute via `delegatecall` through the diamond's `fallback()`. Governance, configuration, and views are built directly into the diamond and cannot be removed.
+The pool is a single-address **ERC-8153 diamond proxy** (`ShinobiPool`). All pool operations (deposit, withdraw, ragequit) are implemented as facets that execute via `delegatecall` through the diamond's `fallback()`. Governance, configuration, and views are built directly into the pool and cannot be removed.
 
 For the full architecture deep dive, see `src/ARCHITECTURE.md`.
 
@@ -216,14 +216,14 @@ For the full architecture deep dive, see `src/ARCHITECTURE.md`.
 ```
 Pool Chain (Arbitrum)           Origin Chain (Base)
 ┌─────────────────────┐        ┌───────────────────────────────┐
-│  PoolDiamond        │        │  ShinobiCrosschainDepositEntry│
-│  ├ DepositFacet     │        │  ShinobiWithdrawalOutputSettler│
-│  ├ WithdrawFacet    │        │  ShinobiInputSettler          │
-│  ├ Withdraw2Facet   │        │  HyperlaneOracle              │
-│  ├ XchainWithdraw   │        └───────────────────────────────┘
-│  ├ XchainWithdraw2  │
-│  ├ XchainDeposit    │
-│  └ RagequitFacet    │
+│  ShinobiPool         │        │  ShinobiCrosschainDepositEntry│
+│  ├ DepositAction    │        │  ShinobiWithdrawalOutputSettler│
+│  ├ WithdrawAction   │        │  ShinobiInputSettler          │
+│  ├ Withdraw2Action  │        │  HyperlaneOracle              │
+│  ├ CrosschainWithdrawAction│ └───────────────────────────────┘
+│  ├ CrosschainWithdraw2Action│
+│  ├ CrosschainDepositAction│
+│  └ RagequitAction   │
 │  Paymasters (x4)    │
 │  ShinobiInputSettler│
 │  DepositOutputSettler│
@@ -266,19 +266,19 @@ Where `data` is `WithdrawData` or `CrosschainWithdrawData`, and `scope` is the p
 
 ---
 
-## Pool Diamond
+## ShinobiPool
 
 ### Key Functions (Facets)
 
 | Facet | Function | Proof Signals | Nullifiers | Intent |
 |-------|----------|--------------|------------|--------|
-| DepositFacet | `deposit(uint256 precommitment)` | — | 0 | No |
-| CrosschainDepositFacet | `crosschainDeposit(address, uint256, uint256)` | — | 0 | No |
-| WithdrawFacet | `withdraw(WithdrawData, WithdrawProof)` | 8 | 1 | No |
-| Withdraw2Facet | `withdraw2(WithdrawData, Withdraw2Proof)` | 9 | 2 | No |
-| CrosschainWithdrawFacet | `crosschainWithdraw(CrosschainWithdrawData, CrosschainWithdrawProof)` | 11 | 1 | Yes |
-| CrosschainWithdraw2Facet | `crosschainWithdraw2(CrosschainWithdrawData, CrosschainWithdraw2Proof)` | 12 | 2 | Yes |
-| RagequitFacet | `ragequit(RagequitProof)` | 4 | 1 | No |
+| DepositAction | `deposit(uint256 precommitment)` | — | 0 | No |
+| CrosschainDepositAction | `crosschainDeposit(address, uint256, uint256)` | — | 0 | No |
+| WithdrawAction | `withdraw(WithdrawData, WithdrawProof)` | 8 | 1 | No |
+| Withdraw2Action | `withdraw2(WithdrawData, Withdraw2Proof)` | 9 | 2 | No |
+| CrosschainWithdrawAction | `crosschainWithdraw(CrosschainWithdrawData, CrosschainWithdrawProof)` | 11 | 1 | Yes |
+| CrosschainWithdraw2Action | `crosschainWithdraw2(CrosschainWithdrawData, CrosschainWithdraw2Proof)` | 12 | 2 | Yes |
+| RagequitAction | `ragequit(RagequitProof)` | 4 | 1 | No |
 
 ### Withdrawal Flow (all withdrawal facets)
 
@@ -351,7 +351,7 @@ Four paymasters enable gasless withdrawals. Each validates ZK proofs in `validat
 | `CrosschainWithdraw2Paymaster` | Cross-chain 2:1 + refund | 12 |
 
 All paymasters:
-- Hold immutable `POOL_DIAMOND` address and verifier
+- Hold immutable `POOL` address and verifier
 - Accept concrete types directly (`WithdrawData` or `CrosschainWithdrawData`)
 - Use transient storage (EIP-1153) for validation-to-postOp data passing
 - Validate ZK proofs independently (don't trust the bundler)
@@ -400,7 +400,7 @@ All paymasters:
 ### Cross-Chain Withdrawal
 
 ```
-User → PoolDiamond.crosschainWithdraw(data, proof)
+User → ShinobiPool.crosschainWithdraw(data, proof)
   → Facet validates ZK proof, spends nullifier, inserts commitment
   → Relay fee paid to feeRecipient
   → Remaining ETH escrowed with IShinobiInputSettler.open()
@@ -411,7 +411,7 @@ User → PoolDiamond.crosschainWithdraw(data, proof)
 
 If intent expires:
 ```
-InputSettler → PoolDiamond.handleRefund()
+InputSettler → ShinobiPool.handleRefund()
   → RefundOps inserts refund commitment into Merkle tree
   → User can withdraw again with the refund commitment
 ```
@@ -422,7 +422,7 @@ InputSettler → PoolDiamond.handleRefund()
 User → ShinobiCrosschainDepositEntrypoint.deposit() on origin chain
   → InputSettler escrows funds
   → Solver fills on pool chain via DepositOutputSettler
-  → DepositOutputSettler → PoolDiamond.crosschainDeposit()
+  → DepositOutputSettler → ShinobiPool.crosschainDeposit()
   → Commitment inserted into Merkle tree
   → HyperlaneOracle relays proof → Solver claims escrowed ETH
 ```
@@ -495,25 +495,33 @@ netDepositAmount = totalPaid - solverFee
 
 ## Deployment Scripts
 
-### Diamond Pipeline (`script/pool/diamond/`)
+### Pool Chain Pipeline (`script/pool/`)
+
+| Step | Script | Purpose |
+|------|--------|---------|
+| 01 | `01_Deploy_Verifiers.s.sol` | Deploy 5 ZK verifiers |
+| 02–08 | `02–08_Deploy_*Action.s.sol` | Deploy 7 action facets (one per script) |
+| 09 | `09_Deploy_ShinobiPool.s.sol` | Deploy ShinobiPool proxy |
+| 10 | `10_Deploy_Settlers.s.sol` | Deploy InputSettler, HyperlaneOracle, DepositOutputSettler |
+| 11 | `11_Setup_ShinobiPool.s.sol` | Configure pool (asset config, fees, settlers) |
+| 12 | `12_Deploy_Paymasters.s.sol` | Deploy 4 paymasters |
+| 13 | `13_Setup_WithdrawalChains.s.sol` | Configure withdrawal chain (per origin) |
+| 14 | `14_Deploy_Timelock.s.sol` | Deploy TimelockController + bootstrap admin transfer |
+
+### Origin Chain Pipeline (`script/chains/`)
 
 | Script | Purpose |
 |--------|---------|
-| `DeployDiamond_01_Facets.s.sol` | Deploy all 7 facets |
-| `DeployDiamond_02_Diamond.s.sol` | Deploy PoolDiamond with facets |
-| `DeployDiamond_03_Setup.s.sol` | Configure pool settings |
-| `DeployDiamond_04_Paymasters.s.sol` | Deploy 4 paymasters |
-| `DeployDiamond_05_WithdrawalChains.s.sol` | Configure destination chains |
+| `AddChain_01_DeployOriginContracts.s.sol` | Deploy Oracle, DepositEntrypoint, InputSettler, WithdrawalOutputSettler |
+| `AddChain_02_ConfigurePoolChain.s.sol` | Configure DepositOutputSettler to accept from origin |
+| `AddChain_03_ConfigureOriginChain.s.sol` | Configure origin entrypoint, oracles, fees, Hyperlane |
 
-### Other Scripts
+### Other
 
-| Directory | Purpose |
-|-----------|---------|
-| `script/pool/` | Verifier and settler deployment |
-| `script/deploy/` | OIF settlers, oracles, deposit entrypoint |
-| `script/setup/` | Configure deposit entrypoint and settler |
-| `script/chains/` | Add new origin chains |
+| Path | Purpose |
+|------|---------|
 | `script/config/` | ChainConfig, DeploymentWriter, pool/origin JSON configs |
+| `script/utils/WithdrawPaymasterDeposits.s.sol` | Withdraw ERC-4337 EntryPoint deposits |
 
 ---
 
@@ -589,15 +597,15 @@ assembly { withdrawnValue := tload(0) }
 ## Key Debugging Tips
 
 1. **"InvalidOrderStatus"**: Check order state machine — likely already claimed/refunded
-2. **"UnauthorizedCaller"**: Only entrypoint/diamond can call `open()` on InputSettler
+2. **"UnauthorizedCaller"**: Only entrypoint/pool can call `open()` on InputSettler
 3. **"IntentNotProven"**: Oracle hasn't attested to intent — check HyperlaneOracle
 4. **"FillOracleMismatch"**: Intent uses different fillOracle than configured
 5. **"ContextMismatch"**: ZK proof context doesn't match `keccak256(abi.encode(data), scope)`
 6. **"UnknownStateRoot"**: State root not in recent 64-entry root history
 7. **"DeadlinePassed"**: Fill attempted after fillDeadline
 8. **"ExpiryNotReached"**: Refund attempted before expires timestamp
-9. **"FunctionNotFound"**: Selector not registered in diamond — check facet registration
-10. **"OnlyAdmin"**: Caller is not the diamond admin
+9. **"FunctionNotFound"**: Selector not registered in pool — check facet registration
+10. **"OnlyAdmin"**: Caller is not the pool admin
 
 ---
 
