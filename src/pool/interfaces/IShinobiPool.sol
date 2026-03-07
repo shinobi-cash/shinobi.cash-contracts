@@ -9,9 +9,9 @@ import {Withdraw2ProofLib} from "../../proofLibs/Withdraw2ProofLib.sol";
 import {CrosschainWithdraw2ProofLib} from "../../proofLibs/CrosschainWithdraw2ProofLib.sol";
 import {AssociationSetData} from "../storage/PoolStorage.sol";
 
-/// @title IPoolDiamond - Combined interface for the pool diamond
-/// @notice Used by paymasters and external callers to interact with the diamond
-interface IPoolDiamond {
+/// @title IShinobiPool - Combined interface for the Shinobi pool
+/// @notice Used by paymasters and external callers to interact with the pool
+interface IShinobiPool {
     // ── Structs ──
 
     struct ReplaceAction {

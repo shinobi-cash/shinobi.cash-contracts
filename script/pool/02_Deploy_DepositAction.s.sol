@@ -6,19 +6,19 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {DepositFacet} from "../../src/pool/facets/DepositFacet.sol";
+import {DepositAction} from "../../src/pool/facets/DepositAction.sol";
 
 /**
- * @title Deploy_DepositFacet
- * @notice Deploy DepositFacet (no verifier dependency)
+ * @title Deploy_DepositAction
+ * @notice Deploy DepositAction (no verifier dependency)
  *
  * Input:  config/pools/{POOL_KEY}.json
- * Output: deployments/{POOL_KEY}.json (diamondDepositFacet)
+ * Output: deployments/{POOL_KEY}.json (deposit)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/02_Deploy_DepositFacet.s.sol:Deploy_DepositFacet --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/02_Deploy_DepositAction.s.sol:Deploy_DepositAction --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract Deploy_DepositFacet is Script {
+contract Deploy_DepositAction is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -29,7 +29,8 @@ contract Deploy_DepositFacet is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  Step 2: DepositFacet");
+        console.log("  Step 2: DepositAction");
+
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -37,9 +38,9 @@ contract Deploy_DepositFacet is Script {
         console.log("Deployer:", deployer);
         console.log("");
 
-        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondDepositFacet");
+        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "deposit");
         if (existing != address(0) && existing.code.length > 0) {
-            console.log("DepositFacet already deployed:", existing);
+            console.log("DepositAction already deployed:", existing);
             return;
         }
 
@@ -49,12 +50,12 @@ contract Deploy_DepositFacet is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         uint256 blockBefore = block.number;
-        address addr = address(new DepositFacet());
-        DeploymentWriter.writeContract(poolKey, "diamondDepositFacet", addr, blockBefore);
+        address addr = address(new DepositAction());
+        DeploymentWriter.writeContract(poolKey, "deposit", addr, blockBefore);
         vm.stopBroadcast();
 
-        console.log("DepositFacet deployed:", addr);
+        console.log("DepositAction deployed:", addr);
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script 03_Deploy_CrosschainDepositFacet.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 03_Deploy_CrosschainDepositAction.s.sol ...", poolKey);
     }
 }

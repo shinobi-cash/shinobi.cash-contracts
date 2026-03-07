@@ -5,12 +5,12 @@ import {IWithdraw2Verifier} from "../../verifiers/interfaces/IWithdraw2Verifier.
 import {WithdrawData} from "../libraries/Types.sol";
 import {Withdraw2ProofLib} from "../../proofLibs/Withdraw2ProofLib.sol";
 import {IFacet} from "../interfaces/IFacet.sol";
-import {FacetBase} from "./FacetBase.sol";
+import {FacetBase} from "../FacetBase.sol";
 import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 
-/// @title Withdraw2Facet - Same-chain 2:1 merge withdrawal
-contract Withdraw2Facet is FacetBase, IFacet {
+/// @title Withdraw2Action - Same-chain 2:1 merge withdrawal
+contract Withdraw2Action is FacetBase, IFacet {
     using Withdraw2ProofLib for Withdraw2ProofLib.Withdraw2Proof;
 
    struct Withdraw2Nullifiers {

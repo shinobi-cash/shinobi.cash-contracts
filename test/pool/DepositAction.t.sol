@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase} from "./DiamondTestBase.sol";
-import {PoolDiamond} from "../../../src/pool/PoolDiamond.sol";
-import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
-import {DepositFacet} from "../../../src/pool/facets/DepositFacet.sol";
-import {CrosschainDepositFacet} from "../../../src/pool/facets/CrosschainDepositFacet.sol";
-import {PoolOps} from "../../../src/pool/libraries/PoolOps.sol";
-import {Constants} from "../../../src/pool/libraries/Constants.sol";
+import {PoolTestBase} from "./PoolTestBase.sol";
+import {ShinobiPool} from "../../src/pool/ShinobiPool.sol";
+import {IShinobiPool} from "../../src/pool/interfaces/IShinobiPool.sol";
+import {DepositAction} from "../../src/pool/facets/DepositAction.sol";
+import {CrosschainDepositAction} from "../../src/pool/facets/CrosschainDepositAction.sol";
+import {PoolOps} from "../../src/pool/libraries/PoolOps.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
 
-contract DepositFacetTest is DiamondTestBase {
+contract DepositActionTest is PoolTestBase {
     /*//////////////////////////////////////////////////////////////
                           SAME-CHAIN DEPOSIT
     //////////////////////////////////////////////////////////////*/
@@ -17,83 +17,83 @@ contract DepositFacetTest is DiamondTestBase {
     function test_deposit_success() public {
         uint256 precommitment = 12345;
         vm.prank(user);
-        uint256 commitment = pool.deposit{value: DEPOSIT_AMOUNT}(precommitment);
+        uint256 commitment = poolInterface.deposit{value: DEPOSIT_AMOUNT}(precommitment);
 
         assertTrue(commitment != 0);
-        assertEq(pool.nonce(), 1);
-        assertEq(pool.currentTreeSize(), 1);
-        assertTrue(pool.usedPrecommitments(precommitment));
+        assertEq(poolInterface.nonce(), 1);
+        assertEq(poolInterface.currentTreeSize(), 1);
+        assertTrue(poolInterface.usedPrecommitments(precommitment));
     }
 
     function test_deposit_emitsEvent() public {
         uint256 precommitment = 12345;
         vm.prank(user);
-        vm.expectEmit(true, false, false, false, address(diamond));
-        emit DepositFacet.Deposited(user, 0, 0, 0, 0);
-        pool.deposit{value: DEPOSIT_AMOUNT}(precommitment);
+        vm.expectEmit(true, false, false, false, address(pool));
+        emit DepositAction.Deposited(user, 0, 0, 0, 0);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(precommitment);
     }
 
     function test_deposit_sendsVettingFeeToRecipient() public {
         uint256 precommitment = 12345;
-        address vettingVault = pool.vettingFeeRecipient();
+        address vettingVault = poolInterface.vettingFeeRecipient();
         uint256 vaultBefore = vettingVault.balance;
-        uint256 diamondBefore = address(diamond).balance;
+        uint256 poolBefore = address(pool).balance;
 
         vm.prank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(precommitment);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(precommitment);
 
         uint256 expectedFee = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
         uint256 netAmount = DEPOSIT_AMOUNT - expectedFee;
 
-        // Fee sent to vault, net amount stays in diamond
+        // Fee sent to vault, net amount stays in pool
         assertEq(vettingVault.balance, vaultBefore + expectedFee);
-        assertEq(address(diamond).balance, diamondBefore + netAmount);
+        assertEq(address(pool).balance, poolBefore + netAmount);
     }
 
     function test_deposit_revertsForMinAmount() public {
-        vm.expectRevert(DepositFacet.MinimumDepositAmount.selector);
+        vm.expectRevert(DepositAction.MinimumDepositAmount.selector);
         vm.prank(user);
-        pool.deposit{value: MIN_DEPOSIT - 1}(12345);
+        poolInterface.deposit{value: MIN_DEPOSIT - 1}(12345);
     }
 
     function test_deposit_revertsForReusedPrecommitment() public {
         uint256 precommitment = 12345;
         vm.prank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(precommitment);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(precommitment);
 
-        vm.expectRevert(DepositFacet.PrecommitmentAlreadyUsed.selector);
+        vm.expectRevert(DepositAction.PrecommitmentAlreadyUsed.selector);
         vm.prank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(precommitment);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(precommitment);
     }
 
     function test_deposit_revertsForDeadPool() public {
         vm.prank(admin);
-        pool.windDown();
+        poolInterface.windDown();
 
         vm.expectRevert(PoolOps.PoolIsDead.selector);
         vm.prank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(12345);
     }
 
     function test_deposit_multipleDepositsIncrementNonce() public {
         vm.startPrank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(1);
-        pool.deposit{value: DEPOSIT_AMOUNT}(2);
-        pool.deposit{value: DEPOSIT_AMOUNT}(3);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(1);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(2);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(3);
         vm.stopPrank();
 
-        assertEq(pool.nonce(), 3);
-        assertEq(pool.currentTreeSize(), 3);
+        assertEq(poolInterface.nonce(), 3);
+        assertEq(poolInterface.currentTreeSize(), 3);
     }
 
     function test_deposit_setsDepositor() public {
         vm.prank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(12345);
 
         // The depositor should be set for the label
         // Label = keccak256(scope, nonce) % SNARK_FIELD
         // We can verify the depositor mapping is populated by checking nonce advanced
-        assertEq(pool.nonce(), 1);
+        assertEq(poolInterface.nonce(), 1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -103,57 +103,57 @@ contract DepositFacetTest is DiamondTestBase {
     function test_crosschainDeposit_success() public {
         uint256 precommitment = 99999;
         vm.prank(depositSettler);
-        uint256 commitment = pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, precommitment);
+        uint256 commitment = poolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, precommitment);
 
         assertTrue(commitment != 0);
-        assertEq(pool.nonce(), 1);
+        assertEq(poolInterface.nonce(), 1);
     }
 
     function test_crosschainDeposit_revertsForNonSettler() public {
-        vm.expectRevert(CrosschainDepositFacet.OnlyDepositOutputSettler.selector);
+        vm.expectRevert(CrosschainDepositAction.OnlyDepositOutputSettler.selector);
         vm.prank(user);
-        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+        poolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
     }
 
     function test_crosschainDeposit_revertsForValueMismatch() public {
         vm.expectRevert(PoolOps.InvalidWithdrawalAmount.selector);
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: 0.5 ether}(user, DEPOSIT_AMOUNT, 12345);
+        poolInterface.crosschainDeposit{value: 0.5 ether}(user, DEPOSIT_AMOUNT, 12345);
     }
 
     function test_crosschainDeposit_revertsForMinAmount() public {
         uint256 tooSmall = MIN_DEPOSIT - 1;
-        vm.expectRevert(CrosschainDepositFacet.MinimumDepositAmount.selector);
+        vm.expectRevert(CrosschainDepositAction.MinimumDepositAmount.selector);
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: tooSmall}(user, tooSmall, 12345);
+        poolInterface.crosschainDeposit{value: tooSmall}(user, tooSmall, 12345);
     }
 
     function test_crosschainDeposit_revertsForDeadPool() public {
         vm.prank(admin);
-        pool.windDown();
+        poolInterface.windDown();
 
         vm.expectRevert(PoolOps.PoolIsDead.selector);
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+        poolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
     }
 
     function test_crosschainDeposit_revertsForReusedPrecommitment() public {
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+        poolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
 
-        vm.expectRevert(CrosschainDepositFacet.PrecommitmentAlreadyUsed.selector);
+        vm.expectRevert(CrosschainDepositAction.PrecommitmentAlreadyUsed.selector);
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+        poolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
     }
 
     function test_crosschainDeposit_setsCorrectDepositor() public {
         address depositor = makeAddr("crosschainDepositor");
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(depositor, DEPOSIT_AMOUNT, 77777);
+        poolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(depositor, DEPOSIT_AMOUNT, 77777);
 
         // Depositor should be the param, not msg.sender (depositSettler)
-        uint256 label = uint256(keccak256(abi.encodePacked(pool.SCOPE(), pool.nonce()))) % Constants.SNARK_SCALAR_FIELD;
-        assertEq(pool.depositors(label), depositor);
+        uint256 label = uint256(keccak256(abi.encodePacked(poolInterface.SCOPE(), poolInterface.nonce()))) % Constants.SNARK_SCALAR_FIELD;
+        assertEq(poolInterface.depositors(label), depositor);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -161,23 +161,23 @@ contract DepositFacetTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_deposit_sendsFeesToVault() public {
-        address vettingVault = pool.vettingFeeRecipient();
+        address vettingVault = poolInterface.vettingFeeRecipient();
         uint256 vaultBefore = vettingVault.balance;
 
         vm.prank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(12345);
 
         uint256 expectedFee = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
         assertEq(vettingVault.balance, vaultBefore + expectedFee);
     }
 
     function test_deposit_sendsFeesAcrossDeposits() public {
-        address vettingVault = pool.vettingFeeRecipient();
+        address vettingVault = poolInterface.vettingFeeRecipient();
         uint256 vaultBefore = vettingVault.balance;
 
         vm.startPrank(user);
-        pool.deposit{value: DEPOSIT_AMOUNT}(1);
-        pool.deposit{value: DEPOSIT_AMOUNT}(2);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(1);
+        poolInterface.deposit{value: DEPOSIT_AMOUNT}(2);
         vm.stopPrank();
 
         uint256 feePerDeposit = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
@@ -185,91 +185,91 @@ contract DepositFacetTest is DiamondTestBase {
     }
 
     function test_crosschainDeposit_sendsFeesToVault() public {
-        address vettingVault = pool.vettingFeeRecipient();
+        address vettingVault = poolInterface.vettingFeeRecipient();
         uint256 vaultBefore = vettingVault.balance;
 
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+        poolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
 
         uint256 expectedFee = DEPOSIT_AMOUNT * VETTING_FEE_BPS / 10_000;
         assertEq(vettingVault.balance, vaultBefore + expectedFee);
     }
 
     function test_deposit_revertsWhenVettingFeeRecipientNotSet() public {
-        // Deploy a fresh diamond without vettingFeeRecipient configured
-        PoolDiamond freshDiamond = new PoolDiamond(
-            PoolDiamond.InitParams({
+        // Deploy a fresh pool without vettingFeeRecipient configured
+        ShinobiPool freshPool = new ShinobiPool(
+            ShinobiPool.InitParams({
                 asset: NATIVE_ASSET,
                 admin: admin,
                 aspPostman: aspPostman,
                 facets: _buildFacets()
             })
         );
-        IPoolDiamond freshPool = IPoolDiamond(address(freshDiamond));
+        IShinobiPool freshPoolInterface = IShinobiPool(address(freshPool));
         vm.prank(admin);
-        freshPool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, MAX_RELAY_FEE_BPS);
+        freshPoolInterface.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, MAX_RELAY_FEE_BPS);
 
         vm.deal(user, 10 ether);
-        vm.expectRevert(DepositFacet.VettingFeeRecipientNotSet.selector);
+        vm.expectRevert(DepositAction.VettingFeeRecipientNotSet.selector);
         vm.prank(user);
-        freshPool.deposit{value: DEPOSIT_AMOUNT}(12345);
+        freshPoolInterface.deposit{value: DEPOSIT_AMOUNT}(12345);
     }
 
     function test_crosschainDeposit_revertsWhenVettingFeeRecipientNotSet() public {
-        PoolDiamond freshDiamond = new PoolDiamond(
-            PoolDiamond.InitParams({
+        ShinobiPool freshPool = new ShinobiPool(
+            ShinobiPool.InitParams({
                 asset: NATIVE_ASSET,
                 admin: admin,
                 aspPostman: aspPostman,
                 facets: _buildFacets()
             })
         );
-        IPoolDiamond freshPool = IPoolDiamond(address(freshDiamond));
+        IShinobiPool freshPoolInterface = IShinobiPool(address(freshPool));
         vm.startPrank(admin);
-        freshPool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, MAX_RELAY_FEE_BPS);
-        freshPool.setDepositOutputSettler(depositSettler);
+        freshPoolInterface.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, MAX_RELAY_FEE_BPS);
+        freshPoolInterface.setDepositOutputSettler(depositSettler);
         vm.stopPrank();
 
         vm.deal(depositSettler, 10 ether);
-        vm.expectRevert(CrosschainDepositFacet.VettingFeeRecipientNotSet.selector);
+        vm.expectRevert(CrosschainDepositAction.VettingFeeRecipientNotSet.selector);
         vm.prank(depositSettler);
-        freshPool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+        freshPoolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
     }
 
     function test_deposit_revertsWhenAssetConfigNotSet() public {
-        PoolDiamond freshDiamond = new PoolDiamond(
-            PoolDiamond.InitParams({
+        ShinobiPool freshPool = new ShinobiPool(
+            ShinobiPool.InitParams({
                 asset: NATIVE_ASSET,
                 admin: admin,
                 aspPostman: aspPostman,
                 facets: _buildFacets()
             })
         );
-        IPoolDiamond freshPool = IPoolDiamond(address(freshDiamond));
+        IShinobiPool freshPoolInterface = IShinobiPool(address(freshPool));
 
         vm.deal(user, 10 ether);
-        vm.expectRevert(DepositFacet.AssetConfigNotSet.selector);
+        vm.expectRevert(DepositAction.AssetConfigNotSet.selector);
         vm.prank(user);
-        freshPool.deposit{value: DEPOSIT_AMOUNT}(12345);
+        freshPoolInterface.deposit{value: DEPOSIT_AMOUNT}(12345);
     }
 
     function test_crosschainDeposit_revertsWhenAssetConfigNotSet() public {
-        PoolDiamond freshDiamond = new PoolDiamond(
-            PoolDiamond.InitParams({
+        ShinobiPool freshPool = new ShinobiPool(
+            ShinobiPool.InitParams({
                 asset: NATIVE_ASSET,
                 admin: admin,
                 aspPostman: aspPostman,
                 facets: _buildFacets()
             })
         );
-        IPoolDiamond freshPool = IPoolDiamond(address(freshDiamond));
+        IShinobiPool freshPoolInterface = IShinobiPool(address(freshPool));
         vm.prank(admin);
-        freshPool.setDepositOutputSettler(depositSettler);
+        freshPoolInterface.setDepositOutputSettler(depositSettler);
 
         vm.deal(depositSettler, 10 ether);
-        vm.expectRevert(CrosschainDepositFacet.AssetConfigNotSet.selector);
+        vm.expectRevert(CrosschainDepositAction.AssetConfigNotSet.selector);
         vm.prank(depositSettler);
-        freshPool.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
+        freshPoolInterface.crosschainDeposit{value: DEPOSIT_AMOUNT}(user, DEPOSIT_AMOUNT, 12345);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -279,16 +279,16 @@ contract DepositFacetTest is DiamondTestBase {
     function test_deposit_revertsForUint128Overflow() public {
         uint256 hugeAmount = type(uint128).max;
         vm.deal(user, hugeAmount + 1 ether);
-        vm.expectRevert(DepositFacet.InvalidDepositValue.selector);
+        vm.expectRevert(DepositAction.InvalidDepositValue.selector);
         vm.prank(user);
-        pool.deposit{value: hugeAmount}(88888);
+        poolInterface.deposit{value: hugeAmount}(88888);
     }
 
     function test_crosschainDeposit_revertsForUint128Overflow() public {
         uint256 hugeAmount = type(uint128).max;
         vm.deal(depositSettler, hugeAmount + 1 ether);
-        vm.expectRevert(CrosschainDepositFacet.InvalidDepositValue.selector);
+        vm.expectRevert(CrosschainDepositAction.InvalidDepositValue.selector);
         vm.prank(depositSettler);
-        pool.crosschainDeposit{value: hugeAmount}(user, hugeAmount, 88888);
+        poolInterface.crosschainDeposit{value: hugeAmount}(user, hugeAmount, 88888);
     }
 }

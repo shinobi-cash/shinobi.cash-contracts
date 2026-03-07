@@ -24,7 +24,7 @@ import {IHyperlaneOracle} from "../../src/oif/interfaces/IHyperlaneOracle.sol";
  */
 contract AddChain_03_ConfigureOriginChain is Script {
     struct PoolAddresses {
-        address poolDiamond;
+        address shinobiPool;
         address depositOutputSettler;
         address hyperlaneOracle;
     }
@@ -72,7 +72,7 @@ contract AddChain_03_ConfigureOriginChain is Script {
         _configureSettlerAndOracles(entrypoint, origin, pool);
         _configureDestination(entrypoint, poolConfig.chainId, pool);
         _configureDeadlinesAndFees(entrypoint, originConfig);
-        _configureAssetPool(entrypoint, pool.poolDiamond);
+        _configureAssetPool(entrypoint, pool.shinobiPool);
         _configureHyperlane(entrypoint, origin.hyperlaneOracle, poolConfig.hyperlaneDomainId, pool.hyperlaneOracle);
 
         vm.stopBroadcast();
@@ -87,11 +87,11 @@ contract AddChain_03_ConfigureOriginChain is Script {
 
     function _readPoolAddresses(string memory chainName) internal view returns (PoolAddresses memory) {
         PoolAddresses memory pool;
-        pool.poolDiamond = DeploymentWriter.readContractAddress(chainName, "contracts", "poolDiamond");
+        pool.shinobiPool = DeploymentWriter.readContractAddress(chainName, "contracts", "shinobiPool");
         pool.depositOutputSettler = DeploymentWriter.readContractAddress(chainName, "contracts", "depositOutputSettler");
         pool.hyperlaneOracle = DeploymentWriter.readContractAddress(chainName, "contracts", "hyperlaneOracle");
 
-        require(pool.poolDiamond != address(0), "PoolDiamond not deployed");
+        require(pool.shinobiPool != address(0), "ShinobiPool not deployed");
         require(pool.depositOutputSettler != address(0), "Pool DepositOutputSettler not deployed");
         require(pool.hyperlaneOracle != address(0), "Pool HyperlaneOracle not deployed");
 
@@ -148,19 +148,19 @@ contract AddChain_03_ConfigureOriginChain is Script {
     ) internal {
         console.log("4. Setting Destination Configuration...");
         if (entrypoint.destinationChainId() == poolChainId &&
-            entrypoint.destinationEntrypoint() == pool.poolDiamond &&
+            entrypoint.destinationEntrypoint() == pool.shinobiPool &&
             entrypoint.destinationOutputSettler() == pool.depositOutputSettler &&
             entrypoint.destinationOracle() == pool.hyperlaneOracle) {
             console.log("   Already configured, skipping.");
         } else {
             entrypoint.setDestinationConfig(
                 poolChainId,
-                pool.poolDiamond,
+                pool.shinobiPool,
                 pool.depositOutputSettler,
                 pool.hyperlaneOracle
             );
             console.log("   Destination Chain ID:", poolChainId);
-            console.log("   Pool Diamond:", pool.poolDiamond);
+            console.log("   ShinobiPool:", pool.shinobiPool);
             console.log("   Pool DepositOutputSettler:", pool.depositOutputSettler);
         }
     }

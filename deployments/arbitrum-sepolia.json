@@ -32,31 +32,31 @@
       "address": "0xA1991D6047cD8E9B67e1aF24c063d95761051319",
       "blockNumber": 247304370
     },
-    "diamondCrosschainDepositFacet": {
+    "crosschainDeposit": {
       "address": "0xcDADa8b42d28962F8220b6fbE539B382B216c748",
       "blockNumber": 247266756
     },
-    "diamondCrosschainWithdraw2Facet": {
+    "crosschainWithdraw2": {
       "address": "0xd0D43402119289A05372438364B0ff02776786D2",
       "blockNumber": 247280416
     },
-    "diamondCrosschainWithdrawFacet": {
+    "crosschainWithdraw": {
       "address": "0x7f169FB6802982b852237c3186C89751d827012D",
       "blockNumber": 247278177
     },
-    "diamondDepositFacet": {
+    "deposit": {
       "address": "0x0e6397188123f25208bAA68DF439b22476C6C84e",
       "blockNumber": 247264308
     },
-    "diamondRagequitFacet": {
+    "ragequit": {
       "address": "0x4EFFD41c2C1dcc80D9D0a824b61AcE3aa4Fffd7b",
       "blockNumber": 247280668
     },
-    "diamondWithdraw2Facet": {
+    "withdraw2": {
       "address": "0xa4f013f8576341Ad08A6E11286768c872a11a41D",
       "blockNumber": 247280078
     },
-    "diamondWithdrawFacet": {
+    "withdraw": {
       "address": "0x8CA24C2cF7D885bDD0a675E1a6719ec03d32D185",
       "blockNumber": 247267383
     },
@@ -68,26 +68,26 @@
       "address": "0x083528b20137F3D159B30a2018dc9947b990049B",
       "blockNumber": 247304360
     },
-    "poolDiamond": {
+    "shinobiPool": {
       "address": "0xAAE2D0038dd2B86485dc46da88Dc3a373435527C",
       "blockNumber": 247281033
     }
   },
   "paymasters": {
     "_initialized": "true",
-    "diamondCrossChain": {
+    "crosschainWithdrawal": {
       "address": "0x9fe6478292a50058fd9f2EA0C27432c650e9E571",
       "blockNumber": 247306238
     },
-    "diamondCrossChainWithdraw2": {
+    "crosschainWithdraw2": {
       "address": "0x9aee79B3855E968daBBc7862B9C0EcFB7daFfbbB",
       "blockNumber": 247306282
     },
-    "diamondSimple": {
+    "withdrawal": {
       "address": "0x7353cb8976DE8A3fE225aAb36dE25fE86825aefc",
       "blockNumber": 247306211
     },
-    "diamondWithdraw2": {
+    "withdraw2": {
       "address": "0xCA8F53EdECc1EcCaAd9F43C5DCE05f367e866C15",
       "blockNumber": 247306262
     }

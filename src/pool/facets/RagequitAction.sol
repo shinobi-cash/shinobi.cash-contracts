@@ -5,12 +5,12 @@ import {InternalLeanIMT, LeanIMTData} from "lean-imt/InternalLeanIMT.sol";
 import {IRagequitVerifier} from "../../verifiers/interfaces/IRagequitVerifier.sol";
 import {RagequitProofLib} from "../../proofLibs/RagequitProofLib.sol";
 import {IFacet} from "../interfaces/IFacet.sol";
-import {FacetBase} from "./FacetBase.sol";
+import {FacetBase} from "../FacetBase.sol";
 import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 
-/// @title RagequitFacet - Emergency withdrawal by original depositor
-contract RagequitFacet is FacetBase, IFacet {
+/// @title RagequitAction - Emergency withdrawal by original depositor
+contract RagequitAction is FacetBase, IFacet {
     using RagequitProofLib for RagequitProofLib.RagequitProof;
     using InternalLeanIMT for LeanIMTData;
 

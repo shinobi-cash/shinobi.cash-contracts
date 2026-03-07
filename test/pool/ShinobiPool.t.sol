@@ -1,65 +1,65 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase, MockInputSettler} from "./DiamondTestBase.sol";
-import {PoolDiamond} from "../../../src/pool/PoolDiamond.sol";
-import {AccessControlOps} from "../../../src/pool/libraries/AccessControlOps.sol";
-import {AccessControlStorageLib} from "../../../src/pool/storage/AccessControlStorage.sol";
-import {IFacet} from "../../../src/pool/interfaces/IFacet.sol";
-import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
-import {Constants} from "../../../src/pool/libraries/Constants.sol";
+import {PoolTestBase, MockInputSettler} from "./PoolTestBase.sol";
+import {ShinobiPool} from "../../src/pool/ShinobiPool.sol";
+import {AccessControlOps} from "../../src/pool/libraries/AccessControlOps.sol";
+import {AccessControlStorageLib} from "../../src/pool/storage/AccessControlStorage.sol";
+import {IFacet} from "../../src/pool/interfaces/IFacet.sol";
+import {IShinobiPool} from "../../src/pool/interfaces/IShinobiPool.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
 
-contract PoolDiamondTest is DiamondTestBase {
+contract ShinobiPoolTest is PoolTestBase {
     /*//////////////////////////////////////////////////////////////
                          CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     function test_constructor_setsAssetAndScope() public view {
-        assertEq(pool.ASSET(), NATIVE_ASSET);
+        assertEq(poolInterface.ASSET(), NATIVE_ASSET);
 
         uint256 expectedScope = uint256(
-            keccak256(abi.encodePacked(address(diamond), block.chainid, NATIVE_ASSET))
+            keccak256(abi.encodePacked(address(pool), block.chainid, NATIVE_ASSET))
         ) % Constants.SNARK_SCALAR_FIELD;
-        assertEq(pool.SCOPE(), expectedScope);
+        assertEq(poolInterface.SCOPE(), expectedScope);
     }
 
     function test_constructor_registersAllFacets() public view {
-        address[] memory facets = pool.facetAddresses();
+        address[] memory facets = poolInterface.facetAddresses();
         assertEq(facets.length, 7);
     }
 
     function test_constructor_setsAdmin() public view {
-        assertEq(pool.admin(), admin);
+        assertEq(poolInterface.admin(), admin);
     }
 
     function test_constructor_grantsRoles() public view {
-        assertTrue(pool.hasRole(keccak256("ASP_POSTMAN_ROLE"), aspPostman));
+        assertTrue(poolInterface.hasRole(keccak256("ASP_POSTMAN_ROLE"), aspPostman));
     }
 
     function test_fallback_revertsForUnknownSelector() public {
         bytes4 unknownSelector = bytes4(keccak256("unknownFunction()"));
-        vm.expectRevert(abi.encodeWithSelector(PoolDiamond.FunctionNotFound.selector, unknownSelector));
-        (bool success,) = address(diamond).call(abi.encodeWithSelector(unknownSelector));
+        vm.expectRevert(abi.encodeWithSelector(ShinobiPool.FunctionNotFound.selector, unknownSelector));
+        (bool success,) = address(pool).call(abi.encodeWithSelector(unknownSelector));
         assertTrue(!success || true); // expectRevert already asserted
     }
 
     function test_receive_acceptsETH() public {
         vm.deal(user, 1 ether);
         vm.prank(user);
-        (bool success,) = address(diamond).call{value: 1 ether}("");
+        (bool success,) = address(pool).call{value: 1 ether}("");
         assertTrue(success);
-        assertEq(address(diamond).balance, 1 ether);
+        assertEq(address(pool).balance, 1 ether);
     }
 
     function test_facetAddress_routesCorrectly() public view {
-        // deposit selector should route to DepositFacet
-        assertEq(pool.facetAddress(pool.deposit.selector), address(depositFacet));
-        // withdraw selector should route to WithdrawFacet
-        assertEq(pool.facetAddress(pool.withdraw.selector), address(withdrawFacet));
+        // deposit selector should route to Deposit facet
+        assertEq(poolInterface.facetAddress(poolInterface.deposit.selector), address(depositFacet));
+        // withdraw selector should route to Withdraw facet
+        assertEq(poolInterface.facetAddress(poolInterface.withdraw.selector), address(withdrawFacet));
     }
 
     function test_facetFunctionSelectors_returnsCorrectSelectors() public view {
-        bytes4[] memory selectors = pool.facetFunctionSelectors(address(depositFacet));
+        bytes4[] memory selectors = poolInterface.facetFunctionSelectors(address(depositFacet));
         assertEq(selectors.length, 1); // deposit
     }
 
@@ -70,26 +70,26 @@ contract PoolDiamondTest is DiamondTestBase {
     function test_grantRole_byAdmin() public {
         address newPostman = makeAddr("newPostman");
         vm.prank(admin);
-        pool.grantRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman);
-        assertTrue(pool.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman));
+        poolInterface.grantRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman);
+        assertTrue(poolInterface.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman));
     }
 
     function test_grantRole_revertsForNonAdmin() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(user);
-        pool.grantRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, user);
+        poolInterface.grantRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, user);
     }
 
     function test_revokeRole_byAdmin() public {
         vm.prank(admin);
-        pool.revokeRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman);
-        assertFalse(pool.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman));
+        poolInterface.revokeRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman);
+        assertFalse(poolInterface.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman));
     }
 
     function test_renounceRole() public {
         vm.prank(aspPostman);
-        pool.renounceRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman);
-        assertFalse(pool.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman));
+        poolInterface.renounceRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman);
+        assertFalse(poolInterface.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman));
     }
 
     function test_renounceRole_revertsForOtherAccount() public {
@@ -97,7 +97,7 @@ contract PoolDiamondTest is DiamondTestBase {
             abi.encodeWithSelector(AccessControlOps.AccessControlCannotRenounceOther.selector, aspPostman)
         );
         vm.prank(admin);
-        pool.renounceRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman);
+        poolInterface.renounceRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -108,60 +108,60 @@ contract PoolDiamondTest is DiamondTestBase {
         address newAdmin = makeAddr("newAdmin");
 
         vm.prank(admin);
-        pool.transferAdmin(newAdmin);
+        poolInterface.transferAdmin(newAdmin);
 
-        assertEq(pool.pendingAdmin(), newAdmin);
+        assertEq(poolInterface.pendingAdmin(), newAdmin);
     }
 
     function test_transferAdmin_revertsForNonAdmin() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(user);
-        pool.transferAdmin(user);
+        poolInterface.transferAdmin(user);
     }
 
     function test_transferAdmin_revertsForZeroAddress() public {
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.transferAdmin(address(0));
+        poolInterface.transferAdmin(address(0));
     }
 
     function test_acceptAdmin_success() public {
         address newAdmin = makeAddr("newAdmin");
 
         vm.prank(admin);
-        pool.transferAdmin(newAdmin);
+        poolInterface.transferAdmin(newAdmin);
 
         vm.prank(newAdmin);
-        pool.acceptAdmin();
+        poolInterface.acceptAdmin();
 
-        assertEq(pool.admin(), newAdmin);
-        assertEq(pool.pendingAdmin(), address(0));
+        assertEq(poolInterface.admin(), newAdmin);
+        assertEq(poolInterface.pendingAdmin(), address(0));
     }
 
     function test_acceptAdmin_revertsForNonPending() public {
-        vm.expectRevert(PoolDiamond.NotPendingAdmin.selector);
+        vm.expectRevert(ShinobiPool.NotPendingAdmin.selector);
         vm.prank(user);
-        pool.acceptAdmin();
+        poolInterface.acceptAdmin();
     }
 
     function test_acceptAdmin_replacesOldAdmin() public {
         address newAdmin = makeAddr("newAdmin");
 
         vm.prank(admin);
-        pool.transferAdmin(newAdmin);
+        poolInterface.transferAdmin(newAdmin);
 
         vm.prank(newAdmin);
-        pool.acceptAdmin();
+        poolInterface.acceptAdmin();
 
         // Old admin can no longer call admin functions
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(admin);
-        pool.setMaxSolverFeeBPS(100);
+        poolInterface.setMaxSolverFeeBPS(100);
 
         // New admin can
         vm.prank(newAdmin);
-        pool.setMaxSolverFeeBPS(100);
-        assertEq(pool.maxSolverFeeBPS(), 100);
+        poolInterface.setMaxSolverFeeBPS(100);
+        assertEq(poolInterface.maxSolverFeeBPS(), 100);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -170,36 +170,36 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_setAssetConfig() public {
         vm.prank(admin);
-        pool.setAssetConfig(0.1 ether, 200, 1000);
+        poolInterface.setAssetConfig(0.1 ether, 200, 1000);
 
-        (uint256 minDeposit, uint256 vettingFee, uint256 maxRelay) = pool.assetConfig();
+        (uint256 minDeposit, uint256 vettingFee, uint256 maxRelay) = poolInterface.assetConfig();
         assertEq(minDeposit, 0.1 ether);
         assertEq(vettingFee, 200);
         assertEq(maxRelay, 1000);
     }
 
     function test_setAssetConfig_revertsForInvalidBPS() public {
-        vm.expectRevert(PoolDiamond.InvalidFeeBPS.selector);
+        vm.expectRevert(ShinobiPool.InvalidFeeBPS.selector);
         vm.prank(admin);
-        pool.setAssetConfig(0.01 ether, 10_001, 500);
+        poolInterface.setAssetConfig(0.01 ether, 10_001, 500);
     }
 
     function test_setAssetConfig_revertsForZeroMinDeposit() public {
-        vm.expectRevert(PoolDiamond.InvalidAssetConfig.selector);
+        vm.expectRevert(ShinobiPool.InvalidAssetConfig.selector);
         vm.prank(admin);
-        pool.setAssetConfig(0, 100, 500);
+        poolInterface.setAssetConfig(0, 100, 500);
     }
 
     function test_setAssetConfig_revertsForZeroMaxRelayFee() public {
-        vm.expectRevert(PoolDiamond.InvalidAssetConfig.selector);
+        vm.expectRevert(ShinobiPool.InvalidAssetConfig.selector);
         vm.prank(admin);
-        pool.setAssetConfig(0.01 ether, 100, 0);
+        poolInterface.setAssetConfig(0.01 ether, 100, 0);
     }
 
     function test_setAssetConfig_revertsForNonAdmin() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(user);
-        pool.setAssetConfig(0.01 ether, 100, 500);
+        poolInterface.setAssetConfig(0.01 ether, 100, 500);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -208,45 +208,45 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_setWithdrawalInputSettler() public {
         MockInputSettler newSettler = new MockInputSettler();
-        newSettler.setEntrypoint(address(diamond));
+        newSettler.setEntrypoint(address(pool));
         vm.prank(admin);
-        pool.setWithdrawalInputSettler(address(newSettler));
-        assertEq(pool.withdrawalInputSettler(), address(newSettler));
+        poolInterface.setWithdrawalInputSettler(address(newSettler));
+        assertEq(poolInterface.withdrawalInputSettler(), address(newSettler));
     }
 
     function test_setWithdrawalInputSettler_revertsForZeroAddress() public {
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.setWithdrawalInputSettler(address(0));
+        poolInterface.setWithdrawalInputSettler(address(0));
     }
 
     function test_setWithdrawalInputSettler_revertsForWrongEntrypoint() public {
         MockInputSettler wrongSettler = new MockInputSettler();
         wrongSettler.setEntrypoint(makeAddr("wrongPool"));
-        vm.expectRevert(PoolDiamond.InvalidSettlerEntrypoint.selector);
+        vm.expectRevert(ShinobiPool.InvalidSettlerEntrypoint.selector);
         vm.prank(admin);
-        pool.setWithdrawalInputSettler(address(wrongSettler));
+        poolInterface.setWithdrawalInputSettler(address(wrongSettler));
     }
 
     function test_setDepositOutputSettler() public {
         address newSettler = makeAddr("newSettler");
         vm.etch(newSettler, hex"00");
         vm.prank(admin);
-        pool.setDepositOutputSettler(newSettler);
-        assertEq(pool.depositOutputSettler(), newSettler);
+        poolInterface.setDepositOutputSettler(newSettler);
+        assertEq(poolInterface.depositOutputSettler(), newSettler);
     }
 
     function test_setDepositOutputSettler_revertsForZeroAddress() public {
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.setDepositOutputSettler(address(0));
+        poolInterface.setDepositOutputSettler(address(0));
     }
 
     function test_setDepositOutputSettler_revertsForEOA() public {
         address eoa = makeAddr("eoa");
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.setDepositOutputSettler(eoa);
+        poolInterface.setDepositOutputSettler(eoa);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -255,26 +255,26 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_setMaxSolverFeeBPS() public {
         vm.prank(admin);
-        pool.setMaxSolverFeeBPS(500);
-        assertEq(pool.maxSolverFeeBPS(), 500);
+        poolInterface.setMaxSolverFeeBPS(500);
+        assertEq(poolInterface.maxSolverFeeBPS(), 500);
     }
 
     function test_setMaxSolverFeeBPS_revertsForInvalidBPS() public {
-        vm.expectRevert(PoolDiamond.InvalidFeeBPS.selector);
+        vm.expectRevert(ShinobiPool.InvalidFeeBPS.selector);
         vm.prank(admin);
-        pool.setMaxSolverFeeBPS(10_001);
+        poolInterface.setMaxSolverFeeBPS(10_001);
     }
 
     function test_setMaxSolverFeeBPS_revertsForNonAdmin() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(user);
-        pool.setMaxSolverFeeBPS(500);
+        poolInterface.setMaxSolverFeeBPS(500);
     }
 
     function test_setMaxSolverFeeBPS_allowsZero() public {
         vm.prank(admin);
-        pool.setMaxSolverFeeBPS(0);
-        assertEq(pool.maxSolverFeeBPS(), 0);
+        poolInterface.setMaxSolverFeeBPS(0);
+        assertEq(poolInterface.maxSolverFeeBPS(), 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -283,26 +283,26 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_setMaxRefundFeeBPS() public {
         vm.prank(admin);
-        pool.setMaxRefundFeeBPS(300);
-        assertEq(pool.maxRefundFeeBPS(), 300);
+        poolInterface.setMaxRefundFeeBPS(300);
+        assertEq(poolInterface.maxRefundFeeBPS(), 300);
     }
 
     function test_setMaxRefundFeeBPS_revertsForZero() public {
-        vm.expectRevert(PoolDiamond.InvalidFeeBPS.selector);
+        vm.expectRevert(ShinobiPool.InvalidFeeBPS.selector);
         vm.prank(admin);
-        pool.setMaxRefundFeeBPS(0);
+        poolInterface.setMaxRefundFeeBPS(0);
     }
 
     function test_setMaxRefundFeeBPS_revertsForInvalidBPS() public {
-        vm.expectRevert(PoolDiamond.InvalidFeeBPS.selector);
+        vm.expectRevert(ShinobiPool.InvalidFeeBPS.selector);
         vm.prank(admin);
-        pool.setMaxRefundFeeBPS(10_000);
+        poolInterface.setMaxRefundFeeBPS(10_000);
     }
 
     function test_setMaxRefundFeeBPS_revertsForNonAdmin() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(user);
-        pool.setMaxRefundFeeBPS(500);
+        poolInterface.setMaxRefundFeeBPS(500);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -315,10 +315,10 @@ contract PoolDiamondTest is DiamondTestBase {
         address fillOracle = makeAddr("fillOracle");
 
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(84532, outputSettler, outputOracle, fillOracle, 3600, 7200);
+        poolInterface.setWithdrawalChainConfig(84532, outputSettler, outputOracle, fillOracle, 3600, 7200);
 
         (bool isConfigured, uint32 fillDeadline, uint32 expiry, address ws, address wo, address fo) =
-            pool.withdrawalChainConfig(84532);
+            poolInterface.withdrawalChainConfig(84532);
         assertTrue(isConfigured);
         assertEq(fillDeadline, 3600);
         assertEq(expiry, 7200);
@@ -328,45 +328,45 @@ contract PoolDiamondTest is DiamondTestBase {
     }
 
     function test_setWithdrawalChainConfig_revertsForZeroChainId() public {
-        vm.expectRevert(PoolDiamond.InvalidChainId.selector);
+        vm.expectRevert(ShinobiPool.InvalidChainId.selector);
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(0, address(1), address(1), address(1), 3600, 7200);
+        poolInterface.setWithdrawalChainConfig(0, address(1), address(1), address(1), 3600, 7200);
     }
 
     function test_setWithdrawalChainConfig_revertsForZeroOutputSettler() public {
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(84532, address(0), address(1), address(1), 3600, 7200);
+        poolInterface.setWithdrawalChainConfig(84532, address(0), address(1), address(1), 3600, 7200);
     }
 
     function test_setWithdrawalChainConfig_revertsForZeroOutputOracle() public {
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(84532, address(1), address(0), address(1), 3600, 7200);
+        poolInterface.setWithdrawalChainConfig(84532, address(1), address(0), address(1), 3600, 7200);
     }
 
     function test_setWithdrawalChainConfig_revertsForZeroFillOracle() public {
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(0), 3600, 7200);
+        poolInterface.setWithdrawalChainConfig(84532, address(1), address(1), address(0), 3600, 7200);
     }
 
     function test_setWithdrawalChainConfig_revertsForShortDeadline() public {
-        vm.expectRevert(PoolDiamond.DeadlineTooShort.selector);
+        vm.expectRevert(ShinobiPool.DeadlineTooShort.selector);
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 299, 7200);
+        poolInterface.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 299, 7200);
     }
 
     function test_setWithdrawalChainConfig_revertsForShortExpiry() public {
-        vm.expectRevert(PoolDiamond.DeadlineTooShort.selector);
+        vm.expectRevert(ShinobiPool.DeadlineTooShort.selector);
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 3600, 299);
+        poolInterface.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 3600, 299);
     }
 
     function test_setWithdrawalChainConfig_revertsForExpiryBeforeDeadline() public {
-        vm.expectRevert(PoolDiamond.ExpiryBeforeFillDeadline.selector);
+        vm.expectRevert(ShinobiPool.ExpiryBeforeFillDeadline.selector);
         vm.prank(admin);
-        pool.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 3600, 3600);
+        poolInterface.setWithdrawalChainConfig(84532, address(1), address(1), address(1), 3600, 3600);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -375,39 +375,39 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_updateRoot() public {
         vm.prank(aspPostman);
-        uint256 index = pool.updateRoot(123, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
+        uint256 index = poolInterface.updateRoot(123, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
 
-        assertEq(pool.latestRoot(), 123);
-        (uint256 root, string memory cid, uint256 ts) = pool.associationSets(index);
+        assertEq(poolInterface.latestRoot(), 123);
+        (uint256 root, string memory cid, uint256 ts) = poolInterface.associationSets(index);
         assertEq(root, 123);
         assertEq(cid, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
         assertEq(ts, block.timestamp);
     }
 
     function test_updateRoot_revertsForEmptyRoot() public {
-        vm.expectRevert(PoolDiamond.EmptyRoot.selector);
+        vm.expectRevert(ShinobiPool.EmptyRoot.selector);
         vm.prank(aspPostman);
-        pool.updateRoot(0, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
+        poolInterface.updateRoot(0, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
     }
 
     function test_updateRoot_revertsForEmptyCID() public {
-        vm.expectRevert(PoolDiamond.InvalidIPFSCIDLength.selector);
+        vm.expectRevert(ShinobiPool.InvalidIPFSCIDLength.selector);
         vm.prank(aspPostman);
-        pool.updateRoot(123, "");
+        poolInterface.updateRoot(123, "");
     }
 
     function test_updateRoot_revertsForShortCID() public {
-        vm.expectRevert(PoolDiamond.InvalidIPFSCIDLength.selector);
+        vm.expectRevert(ShinobiPool.InvalidIPFSCIDLength.selector);
         vm.prank(aspPostman);
-        pool.updateRoot(123, "QmShort");
+        poolInterface.updateRoot(123, "QmShort");
     }
 
     function test_updateRoot_revertsForLongCID() public {
         string memory longCid = "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdGExtraCharsHereNow!!";
         assert(bytes(longCid).length > 64);
-        vm.expectRevert(PoolDiamond.InvalidIPFSCIDLength.selector);
+        vm.expectRevert(ShinobiPool.InvalidIPFSCIDLength.selector);
         vm.prank(aspPostman);
-        pool.updateRoot(123, longCid);
+        poolInterface.updateRoot(123, longCid);
     }
 
     function test_updateRoot_revertsForUnauthorized() public {
@@ -417,7 +417,7 @@ contract PoolDiamondTest is DiamondTestBase {
             )
         );
         vm.prank(user);
-        pool.updateRoot(123, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
+        poolInterface.updateRoot(123, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -426,12 +426,12 @@ contract PoolDiamondTest is DiamondTestBase {
 
     function test_windDown() public {
         vm.prank(admin);
-        pool.windDown();
-        assertTrue(pool.dead());
+        poolInterface.windDown();
+        assertTrue(poolInterface.dead());
     }
 
     /*//////////////////////////////////////////////////////////////
-                       DIAMOND UPGRADE
+                       POOL UPGRADE
     //////////////////////////////////////////////////////////////*/
 
     function test_upgradeDiamond_addFacet() public {
@@ -440,22 +440,22 @@ contract PoolDiamondTest is DiamondTestBase {
         address[] memory addFacets = new address[](1);
         addFacets[0] = address(newFacet);
         address[] memory removeFacets = new address[](0);
-        IPoolDiamond.ReplaceAction[] memory replaceFacets = new IPoolDiamond.ReplaceAction[](0);
+        IShinobiPool.ReplaceAction[] memory replaceFacets = new IShinobiPool.ReplaceAction[](0);
 
         vm.prank(admin);
-        pool.upgradeDiamond(addFacets, removeFacets, replaceFacets);
+        poolInterface.upgradeDiamond(addFacets, removeFacets, replaceFacets);
 
-        assertEq(pool.facetAddress(MockExtraFacet.extraFunction.selector), address(newFacet));
-        assertEq(pool.facetAddresses().length, 8);
+        assertEq(poolInterface.facetAddress(MockExtraFacet.extraFunction.selector), address(newFacet));
+        assertEq(poolInterface.facetAddresses().length, 8);
     }
 
     function test_upgradeDiamond_revertsForNonAdmin() public {
         address[] memory empty = new address[](0);
-        IPoolDiamond.ReplaceAction[] memory emptyReplace = new IPoolDiamond.ReplaceAction[](0);
+        IShinobiPool.ReplaceAction[] memory emptyReplace = new IShinobiPool.ReplaceAction[](0);
 
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(user);
-        pool.upgradeDiamond(empty, empty, emptyReplace);
+        poolInterface.upgradeDiamond(empty, empty, emptyReplace);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -465,20 +465,20 @@ contract PoolDiamondTest is DiamondTestBase {
     function test_setVettingFeeRecipient_success() public {
         address newRecipient = makeAddr("newVault");
         vm.prank(admin);
-        pool.setVettingFeeRecipient(newRecipient);
-        assertEq(pool.vettingFeeRecipient(), newRecipient);
+        poolInterface.setVettingFeeRecipient(newRecipient);
+        assertEq(poolInterface.vettingFeeRecipient(), newRecipient);
     }
 
     function test_setVettingFeeRecipient_revertsForZeroAddress() public {
-        vm.expectRevert(PoolDiamond.InvalidAddress.selector);
+        vm.expectRevert(ShinobiPool.InvalidAddress.selector);
         vm.prank(admin);
-        pool.setVettingFeeRecipient(address(0));
+        poolInterface.setVettingFeeRecipient(address(0));
     }
 
     function test_setVettingFeeRecipient_revertsForNonAdmin() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(user);
-        pool.setVettingFeeRecipient(user);
+        poolInterface.setVettingFeeRecipient(user);
     }
 }
 

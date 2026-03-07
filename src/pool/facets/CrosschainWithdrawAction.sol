@@ -2,11 +2,11 @@
 pragma solidity 0.8.28;
 
 import {ICrosschainWithdrawalProofVerifier} from "../../verifiers/interfaces/ICrosschainWithdrawalProofVerifier.sol";
-import {IPoolDiamond} from "../interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../interfaces/IShinobiPool.sol";
 import {CrosschainWithdrawData} from "../libraries/Types.sol";
 import {CrosschainProofLib} from "../../proofLibs/CrosschainProofLib.sol";
 import {IFacet} from "../interfaces/IFacet.sol";
-import {FacetBase} from "./FacetBase.sol";
+import {FacetBase} from "../FacetBase.sol";
 import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 import {IntentOps} from "../libraries/IntentOps.sol";
@@ -14,8 +14,8 @@ import {RefundOps} from "../libraries/RefundOps.sol";
 
 bytes4 constant HANDLE_REFUND_SELECTOR = bytes4(keccak256("handleRefund(uint256,address,uint256,uint256)"));
 
-/// @title CrosschainWithdrawFacet - Cross-chain 1:1 withdrawal with OIF intent + refund handling
-contract CrosschainWithdrawFacet is FacetBase, IFacet {
+/// @title CrosschainWithdrawAction - Cross-chain 1:1 withdrawal with OIF intent + refund handling
+contract CrosschainWithdrawAction is FacetBase, IFacet {
     using CrosschainProofLib for CrosschainProofLib.CrosschainWithdrawProof;
 
     ICrosschainWithdrawalProofVerifier public immutable VERIFIER;

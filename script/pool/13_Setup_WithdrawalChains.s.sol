@@ -6,11 +6,11 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {IPoolDiamond} from "../../src/pool/interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../../src/pool/interfaces/IShinobiPool.sol";
 
 /**
  * @title Setup_WithdrawalChains
- * @notice Configure withdrawal chain(s) on the PoolDiamond for cross-chain withdrawals
+ * @notice Configure withdrawal chain(s) on the ShinobiPool for cross-chain withdrawals
  *
  * Reads origin chain config for fillDeadline/expiry and deployed addresses for
  * outputSettler, outputFillOracle (from origin chain), and inputFillOracle (from pool chain).
@@ -33,10 +33,10 @@ contract Setup_WithdrawalChains is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         // Read pool chain deployments
-        address diamondAddr = DeploymentWriter.readContractAddress(poolKey, "contracts", "poolDiamond");
+        address diamondAddr = DeploymentWriter.readContractAddress(poolKey, "contracts", "shinobiPool");
         address inputFillOracle = DeploymentWriter.readContractAddress(poolKey, "contracts", "hyperlaneOracle");
 
-        require(diamondAddr != address(0), "PoolDiamond not deployed");
+        require(diamondAddr != address(0), "ShinobiPool not deployed");
         require(inputFillOracle != address(0), "Pool chain HyperlaneOracle not deployed");
 
         // Read origin chain deployments
@@ -62,7 +62,7 @@ contract Setup_WithdrawalChains is Script {
         console.log("Expiry:", uint256(originConfig.expiry));
         console.log("");
 
-        IPoolDiamond diamond = IPoolDiamond(diamondAddr);
+        IShinobiPool diamond = IShinobiPool(diamondAddr);
 
         vm.startBroadcast(deployerPrivateKey);
 

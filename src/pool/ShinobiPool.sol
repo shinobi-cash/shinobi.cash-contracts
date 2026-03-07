@@ -3,17 +3,17 @@ pragma solidity 0.8.28;
 
 import {Constants} from "./libraries/Constants.sol";
 import {PoolStorageData, PoolStorageLib, AssociationSetData, WithdrawalChainConfig} from "./storage/PoolStorage.sol";
-import {DiamondStorageData, DiamondStorageLib} from "./storage/DiamondStorage.sol";
+import {RoutingStorageData, RoutingStorageLib} from "./storage/RoutingStorage.sol";
 import {AccessControlStorageData, AccessControlStorageLib} from "./storage/AccessControlStorage.sol";
-import {DiamondOps} from "./libraries/DiamondOps.sol";
+import {RoutingOps} from "./libraries/RoutingOps.sol";
 import {AccessControlOps} from "./libraries/AccessControlOps.sol";
 import {PoolOps} from "./libraries/PoolOps.sol";
-import {FacetBase} from "./facets/FacetBase.sol";
+import {FacetBase} from "./FacetBase.sol";
 import {IShinobiInputSettler} from "../oif/interfaces/IShinobiInputSettler.sol";
 
-/// @title PoolDiamond - ERC-8153 diamond proxy for Shinobi Cash privacy pools
+/// @title ShinobiPool - ERC-8153 diamond proxy for Shinobi Cash privacy pools
 /// @notice Single-address pool with built-in governance, config, and views. Operational facets are delegatecalled via fallback.
-contract PoolDiamond is FacetBase {
+contract ShinobiPool is FacetBase {
     struct InitParams {
         address asset;
         address admin;
@@ -77,7 +77,7 @@ contract PoolDiamond is FacetBase {
 
         // Register all operational facets via ERC-8153 on-chain discovery
         for (uint256 i; i < params.facets.length; ++i) {
-            DiamondOps.addFacet(params.facets[i]);
+            RoutingOps.addFacet(params.facets[i]);
         }
     }
 
@@ -86,7 +86,7 @@ contract PoolDiamond is FacetBase {
     // ── Fallback (facet routing) ──
 
     fallback() external payable {
-        DiamondStorageData storage ds = DiamondStorageLib.layout();
+        RoutingStorageData storage ds = RoutingStorageLib.layout();
         address facet = ds.selectorToFacet[msg.sig];
         if (facet == address(0)) revert FunctionNotFound(msg.sig);
 
@@ -142,13 +142,13 @@ contract PoolDiamond is FacetBase {
         ReplaceAction[] calldata replaceFacets
     ) external onlyAdmin {
         for (uint256 i; i < removeFacets.length; ++i) {
-            DiamondOps.removeFacet(removeFacets[i]);
+            RoutingOps.removeFacet(removeFacets[i]);
         }
         for (uint256 i; i < replaceFacets.length; ++i) {
-            DiamondOps.replaceFacet(replaceFacets[i].oldFacet, replaceFacets[i].newFacet);
+            RoutingOps.replaceFacet(replaceFacets[i].oldFacet, replaceFacets[i].newFacet);
         }
         for (uint256 i; i < addFacets.length; ++i) {
-            DiamondOps.addFacet(addFacets[i]);
+            RoutingOps.addFacet(addFacets[i]);
         }
     }
 
@@ -408,15 +408,15 @@ contract PoolDiamond is FacetBase {
     // ── ERC-8153 Loupe ──
 
     function facetAddress(bytes4 selector) external view returns (address) {
-        return DiamondStorageLib.layout().selectorToFacet[selector];
+        return RoutingStorageLib.layout().selectorToFacet[selector];
     }
 
     function facetAddresses() external view returns (address[] memory) {
-        return DiamondStorageLib.layout().facets;
+        return RoutingStorageLib.layout().facets;
     }
 
     function facetFunctionSelectors(address facet) external view returns (bytes4[] memory) {
-        return DiamondStorageLib.layout().facetSelectors[facet];
+        return RoutingStorageLib.layout().facetSelectors[facet];
     }
 
     // ── Constants ──

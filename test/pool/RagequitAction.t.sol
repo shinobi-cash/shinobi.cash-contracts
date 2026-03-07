@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase} from "./DiamondTestBase.sol";
-import {RagequitFacet} from "../../../src/pool/facets/RagequitFacet.sol";
-import {PoolOps} from "../../../src/pool/libraries/PoolOps.sol";
-import {RagequitProofLib} from "../../../src/proofLibs/RagequitProofLib.sol";
-import {Constants} from "../../../src/pool/libraries/Constants.sol";
+import {PoolTestBase} from "./PoolTestBase.sol";
+import {RagequitAction} from "../../src/pool/facets/RagequitAction.sol";
+import {PoolOps} from "../../src/pool/libraries/PoolOps.sol";
+import {RagequitProofLib} from "../../src/proofLibs/RagequitProofLib.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
 
-contract RagequitFacetTest is DiamondTestBase {
+contract RagequitActionTest is PoolTestBase {
     uint256 public depositCommitment;
     uint256 public depositLabel;
     uint256 public netAmount;
@@ -16,7 +16,7 @@ contract RagequitFacetTest is DiamondTestBase {
         super.setUp();
         // Deposit as user
         vm.prank(user);
-        depositCommitment = pool.deposit{value: DEPOSIT_AMOUNT}(12345);
+        depositCommitment = poolInterface.deposit{value: DEPOSIT_AMOUNT}(12345);
 
         // Compute the label for nonce=1
         depositLabel = _computeLabel(1);
@@ -32,21 +32,21 @@ contract RagequitFacetTest is DiamondTestBase {
         uint256 balanceBefore = user.balance;
 
         vm.prank(user);
-        pool.ragequit(proof);
+        poolInterface.ragequit(proof);
 
         // User receives net amount
         assertEq(user.balance - balanceBefore, netAmount);
         // Nullifier is spent
-        assertTrue(pool.nullifierHashes(111));
+        assertTrue(poolInterface.nullifierHashes(111));
     }
 
     function test_ragequit_revertsForNonDepositor() public {
         RagequitProofLib.RagequitProof memory proof =
             _makeRagequitProof(depositCommitment, 111, netAmount, depositLabel);
 
-        vm.expectRevert(RagequitFacet.OnlyOriginalDepositor.selector);
+        vm.expectRevert(RagequitAction.OnlyOriginalDepositor.selector);
         vm.prank(relayer); // not the original depositor
-        pool.ragequit(proof);
+        poolInterface.ragequit(proof);
     }
 
     function test_ragequit_revertsForInvalidProof() public {
@@ -55,9 +55,9 @@ contract RagequitFacetTest is DiamondTestBase {
         RagequitProofLib.RagequitProof memory proof =
             _makeRagequitProof(depositCommitment, 111, netAmount, depositLabel);
 
-        vm.expectRevert(RagequitFacet.InvalidProof.selector);
+        vm.expectRevert(RagequitAction.InvalidProof.selector);
         vm.prank(user);
-        pool.ragequit(proof);
+        poolInterface.ragequit(proof);
     }
 
     function test_ragequit_revertsForInvalidCommitment() public {
@@ -65,9 +65,9 @@ contract RagequitFacetTest is DiamondTestBase {
         RagequitProofLib.RagequitProof memory proof =
             _makeRagequitProof(999999, 111, netAmount, depositLabel);
 
-        vm.expectRevert(RagequitFacet.InvalidCommitment.selector);
+        vm.expectRevert(RagequitAction.InvalidCommitment.selector);
         vm.prank(user);
-        pool.ragequit(proof);
+        poolInterface.ragequit(proof);
     }
 
     function test_ragequit_revertsForSpentNullifier() public {
@@ -75,7 +75,7 @@ contract RagequitFacetTest is DiamondTestBase {
             _makeRagequitProof(depositCommitment, 111, netAmount, depositLabel);
 
         vm.prank(user);
-        pool.ragequit(proof);
+        poolInterface.ragequit(proof);
 
         // Try to ragequit again with same nullifier
         RagequitProofLib.RagequitProof memory proof2 =
@@ -83,14 +83,14 @@ contract RagequitFacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.NullifierAlreadySpent.selector);
         vm.prank(user);
-        pool.ragequit(proof2);
+        poolInterface.ragequit(proof2);
     }
 
     function test_ragequit_worksWhenPoolIsDead() public {
         // Wind down the pool
         vm.prank(admin);
-        pool.windDown();
-        assertTrue(pool.dead());
+        poolInterface.windDown();
+        assertTrue(poolInterface.dead());
 
         // Ragequit should still work (no whenAlive check)
         RagequitProofLib.RagequitProof memory proof =
@@ -99,7 +99,7 @@ contract RagequitFacetTest is DiamondTestBase {
         uint256 balanceBefore = user.balance;
 
         vm.prank(user);
-        pool.ragequit(proof);
+        poolInterface.ragequit(proof);
 
         assertEq(user.balance - balanceBefore, netAmount);
     }
@@ -108,10 +108,10 @@ contract RagequitFacetTest is DiamondTestBase {
         RagequitProofLib.RagequitProof memory proof =
             _makeRagequitProof(depositCommitment, 111, netAmount, depositLabel);
 
-        vm.expectEmit(true, false, false, true, address(diamond));
-        emit RagequitFacet.Ragequit(user, depositCommitment, depositLabel, netAmount);
+        vm.expectEmit(true, false, false, true, address(pool));
+        emit RagequitAction.Ragequit(user, depositCommitment, depositLabel, netAmount);
 
         vm.prank(user);
-        pool.ragequit(proof);
+        poolInterface.ragequit(proof);
     }
 }

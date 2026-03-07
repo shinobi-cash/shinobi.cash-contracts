@@ -6,18 +6,18 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {IPoolDiamond} from "../../src/pool/interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../../src/pool/interfaces/IShinobiPool.sol";
 
 /**
- * @title Setup_PoolDiamond
- * @notice Configure the PoolDiamond (asset config, fees, settlers)
+ * @title Setup_ShinobiPool
+ * @notice Configure the ShinobiPool (asset config, fees, settlers)
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/11_Setup_PoolDiamond.s.sol:Setup_PoolDiamond --rpc-url arbitrum-sepolia --broadcast
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/11_Setup_ShinobiPool.s.sol:Setup_ShinobiPool --rpc-url arbitrum-sepolia --broadcast
  */
-contract Setup_PoolDiamond is Script {
+contract Setup_ShinobiPool is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -28,16 +28,16 @@ contract Setup_PoolDiamond is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         // Read deployed addresses
-        address diamondAddr = DeploymentWriter.readContractAddress(poolKey, "contracts", "poolDiamond");
+        address diamondAddr = DeploymentWriter.readContractAddress(poolKey, "contracts", "shinobiPool");
         address inputSettler = DeploymentWriter.readContractAddress(poolKey, "contracts", "inputSettler");
         address depositOutputSettler = DeploymentWriter.readContractAddress(poolKey, "contracts", "depositOutputSettler");
 
-        require(diamondAddr != address(0), "PoolDiamond not deployed");
+        require(diamondAddr != address(0), "ShinobiPool not deployed");
         require(inputSettler != address(0), "InputSettler not deployed");
         require(depositOutputSettler != address(0), "DepositOutputSettler not deployed");
 
         console.log("==========================================================");
-        console.log("  Step 11: PoolDiamond Setup");
+        console.log("  Step 11: ShinobiPool Setup");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -46,7 +46,7 @@ contract Setup_PoolDiamond is Script {
         console.log("Diamond:", diamondAddr);
         console.log("");
 
-        IPoolDiamond diamond = IPoolDiamond(diamondAddr);
+        IShinobiPool diamond = IShinobiPool(diamondAddr);
 
         vm.startBroadcast(deployerPrivateKey);
 

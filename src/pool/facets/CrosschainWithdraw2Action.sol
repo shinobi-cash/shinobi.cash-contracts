@@ -2,11 +2,11 @@
 pragma solidity 0.8.28;
 
 import {ICrosschainWithdraw2Verifier} from "../../verifiers/interfaces/ICrosschainWithdraw2Verifier.sol";
-import {IPoolDiamond} from "../interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../interfaces/IShinobiPool.sol";
 import {CrosschainWithdrawData} from "../libraries/Types.sol";
 import {CrosschainWithdraw2ProofLib} from "../../proofLibs/CrosschainWithdraw2ProofLib.sol";
 import {IFacet} from "../interfaces/IFacet.sol";
-import {FacetBase} from "./FacetBase.sol";
+import {FacetBase} from "../FacetBase.sol";
 import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 import {IntentOps} from "../libraries/IntentOps.sol";
@@ -14,8 +14,8 @@ import {RefundOps} from "../libraries/RefundOps.sol";
 
 bytes4 constant HANDLE_REFUND2_SELECTOR = bytes4(keccak256("handleRefund2(uint256,address,uint256,uint256)"));
 
-/// @title CrosschainWithdraw2Facet - Cross-chain 2:1 merge withdrawal with OIF intent
-contract CrosschainWithdraw2Facet is FacetBase, IFacet {
+/// @title CrosschainWithdraw2Action - Cross-chain 2:1 merge withdrawal with OIF intent
+contract CrosschainWithdraw2Action is FacetBase, IFacet {
     using CrosschainWithdraw2ProofLib for CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof;
 
     struct Withdraw2Nullifiers {

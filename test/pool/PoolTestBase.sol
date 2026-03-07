@@ -2,31 +2,31 @@
 pragma solidity 0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
-import {PoolDiamond} from "../../../src/pool/PoolDiamond.sol";
-import {DepositFacet} from "../../../src/pool/facets/DepositFacet.sol";
-import {CrosschainDepositFacet} from "../../../src/pool/facets/CrosschainDepositFacet.sol";
-import {WithdrawFacet} from "../../../src/pool/facets/WithdrawFacet.sol";
-import {RagequitFacet} from "../../../src/pool/facets/RagequitFacet.sol";
-import {CrosschainWithdrawFacet} from "../../../src/pool/facets/CrosschainWithdrawFacet.sol";
-import {Withdraw2Facet} from "../../../src/pool/facets/Withdraw2Facet.sol";
-import {CrosschainWithdraw2Facet} from "../../../src/pool/facets/CrosschainWithdraw2Facet.sol";
-import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
-import {IFacet} from "../../../src/pool/interfaces/IFacet.sol";
-import {AccessControlStorageLib} from "../../../src/pool/storage/AccessControlStorage.sol";
-import {PoolOps} from "../../../src/pool/libraries/PoolOps.sol";
-import {Constants} from "../../../src/pool/libraries/Constants.sol";
-import {IWithdrawalVerifier} from "../../../src/verifiers/interfaces/IWithdrawalVerifier.sol";
-import {IRagequitVerifier} from "../../../src/verifiers/interfaces/IRagequitVerifier.sol";
-import {ICrosschainWithdrawalProofVerifier} from "../../../src/verifiers/interfaces/ICrosschainWithdrawalProofVerifier.sol";
-import {IWithdraw2Verifier} from "../../../src/verifiers/interfaces/IWithdraw2Verifier.sol";
-import {ICrosschainWithdraw2Verifier} from "../../../src/verifiers/interfaces/ICrosschainWithdraw2Verifier.sol";
-import {WithdrawData, CrosschainWithdrawData} from "../../../src/pool/libraries/Types.sol";
-import {WithdrawProofLib} from "../../../src/proofLibs/WithdrawProofLib.sol";
-import {RagequitProofLib} from "../../../src/proofLibs/RagequitProofLib.sol";
-import {CrosschainProofLib} from "../../../src/proofLibs/CrosschainProofLib.sol";
-import {Withdraw2ProofLib} from "../../../src/proofLibs/Withdraw2ProofLib.sol";
-import {CrosschainWithdraw2ProofLib} from "../../../src/proofLibs/CrosschainWithdraw2ProofLib.sol";
-import {ShinobiIntent} from "../../../src/oif/libraries/ShinobiIntentType.sol";
+import {ShinobiPool} from "../../src/pool/ShinobiPool.sol";
+import {DepositAction} from "../../src/pool/facets/DepositAction.sol";
+import {CrosschainDepositAction} from "../../src/pool/facets/CrosschainDepositAction.sol";
+import {WithdrawAction} from "../../src/pool/facets/WithdrawAction.sol";
+import {RagequitAction} from "../../src/pool/facets/RagequitAction.sol";
+import {CrosschainWithdrawAction} from "../../src/pool/facets/CrosschainWithdrawAction.sol";
+import {Withdraw2Action} from "../../src/pool/facets/Withdraw2Action.sol";
+import {CrosschainWithdraw2Action} from "../../src/pool/facets/CrosschainWithdraw2Action.sol";
+import {IShinobiPool} from "../../src/pool/interfaces/IShinobiPool.sol";
+import {IFacet} from "../../src/pool/interfaces/IFacet.sol";
+import {AccessControlStorageLib} from "../../src/pool/storage/AccessControlStorage.sol";
+import {PoolOps} from "../../src/pool/libraries/PoolOps.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
+import {IWithdrawalVerifier} from "../../src/verifiers/interfaces/IWithdrawalVerifier.sol";
+import {IRagequitVerifier} from "../../src/verifiers/interfaces/IRagequitVerifier.sol";
+import {ICrosschainWithdrawalProofVerifier} from "../../src/verifiers/interfaces/ICrosschainWithdrawalProofVerifier.sol";
+import {IWithdraw2Verifier} from "../../src/verifiers/interfaces/IWithdraw2Verifier.sol";
+import {ICrosschainWithdraw2Verifier} from "../../src/verifiers/interfaces/ICrosschainWithdraw2Verifier.sol";
+import {WithdrawData, CrosschainWithdrawData} from "../../src/pool/libraries/Types.sol";
+import {WithdrawProofLib} from "../../src/proofLibs/WithdrawProofLib.sol";
+import {RagequitProofLib} from "../../src/proofLibs/RagequitProofLib.sol";
+import {CrosschainProofLib} from "../../src/proofLibs/CrosschainProofLib.sol";
+import {Withdraw2ProofLib} from "../../src/proofLibs/Withdraw2ProofLib.sol";
+import {CrosschainWithdraw2ProofLib} from "../../src/proofLibs/CrosschainWithdraw2ProofLib.sol";
+import {ShinobiIntent} from "../../src/oif/libraries/ShinobiIntentType.sol";
 
 /*//////////////////////////////////////////////////////////////
                           MOCK CONTRACTS
@@ -131,18 +131,18 @@ contract MockInputSettler {
                           TEST BASE
 //////////////////////////////////////////////////////////////*/
 
-abstract contract DiamondTestBase is Test {
-    // Diamond and facets
-    PoolDiamond public diamond;
-    IPoolDiamond public pool; // Diamond cast to interface
+abstract contract PoolTestBase is Test {
+    // Pool and facets
+    ShinobiPool public pool;
+    IShinobiPool public poolInterface; // Pool cast to interface
 
-    DepositFacet public depositFacet;
-    CrosschainDepositFacet public crosschainDepositFacet;
-    WithdrawFacet public withdrawFacet;
-    RagequitFacet public ragequitFacet;
-    CrosschainWithdrawFacet public crosschainWithdrawFacet;
-    Withdraw2Facet public withdraw2Facet;
-    CrosschainWithdraw2Facet public crosschainWithdraw2Facet;
+    DepositAction public depositFacet;
+    CrosschainDepositAction public crosschainDepositFacet;
+    WithdrawAction public withdrawFacet;
+    RagequitAction public ragequitFacet;
+    CrosschainWithdrawAction public crosschainWithdrawFacet;
+    Withdraw2Action public withdraw2Facet;
+    CrosschainWithdraw2Action public crosschainWithdraw2Facet;
 
     // Mock verifiers
     MockVerifier public withdrawalVerifier;
@@ -179,15 +179,15 @@ abstract contract DiamondTestBase is Test {
         mockSettler = new MockInputSettler();
 
         // Deploy facets
-        depositFacet = new DepositFacet();
-        crosschainDepositFacet = new CrosschainDepositFacet();
-        withdrawFacet = new WithdrawFacet(IWithdrawalVerifier(address(withdrawalVerifier)));
-        ragequitFacet = new RagequitFacet(IRagequitVerifier(address(ragequitVerifier)));
-        crosschainWithdrawFacet = new CrosschainWithdrawFacet(crosschainVerifier);
-        withdraw2Facet = new Withdraw2Facet(withdraw2Verifier);
-        crosschainWithdraw2Facet = new CrosschainWithdraw2Facet(crosschainWithdraw2Verifier);
+        depositFacet = new DepositAction();
+        crosschainDepositFacet = new CrosschainDepositAction();
+        withdrawFacet = new WithdrawAction(IWithdrawalVerifier(address(withdrawalVerifier)));
+        ragequitFacet = new RagequitAction(IRagequitVerifier(address(ragequitVerifier)));
+        crosschainWithdrawFacet = new CrosschainWithdrawAction(crosschainVerifier);
+        withdraw2Facet = new Withdraw2Action(withdraw2Verifier);
+        crosschainWithdraw2Facet = new CrosschainWithdraw2Action(crosschainWithdraw2Verifier);
 
-        // Build facets array (operational facets only — governance/config/views are on the diamond)
+        // Build facets array (operational facets only -- governance/config/views are on the pool)
         address[] memory facets = new address[](7);
         facets[0] = address(depositFacet);
         facets[1] = address(crosschainDepositFacet);
@@ -197,9 +197,9 @@ abstract contract DiamondTestBase is Test {
         facets[5] = address(withdraw2Facet);
         facets[6] = address(crosschainWithdraw2Facet);
 
-        // Deploy diamond
-        diamond = new PoolDiamond(
-            PoolDiamond.InitParams({
+        // Deploy pool
+        pool = new ShinobiPool(
+            ShinobiPool.InitParams({
                 asset: NATIVE_ASSET,
                 admin: admin,
                 aspPostman: aspPostman,
@@ -207,24 +207,24 @@ abstract contract DiamondTestBase is Test {
             })
         );
 
-        pool = IPoolDiamond(address(diamond));
+        poolInterface = IShinobiPool(address(pool));
 
         // Configure asset config
         vm.prank(admin);
-        pool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, MAX_RELAY_FEE_BPS);
+        poolInterface.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, MAX_RELAY_FEE_BPS);
 
         // Configure settlers and fee recipient
-        mockSettler.setEntrypoint(address(diamond));
+        mockSettler.setEntrypoint(address(pool));
         vm.etch(depositSettler, hex"00"); // needs code for contract check
         vm.startPrank(admin);
-        pool.setWithdrawalInputSettler(address(mockSettler));
-        pool.setDepositOutputSettler(depositSettler);
-        pool.setVettingFeeRecipient(makeAddr("vettingFeeVault"));
+        poolInterface.setWithdrawalInputSettler(address(mockSettler));
+        poolInterface.setDepositOutputSettler(depositSettler);
+        poolInterface.setVettingFeeRecipient(makeAddr("vettingFeeVault"));
         vm.stopPrank();
 
         // Set initial ASP root
         vm.prank(aspPostman);
-        pool.updateRoot(42, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
+        poolInterface.updateRoot(42, "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG");
 
         // Fund test accounts
         vm.deal(user, 100 ether);
@@ -239,7 +239,7 @@ abstract contract DiamondTestBase is Test {
 
     function _deposit(address depositor, uint256 amount, uint256 precommitment) internal returns (uint256) {
         vm.prank(depositor);
-        return pool.deposit{value: amount}(precommitment);
+        return poolInterface.deposit{value: amount}(precommitment);
     }
 
     function _makeWithdrawProof(uint256 nullifier, uint256 value, uint256 newCommitment)
@@ -250,15 +250,15 @@ abstract contract DiamondTestBase is Test {
         proof.pubSignals[0] = newCommitment; // newCommitment
         proof.pubSignals[1] = nullifier; // existingNullifierHash
         proof.pubSignals[2] = value; // withdrawnValue
-        proof.pubSignals[3] = pool.currentRoot(); // stateRoot
-        proof.pubSignals[4] = pool.currentTreeDepth(); // stateTreeDepth
-        proof.pubSignals[5] = pool.latestRoot(); // ASPRoot
+        proof.pubSignals[3] = poolInterface.currentRoot(); // stateRoot
+        proof.pubSignals[4] = poolInterface.currentTreeDepth(); // stateTreeDepth
+        proof.pubSignals[5] = poolInterface.latestRoot(); // ASPRoot
         proof.pubSignals[6] = 1; // ASPTreeDepth
         // context will be set by caller
     }
 
     function _computeContext(bytes memory withdrawalData) internal view returns (uint256) {
-        return uint256(keccak256(abi.encode(withdrawalData, pool.SCOPE()))) % Constants.SNARK_SCALAR_FIELD;
+        return uint256(keccak256(abi.encode(withdrawalData, poolInterface.SCOPE()))) % Constants.SNARK_SCALAR_FIELD;
     }
 
     function _makeWithdrawData(address recipient, uint256 relayFeeBPS) internal view returns (WithdrawData memory) {
@@ -282,9 +282,9 @@ abstract contract DiamondTestBase is Test {
         proof.pubSignals[1] = nullifier0;
         proof.pubSignals[2] = nullifier1;
         proof.pubSignals[3] = value;
-        proof.pubSignals[4] = pool.currentRoot();
-        proof.pubSignals[5] = pool.currentTreeDepth();
-        proof.pubSignals[6] = pool.latestRoot();
+        proof.pubSignals[4] = poolInterface.currentRoot();
+        proof.pubSignals[5] = poolInterface.currentTreeDepth();
+        proof.pubSignals[6] = poolInterface.latestRoot();
         proof.pubSignals[7] = 1; // ASPTreeDepth
         // [8] context - set by caller
     }
@@ -297,9 +297,9 @@ abstract contract DiamondTestBase is Test {
 
     function _setupCrosschainConfig() internal {
         vm.startPrank(admin);
-        pool.setMaxSolverFeeBPS(500);
-        pool.setMaxRefundFeeBPS(500);
-        pool.setWithdrawalChainConfig(
+        poolInterface.setMaxSolverFeeBPS(500);
+        poolInterface.setMaxRefundFeeBPS(500);
+        poolInterface.setWithdrawalChainConfig(
             DEST_CHAIN_ID,
             makeAddr("outputSettler"),
             makeAddr("outputOracle"),
@@ -340,9 +340,9 @@ abstract contract DiamondTestBase is Test {
         proof.pubSignals[3] = relayFeeBPS;
         proof.pubSignals[4] = refundFeeBPS;
         proof.pubSignals[5] = value;
-        proof.pubSignals[6] = pool.currentRoot();
-        proof.pubSignals[7] = pool.currentTreeDepth();
-        proof.pubSignals[8] = pool.latestRoot();
+        proof.pubSignals[6] = poolInterface.currentRoot();
+        proof.pubSignals[7] = poolInterface.currentTreeDepth();
+        proof.pubSignals[8] = poolInterface.latestRoot();
         proof.pubSignals[9] = 1; // ASPTreeDepth
         // [10] context - set by caller
     }
@@ -367,9 +367,9 @@ abstract contract DiamondTestBase is Test {
         proof.pubSignals[4] = relayFeeBPS;
         proof.pubSignals[5] = refundFeeBPS;
         proof.pubSignals[6] = value;
-        proof.pubSignals[7] = pool.currentRoot();
-        proof.pubSignals[8] = pool.currentTreeDepth();
-        proof.pubSignals[9] = pool.latestRoot();
+        proof.pubSignals[7] = poolInterface.currentRoot();
+        proof.pubSignals[8] = poolInterface.currentTreeDepth();
+        proof.pubSignals[9] = poolInterface.latestRoot();
         proof.pubSignals[10] = 1; // ASPTreeDepth
         // [11] context - set by caller
     }
@@ -390,7 +390,7 @@ abstract contract DiamondTestBase is Test {
     }
 
     function _computeLabel(uint256 nonceValue) internal view returns (uint256) {
-        return uint256(keccak256(abi.encodePacked(pool.SCOPE(), nonceValue))) % Constants.SNARK_SCALAR_FIELD;
+        return uint256(keccak256(abi.encodePacked(poolInterface.SCOPE(), nonceValue))) % Constants.SNARK_SCALAR_FIELD;
     }
 
     function _buildFacets() internal view returns (address[] memory facets) {

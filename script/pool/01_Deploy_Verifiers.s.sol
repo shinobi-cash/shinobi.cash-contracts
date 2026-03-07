@@ -138,6 +138,6 @@ contract Deploy_Verifiers is Script {
         console.log("  VERIFIERS COMPLETE");
         console.log("==========================================================");
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script 02_Deploy_DepositFacet.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 02_Deploy_Deposit.s.sol ...", poolKey);
     }
 }

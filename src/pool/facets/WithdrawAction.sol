@@ -5,12 +5,12 @@ import {IWithdrawalVerifier} from "../../verifiers/interfaces/IWithdrawalVerifie
 import {WithdrawData} from "../libraries/Types.sol";
 import {WithdrawProofLib} from "../../proofLibs/WithdrawProofLib.sol";
 import {IFacet} from "../interfaces/IFacet.sol";
-import {FacetBase} from "./FacetBase.sol";
+import {FacetBase} from "../FacetBase.sol";
 import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 
-/// @title WithdrawFacet - Same-chain 1:1 withdrawal
-contract WithdrawFacet is FacetBase, IFacet {
+/// @title WithdrawAction - Same-chain 1:1 withdrawal
+contract WithdrawAction is FacetBase, IFacet {
     using WithdrawProofLib for WithdrawProofLib.WithdrawProof;
 
     IWithdrawalVerifier public immutable WITHDRAWAL_VERIFIER;

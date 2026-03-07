@@ -6,18 +6,18 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 import {TimelockController} from "@oz/governance/TimelockController.sol";
-import {IPoolDiamond} from "../../src/pool/interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../../src/pool/interfaces/IShinobiPool.sol";
 
 /**
  * @title Deploy_Timelock
- * @notice Deploy TimelockController and transfer PoolDiamond admin to it
+ * @notice Deploy TimelockController and transfer ShinobiPool admin to it
  *
- * Input:  deployments/{POOL_KEY}.json (needs poolDiamond address)
+ * Input:  deployments/{POOL_KEY}.json (needs shinobiPool address)
  * Output: deployments/{POOL_KEY}.json (writes timelock address)
  *
  * Env:
  *   POOL_KEY              - Pool config key (e.g., "arbitrum-sepolia")
- *   PRIVATE_KEY           - Deployer private key (must be current PoolDiamond admin)
+ *   PRIVATE_KEY           - Deployer private key (must be current ShinobiPool admin)
  *   TIMELOCK_DELAY        - Delay in seconds (default: 48 hours)
  *   TIMELOCK_PROPOSER     - Proposer address (default: deployer)
  *   TIMELOCK_EXECUTOR     - Executor address (default: deployer)
@@ -35,9 +35,9 @@ contract Deploy_Timelock is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
-        address diamondAddr = DeploymentWriter.readContractAddress(poolKey, "contracts", "poolDiamond");
-        require(diamondAddr != address(0), "PoolDiamond not deployed");
-        require(IPoolDiamond(diamondAddr).admin() == deployer, "Deployer is not current admin");
+        address diamondAddr = DeploymentWriter.readContractAddress(poolKey, "contracts", "shinobiPool");
+        require(diamondAddr != address(0), "ShinobiPool not deployed");
+        require(IShinobiPool(diamondAddr).admin() == deployer, "Deployer is not current admin");
 
         uint256 minDelay = vm.envOr("TIMELOCK_DELAY", uint256(48 hours));
         address proposer = vm.envOr("TIMELOCK_PROPOSER", deployer);
@@ -54,7 +54,7 @@ contract Deploy_Timelock is Script {
         vm.stopBroadcast();
 
         DeploymentWriter.writeContract(poolKey, "timelock", address(timelock), blockBefore);
-        _verify(IPoolDiamond(diamondAddr), timelock, minDelay, deployer);
+        _verify(IShinobiPool(diamondAddr), timelock, minDelay, deployer);
     }
 
     function _deployTimelock(address proposer, address executorAddr, address bootstrapAdmin)
@@ -77,16 +77,16 @@ contract Deploy_Timelock is Script {
         uint256 minDelay,
         address deployer
     ) internal {
-        // Transfer PoolDiamond admin to timelock
-        IPoolDiamond(diamondAddr).transferAdmin(address(timelock));
+        // Transfer ShinobiPool admin to timelock
+        IShinobiPool(diamondAddr).transferAdmin(address(timelock));
         console.log("2. transferAdmin called (pending: timelock)");
 
         // Timelock accepts admin (delay=0, so immediate)
-        bytes memory acceptData = abi.encodeCall(IPoolDiamond.acceptAdmin, ());
+        bytes memory acceptData = abi.encodeCall(IShinobiPool.acceptAdmin, ());
         bytes32 salt1 = keccak256("bootstrap-accept-admin");
         timelock.schedule(diamondAddr, 0, acceptData, bytes32(0), salt1, 0);
         timelock.execute(diamondAddr, 0, acceptData, bytes32(0), salt1);
-        console.log("3. Timelock accepted admin of PoolDiamond");
+        console.log("3. Timelock accepted admin of ShinobiPool");
 
         // Set the actual delay via self-call (delay=0, so immediate)
         bytes memory delayData = abi.encodeCall(TimelockController.updateDelay, (minDelay));
@@ -102,7 +102,7 @@ contract Deploy_Timelock is Script {
     }
 
     function _verify(
-        IPoolDiamond diamond,
+        IShinobiPool diamond,
         TimelockController timelock,
         uint256 minDelay,
         address deployer
@@ -115,7 +115,7 @@ contract Deploy_Timelock is Script {
         console.log("==========================================================");
         console.log("  TIMELOCK SETUP COMPLETE");
         console.log("==========================================================");
-        console.log("PoolDiamond admin:", address(timelock));
+        console.log("ShinobiPool admin:", address(timelock));
         console.log("All admin calls require", minDelay, "second delay");
     }
 

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase} from "./DiamondTestBase.sol";
-import {WithdrawFacet} from "../../../src/pool/facets/WithdrawFacet.sol";
-import {PoolOps} from "../../../src/pool/libraries/PoolOps.sol";
-import {WithdrawData} from "../../../src/pool/libraries/Types.sol";
-import {WithdrawProofLib} from "../../../src/proofLibs/WithdrawProofLib.sol";
-import {Constants} from "../../../src/pool/libraries/Constants.sol";
+import {PoolTestBase} from "./PoolTestBase.sol";
+import {WithdrawAction} from "../../src/pool/facets/WithdrawAction.sol";
+import {PoolOps} from "../../src/pool/libraries/PoolOps.sol";
+import {WithdrawData} from "../../src/pool/libraries/Types.sol";
+import {WithdrawProofLib} from "../../src/proofLibs/WithdrawProofLib.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
 
-contract WithdrawFacetTest is DiamondTestBase {
+contract WithdrawActionTest is PoolTestBase {
     function setUp() public override {
         super.setUp();
         // Make a deposit so there's something to withdraw
@@ -29,14 +29,14 @@ contract WithdrawFacetTest is DiamondTestBase {
         WithdrawProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, withdrawValue, 222);
         proof.pubSignals[7] = _computeContext(abi.encode(data)); // context
 
-        // Fund diamond to cover withdrawal
-        vm.deal(address(diamond), 10 ether);
+        // Fund pool to cover withdrawal
+        vm.deal(address(pool), 10 ether);
 
         uint256 recipientBefore = recipient.balance;
         uint256 feeBefore = feeRecipient.balance;
 
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
 
         // Verify recipient received amount minus fee
         uint256 fee = withdrawValue * relayFeeBPS / 10_000;
@@ -44,7 +44,7 @@ contract WithdrawFacetTest is DiamondTestBase {
         assertEq(feeRecipient.balance - feeBefore, fee);
 
         // Verify nullifier is spent
-        assertTrue(pool.nullifierHashes(111));
+        assertTrue(poolInterface.nullifierHashes(111));
     }
 
     function test_withdraw_revertsForZeroValue() public {
@@ -53,7 +53,7 @@ contract WithdrawFacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.InvalidWithdrawalAmount.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_revertsForInvalidProof() public {
@@ -63,9 +63,9 @@ contract WithdrawFacetTest is DiamondTestBase {
         WithdrawProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
         proof.pubSignals[7] = _computeContext(abi.encode(data));
 
-        vm.expectRevert(WithdrawFacet.InvalidProof.selector);
+        vm.expectRevert(WithdrawAction.InvalidProof.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_revertsForSpentNullifier() public {
@@ -73,9 +73,9 @@ contract WithdrawFacetTest is DiamondTestBase {
         WithdrawProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
         proof.pubSignals[7] = _computeContext(abi.encode(data));
 
-        vm.deal(address(diamond), 10 ether);
+        vm.deal(address(pool), 10 ether);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
 
         // Try to spend same nullifier again
         WithdrawProofLib.WithdrawProof memory proof2 = _makeWithdrawProof(111, 0.5 ether, 333);
@@ -83,7 +83,7 @@ contract WithdrawFacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.NullifierAlreadySpent.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof2);
+        poolInterface.withdraw(data, proof2);
     }
 
     function test_withdraw_revertsForExcessiveRelayFee() public {
@@ -91,9 +91,9 @@ contract WithdrawFacetTest is DiamondTestBase {
         WithdrawProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
         proof.pubSignals[7] = _computeContext(abi.encode(data));
 
-        vm.expectRevert(WithdrawFacet.RelayFeeGreaterThanMax.selector);
+        vm.expectRevert(WithdrawAction.RelayFeeGreaterThanMax.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_revertsForContextMismatch() public {
@@ -103,7 +103,7 @@ contract WithdrawFacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.ContextMismatch.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_revertsForUnknownStateRoot() public {
@@ -114,7 +114,7 @@ contract WithdrawFacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.UnknownStateRoot.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_revertsForIncorrectASPRoot() public {
@@ -125,7 +125,7 @@ contract WithdrawFacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.IncorrectASPRoot.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_revertsForInvalidTreeDepth() public {
@@ -136,7 +136,7 @@ contract WithdrawFacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.InvalidTreeDepth.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_revertsForZeroRelayFee() public {
@@ -146,43 +146,43 @@ contract WithdrawFacetTest is DiamondTestBase {
         WithdrawProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
         proof.pubSignals[7] = _computeContext(abi.encode(data));
 
-        vm.deal(address(diamond), 10 ether);
+        vm.deal(address(pool), 10 ether);
 
-        vm.expectRevert(WithdrawFacet.RelayFeeBPSZero.selector);
+        vm.expectRevert(WithdrawAction.RelayFeeBPSZero.selector);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
     }
 
     function test_withdraw_insertsNewCommitment() public {
-        uint256 treeSizeBefore = pool.currentTreeSize();
+        uint256 treeSizeBefore = poolInterface.currentTreeSize();
 
         WithdrawData memory data = _makeWithdrawData(user, 100);
         WithdrawProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
         proof.pubSignals[7] = _computeContext(abi.encode(data));
 
-        vm.deal(address(diamond), 10 ether);
+        vm.deal(address(pool), 10 ether);
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
 
         // New commitment (change) should be in tree
-        assertEq(pool.currentTreeSize(), treeSizeBefore + 1);
+        assertEq(poolInterface.currentTreeSize(), treeSizeBefore + 1);
     }
 
     function test_withdraw_worksWhenPoolIsDead() public {
         vm.prank(admin);
-        pool.windDown();
-        assertTrue(pool.dead());
+        poolInterface.windDown();
+        assertTrue(poolInterface.dead());
 
         address recipient = makeAddr("recipient");
         WithdrawData memory data = _makeWithdrawData(recipient, 100);
         WithdrawProofLib.WithdrawProof memory proof = _makeWithdrawProof(111, 0.5 ether, 222);
         proof.pubSignals[7] = _computeContext(abi.encode(data));
 
-        vm.deal(address(diamond), 10 ether);
+        vm.deal(address(pool), 10 ether);
         uint256 recipientBefore = recipient.balance;
 
         vm.prank(relayer);
-        pool.withdraw(data, proof);
+        poolInterface.withdraw(data, proof);
 
         uint256 fee = 0.5 ether * 100 / 10_000;
         assertEq(recipient.balance - recipientBefore, 0.5 ether - fee);

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondStorageData, DiamondStorageLib} from "../storage/DiamondStorage.sol";
+import {RoutingStorageData, RoutingStorageLib} from "../storage/RoutingStorage.sol";
 import {IFacet} from "../interfaces/IFacet.sol";
 
-library DiamondOps {
+library RoutingOps {
     event FacetAdded(address indexed facet);
     event FacetReplaced(address indexed oldFacet, address indexed newFacet);
     event FacetRemoved(address indexed facet);
@@ -20,7 +20,7 @@ library DiamondOps {
     function addFacet(address facet) internal {
         if (facet == address(0) || facet.code.length == 0) revert InvalidFacetAddress();
 
-        DiamondStorageData storage ds = DiamondStorageLib.layout();
+        RoutingStorageData storage ds = RoutingStorageLib.layout();
 
         // Call exportSelectors() directly on the facet contract
         bytes memory selectors = IFacet(facet).exportSelectors();
@@ -51,7 +51,7 @@ library DiamondOps {
             revert InvalidFacetAddress();
         }
 
-        DiamondStorageData storage ds = DiamondStorageLib.layout();
+        RoutingStorageData storage ds = RoutingStorageLib.layout();
 
         // Remove old selectors
         bytes4[] storage oldSelectors = ds.facetSelectors[oldFacet];
@@ -97,7 +97,7 @@ library DiamondOps {
     function removeFacet(address facet) internal {
         if (facet == address(0)) revert InvalidFacetAddress();
 
-        DiamondStorageData storage ds = DiamondStorageLib.layout();
+        RoutingStorageData storage ds = RoutingStorageLib.layout();
 
         bytes4[] storage selectors = ds.facetSelectors[facet];
         uint256 count = selectors.length;

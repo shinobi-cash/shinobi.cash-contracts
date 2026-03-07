@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase, MockInputSettler} from "./DiamondTestBase.sol";
+import {PoolTestBase, MockInputSettler} from "./PoolTestBase.sol";
 import {TimelockController} from "@oz/governance/TimelockController.sol";
-import {IPoolDiamond} from "../../../src/pool/interfaces/IPoolDiamond.sol";
-import {IFacet} from "../../../src/pool/interfaces/IFacet.sol";
-import {AccessControlOps} from "../../../src/pool/libraries/AccessControlOps.sol";
-import {AccessControlStorageLib} from "../../../src/pool/storage/AccessControlStorage.sol";
+import {IShinobiPool} from "../../src/pool/interfaces/IShinobiPool.sol";
+import {IFacet} from "../../src/pool/interfaces/IFacet.sol";
+import {AccessControlOps} from "../../src/pool/libraries/AccessControlOps.sol";
+import {AccessControlStorageLib} from "../../src/pool/storage/AccessControlStorage.sol";
 
-contract TimelockTest is DiamondTestBase {
+contract TimelockTest is PoolTestBase {
     TimelockController public timelock;
 
     address public proposer = makeAddr("proposer");
@@ -32,15 +32,15 @@ contract TimelockTest is DiamondTestBase {
 
         // Transfer admin to timelock
         vm.prank(admin);
-        pool.transferAdmin(address(timelock));
+        poolInterface.transferAdmin(address(timelock));
 
         // Accept admin via timelock (delay=0)
-        bytes memory acceptData = abi.encodeCall(IPoolDiamond.acceptAdmin, ());
+        bytes memory acceptData = abi.encodeCall(IShinobiPool.acceptAdmin, ());
         bytes32 salt1 = keccak256("bootstrap-accept");
         vm.prank(proposer);
-        timelock.schedule(address(diamond), 0, acceptData, bytes32(0), salt1, 0);
+        timelock.schedule(address(pool), 0, acceptData, bytes32(0), salt1, 0);
         vm.prank(executor);
-        timelock.execute(address(diamond), 0, acceptData, bytes32(0), salt1);
+        timelock.execute(address(pool), 0, acceptData, bytes32(0), salt1);
 
         // Set real delay
         bytes memory delayData = abi.encodeCall(TimelockController.updateDelay, (TIMELOCK_DELAY));
@@ -73,7 +73,7 @@ contract TimelockTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_setup_timelockIsAdmin() public view {
-        assertEq(pool.admin(), address(timelock));
+        assertEq(poolInterface.admin(), address(timelock));
     }
 
     function test_setup_delayIsSet() public view {
@@ -83,7 +83,7 @@ contract TimelockTest is DiamondTestBase {
     function test_setup_oldAdminCannotCall() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(admin);
-        pool.setMaxSolverFeeBPS(100);
+        poolInterface.setMaxSolverFeeBPS(100);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -93,28 +93,28 @@ contract TimelockTest is DiamondTestBase {
     function test_directCall_setAssetConfig_reverts() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(proposer);
-        pool.setAssetConfig(0.1 ether, 200, 1000);
+        poolInterface.setAssetConfig(0.1 ether, 200, 1000);
     }
 
     function test_directCall_upgradeDiamond_reverts() public {
         address[] memory empty = new address[](0);
-        IPoolDiamond.ReplaceAction[] memory emptyReplace = new IPoolDiamond.ReplaceAction[](0);
+        IShinobiPool.ReplaceAction[] memory emptyReplace = new IShinobiPool.ReplaceAction[](0);
 
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(proposer);
-        pool.upgradeDiamond(empty, empty, emptyReplace);
+        poolInterface.upgradeDiamond(empty, empty, emptyReplace);
     }
 
     function test_directCall_setWithdrawalInputSettler_reverts() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(proposer);
-        pool.setWithdrawalInputSettler(makeAddr("settler"));
+        poolInterface.setWithdrawalInputSettler(makeAddr("settler"));
     }
 
     function test_directCall_windDown_reverts() public {
         vm.expectRevert(AccessControlOps.OnlyAdmin.selector);
         vm.prank(proposer);
-        pool.windDown();
+        poolInterface.windDown();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -122,53 +122,53 @@ contract TimelockTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_timelocked_setAssetConfig() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.setAssetConfig, (0.1 ether, 200, 1000));
-        _scheduleAndExecute(address(diamond), data, keccak256("set-asset"));
+        bytes memory data = abi.encodeCall(IShinobiPool.setAssetConfig, (0.1 ether, 200, 1000));
+        _scheduleAndExecute(address(pool), data, keccak256("set-asset"));
 
-        (uint256 minDep, uint256 vetting, uint256 maxRelay) = pool.assetConfig();
+        (uint256 minDep, uint256 vetting, uint256 maxRelay) = poolInterface.assetConfig();
         assertEq(minDep, 0.1 ether);
         assertEq(vetting, 200);
         assertEq(maxRelay, 1000);
     }
 
     function test_timelocked_setMaxSolverFeeBPS() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.setMaxSolverFeeBPS, (300));
-        _scheduleAndExecute(address(diamond), data, keccak256("solver-fee"));
+        bytes memory data = abi.encodeCall(IShinobiPool.setMaxSolverFeeBPS, (300));
+        _scheduleAndExecute(address(pool), data, keccak256("solver-fee"));
 
-        assertEq(pool.maxSolverFeeBPS(), 300);
+        assertEq(poolInterface.maxSolverFeeBPS(), 300);
     }
 
     function test_timelocked_setMaxRefundFeeBPS() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.setMaxRefundFeeBPS, (300));
-        _scheduleAndExecute(address(diamond), data, keccak256("refund-fee"));
+        bytes memory data = abi.encodeCall(IShinobiPool.setMaxRefundFeeBPS, (300));
+        _scheduleAndExecute(address(pool), data, keccak256("refund-fee"));
 
-        assertEq(pool.maxRefundFeeBPS(), 300);
+        assertEq(poolInterface.maxRefundFeeBPS(), 300);
     }
 
     function test_timelocked_setWithdrawalInputSettler() public {
         MockInputSettler newSettler = new MockInputSettler();
-        newSettler.setEntrypoint(address(diamond));
-        bytes memory data = abi.encodeCall(IPoolDiamond.setWithdrawalInputSettler, (address(newSettler)));
-        _scheduleAndExecute(address(diamond), data, keccak256("w-settler"));
+        newSettler.setEntrypoint(address(pool));
+        bytes memory data = abi.encodeCall(IShinobiPool.setWithdrawalInputSettler, (address(newSettler)));
+        _scheduleAndExecute(address(pool), data, keccak256("w-settler"));
 
-        assertEq(pool.withdrawalInputSettler(), address(newSettler));
+        assertEq(poolInterface.withdrawalInputSettler(), address(newSettler));
     }
 
     function test_timelocked_setDepositOutputSettler() public {
         address newSettler = makeAddr("newSettler");
         vm.etch(newSettler, hex"00");
-        bytes memory data = abi.encodeCall(IPoolDiamond.setDepositOutputSettler, (address(newSettler)));
-        _scheduleAndExecute(address(diamond), data, keccak256("d-settler"));
+        bytes memory data = abi.encodeCall(IShinobiPool.setDepositOutputSettler, (address(newSettler)));
+        _scheduleAndExecute(address(pool), data, keccak256("d-settler"));
 
-        assertEq(pool.depositOutputSettler(), address(newSettler));
+        assertEq(poolInterface.depositOutputSettler(), address(newSettler));
     }
 
     function test_timelocked_setVettingFeeRecipient() public {
         address newRecipient = makeAddr("newVault");
-        bytes memory data = abi.encodeCall(IPoolDiamond.setVettingFeeRecipient, (newRecipient));
-        _scheduleAndExecute(address(diamond), data, keccak256("vetting"));
+        bytes memory data = abi.encodeCall(IShinobiPool.setVettingFeeRecipient, (newRecipient));
+        _scheduleAndExecute(address(pool), data, keccak256("vetting"));
 
-        assertEq(pool.vettingFeeRecipient(), newRecipient);
+        assertEq(poolInterface.vettingFeeRecipient(), newRecipient);
     }
 
     function test_timelocked_setWithdrawalChainConfig() public {
@@ -176,11 +176,11 @@ contract TimelockTest is DiamondTestBase {
         address oo = makeAddr("oo");
         address fo = makeAddr("fo");
         bytes memory data = abi.encodeCall(
-            IPoolDiamond.setWithdrawalChainConfig, (84532, os, oo, fo, 3600, 7200)
+            IShinobiPool.setWithdrawalChainConfig, (84532, os, oo, fo, 3600, 7200)
         );
-        _scheduleAndExecute(address(diamond), data, keccak256("chain-cfg"));
+        _scheduleAndExecute(address(pool), data, keccak256("chain-cfg"));
 
-        (bool isConfigured,,,,,) = pool.withdrawalChainConfig(84532);
+        (bool isConfigured,,,,,) = poolInterface.withdrawalChainConfig(84532);
         assertTrue(isConfigured);
     }
 
@@ -189,50 +189,50 @@ contract TimelockTest is DiamondTestBase {
         address[] memory addFacets = new address[](1);
         addFacets[0] = address(newFacet);
         address[] memory removeFacets = new address[](0);
-        IPoolDiamond.ReplaceAction[] memory replaceFacets = new IPoolDiamond.ReplaceAction[](0);
+        IShinobiPool.ReplaceAction[] memory replaceFacets = new IShinobiPool.ReplaceAction[](0);
 
-        bytes memory data = abi.encodeCall(IPoolDiamond.upgradeDiamond, (addFacets, removeFacets, replaceFacets));
-        _scheduleAndExecute(address(diamond), data, keccak256("upgrade"));
+        bytes memory data = abi.encodeCall(IShinobiPool.upgradeDiamond, (addFacets, removeFacets, replaceFacets));
+        _scheduleAndExecute(address(pool), data, keccak256("upgrade"));
 
-        assertEq(pool.facetAddresses().length, 8);
+        assertEq(poolInterface.facetAddresses().length, 8);
     }
 
     function test_timelocked_windDown() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.windDown, ());
-        _scheduleAndExecute(address(diamond), data, keccak256("winddown"));
+        bytes memory data = abi.encodeCall(IShinobiPool.windDown, ());
+        _scheduleAndExecute(address(pool), data, keccak256("winddown"));
 
-        assertTrue(pool.dead());
+        assertTrue(poolInterface.dead());
     }
 
     function test_timelocked_grantRole() public {
         address newPostman = makeAddr("newPostman");
         bytes memory data = abi.encodeCall(
-            IPoolDiamond.grantRole, (AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman)
+            IShinobiPool.grantRole, (AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman)
         );
-        _scheduleAndExecute(address(diamond), data, keccak256("grant"));
+        _scheduleAndExecute(address(pool), data, keccak256("grant"));
 
-        assertTrue(pool.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman));
+        assertTrue(poolInterface.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, newPostman));
     }
 
     function test_timelocked_revokeRole() public {
         bytes memory data = abi.encodeCall(
-            IPoolDiamond.revokeRole, (AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman)
+            IShinobiPool.revokeRole, (AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman)
         );
-        _scheduleAndExecute(address(diamond), data, keccak256("revoke"));
+        _scheduleAndExecute(address(pool), data, keccak256("revoke"));
 
-        assertFalse(pool.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman));
+        assertFalse(poolInterface.hasRole(AccessControlStorageLib.ASP_POSTMAN_ROLE, aspPostman));
     }
 
     function test_timelocked_transferAdmin() public {
         address newAdmin = makeAddr("newAdmin");
-        bytes memory data = abi.encodeCall(IPoolDiamond.transferAdmin, (newAdmin));
-        _scheduleAndExecute(address(diamond), data, keccak256("transfer"));
+        bytes memory data = abi.encodeCall(IShinobiPool.transferAdmin, (newAdmin));
+        _scheduleAndExecute(address(pool), data, keccak256("transfer"));
 
-        assertEq(pool.pendingAdmin(), newAdmin);
+        assertEq(poolInterface.pendingAdmin(), newAdmin);
 
         vm.prank(newAdmin);
-        pool.acceptAdmin();
-        assertEq(pool.admin(), newAdmin);
+        poolInterface.acceptAdmin();
+        assertEq(poolInterface.admin(), newAdmin);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -240,16 +240,16 @@ contract TimelockTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_earlyExecution_reverts() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.setMaxSolverFeeBPS, (300));
+        bytes memory data = abi.encodeCall(IShinobiPool.setMaxSolverFeeBPS, (300));
         bytes32 salt = keccak256("early");
 
         vm.prank(proposer);
-        timelock.schedule(address(diamond), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
+        timelock.schedule(address(pool), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
 
         // Try executing before delay
         vm.prank(executor);
         vm.expectRevert();
-        timelock.execute(address(diamond), 0, data, bytes32(0), salt);
+        timelock.execute(address(pool), 0, data, bytes32(0), salt);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -257,12 +257,12 @@ contract TimelockTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_cancel_preventsExecution() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.setMaxSolverFeeBPS, (999));
+        bytes memory data = abi.encodeCall(IShinobiPool.setMaxSolverFeeBPS, (999));
         bytes32 salt = keccak256("cancel-test");
-        bytes32 opId = timelock.hashOperation(address(diamond), 0, data, bytes32(0), salt);
+        bytes32 opId = timelock.hashOperation(address(pool), 0, data, bytes32(0), salt);
 
         vm.prank(proposer);
-        timelock.schedule(address(diamond), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
+        timelock.schedule(address(pool), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
         assertTrue(timelock.isOperationPending(opId));
 
         // Cancel (proposer has CANCELLER_ROLE by default)
@@ -274,7 +274,7 @@ contract TimelockTest is DiamondTestBase {
         vm.warp(block.timestamp + TIMELOCK_DELAY);
         vm.prank(executor);
         vm.expectRevert();
-        timelock.execute(address(diamond), 0, data, bytes32(0), salt);
+        timelock.execute(address(pool), 0, data, bytes32(0), salt);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -283,14 +283,14 @@ contract TimelockTest is DiamondTestBase {
 
     function test_timelocked_batchOperation() public {
         address[] memory targets = new address[](2);
-        targets[0] = address(diamond);
-        targets[1] = address(diamond);
+        targets[0] = address(pool);
+        targets[1] = address(pool);
 
         uint256[] memory values = new uint256[](2);
 
         bytes[] memory payloads = new bytes[](2);
-        payloads[0] = abi.encodeCall(IPoolDiamond.setMaxSolverFeeBPS, (400));
-        payloads[1] = abi.encodeCall(IPoolDiamond.setMaxRefundFeeBPS, (400));
+        payloads[0] = abi.encodeCall(IShinobiPool.setMaxSolverFeeBPS, (400));
+        payloads[1] = abi.encodeCall(IShinobiPool.setMaxRefundFeeBPS, (400));
 
         bytes32 salt = keccak256("batch");
 
@@ -302,8 +302,8 @@ contract TimelockTest is DiamondTestBase {
         vm.prank(executor);
         timelock.executeBatch(targets, values, payloads, bytes32(0), salt);
 
-        assertEq(pool.maxSolverFeeBPS(), 400);
-        assertEq(pool.maxRefundFeeBPS(), 400);
+        assertEq(poolInterface.maxSolverFeeBPS(), 400);
+        assertEq(poolInterface.maxRefundFeeBPS(), 400);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -311,25 +311,25 @@ contract TimelockTest is DiamondTestBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_schedule_revertsForNonProposer() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.setMaxSolverFeeBPS, (100));
+        bytes memory data = abi.encodeCall(IShinobiPool.setMaxSolverFeeBPS, (100));
         bytes32 salt = keccak256("unauth-sched");
 
         vm.expectRevert();
         vm.prank(user);
-        timelock.schedule(address(diamond), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
+        timelock.schedule(address(pool), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
     }
 
     function test_execute_revertsForNonExecutor() public {
-        bytes memory data = abi.encodeCall(IPoolDiamond.setMaxSolverFeeBPS, (100));
+        bytes memory data = abi.encodeCall(IShinobiPool.setMaxSolverFeeBPS, (100));
         bytes32 salt = keccak256("unauth-exec");
 
         vm.prank(proposer);
-        timelock.schedule(address(diamond), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
+        timelock.schedule(address(pool), 0, data, bytes32(0), salt, TIMELOCK_DELAY);
         vm.warp(block.timestamp + TIMELOCK_DELAY);
 
         vm.expectRevert();
         vm.prank(user);
-        timelock.execute(address(diamond), 0, data, bytes32(0), salt);
+        timelock.execute(address(pool), 0, data, bytes32(0), salt);
     }
 }
 

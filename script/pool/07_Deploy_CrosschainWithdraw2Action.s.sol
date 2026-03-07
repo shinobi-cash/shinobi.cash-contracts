@@ -6,20 +6,20 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {CrosschainWithdraw2Facet} from "../../src/pool/facets/CrosschainWithdraw2Facet.sol";
+import {CrosschainWithdraw2Action} from "../../src/pool/facets/CrosschainWithdraw2Action.sol";
 import {ICrosschainWithdraw2Verifier} from "../../src/verifiers/interfaces/ICrosschainWithdraw2Verifier.sol";
 
 /**
- * @title Deploy_CrosschainWithdraw2Facet
- * @notice Deploy CrosschainWithdraw2Facet (requires CrosschainWithdraw2Verifier)
+ * @title Deploy_CrosschainWithdraw2Action
+ * @notice Deploy CrosschainWithdraw2Action (requires CrosschainWithdraw2Verifier)
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (verifiers)
- * Output: deployments/{POOL_KEY}.json (diamondCrosschainWithdraw2Facet)
+ * Output: deployments/{POOL_KEY}.json (crosschainWithdraw2)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/07_Deploy_CrosschainWithdraw2Facet.s.sol:Deploy_CrosschainWithdraw2Facet --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/07_Deploy_CrosschainWithdraw2Action.s.sol:Deploy_CrosschainWithdraw2Action --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract Deploy_CrosschainWithdraw2Facet is Script {
+contract Deploy_CrosschainWithdraw2Action is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -30,7 +30,7 @@ contract Deploy_CrosschainWithdraw2Facet is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  Step 7: CrosschainWithdraw2Facet");
+        console.log("  Step 7: CrosschainWithdraw2Action");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -38,9 +38,9 @@ contract Deploy_CrosschainWithdraw2Facet is Script {
         console.log("Deployer:", deployer);
         console.log("");
 
-        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondCrosschainWithdraw2Facet");
+        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "crosschainWithdraw2");
         if (existing != address(0) && existing.code.length > 0) {
-            console.log("CrosschainWithdraw2Facet already deployed:", existing);
+            console.log("CrosschainWithdraw2Action already deployed:", existing);
             return;
         }
 
@@ -53,12 +53,12 @@ contract Deploy_CrosschainWithdraw2Facet is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         uint256 blockBefore = block.number;
-        address addr = address(new CrosschainWithdraw2Facet(ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)));
-        DeploymentWriter.writeContract(poolKey, "diamondCrosschainWithdraw2Facet", addr, blockBefore);
+        address addr = address(new CrosschainWithdraw2Action(ICrosschainWithdraw2Verifier(crosschainWithdraw2Verifier)));
+        DeploymentWriter.writeContract(poolKey, "crosschainWithdraw2", addr, blockBefore);
         vm.stopBroadcast();
 
-        console.log("CrosschainWithdraw2Facet deployed:", addr);
+        console.log("CrosschainWithdraw2Action deployed:", addr);
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script 08_Deploy_RagequitFacet.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 08_Deploy_RagequitAction.s.sol ...", poolKey);
     }
 }

@@ -9,7 +9,7 @@ import {_packValidationData} from "@account-abstraction/contracts/core/Helpers.s
 import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
 
-import {IPoolDiamond} from "../pool/interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../pool/interfaces/IShinobiPool.sol";
 import {CrosschainWithdrawData} from "../pool/libraries/Types.sol";
 import {ICrosschainWithdrawalProofVerifier} from "../verifiers/interfaces/ICrosschainWithdrawalProofVerifier.sol";
 import {CrosschainProofLib} from "../proofLibs/CrosschainProofLib.sol";
@@ -21,7 +21,7 @@ import {ShinobiIntentLib} from "../oif/libraries/ShinobiIntentLib.sol";
 /**
  * @title CrosschainWithdrawalPaymaster
  * @author Karandeep Singh
- * @notice ERC-4337 Paymaster for cross-chain privacy pool withdrawals and refunds via PoolDiamond
+ * @notice ERC-4337 Paymaster for cross-chain privacy pool withdrawals and refunds via ShinobiPool
  * @dev Validates cross-chain ZK proofs for withdrawals and intent validation for refunds
  */
 contract CrosschainWithdrawalPaymaster is BasePaymaster {
@@ -50,7 +50,7 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
     uint256 public constant MIN_CALL_GAS_LIMIT_REFUND = 350_000;
     uint256 public constant MIN_VERIFICATION_GAS_REFUND = 200_000;
 
-    IPoolDiamond public immutable POOL_DIAMOND;
+    IShinobiPool public immutable POOL;
     ICrosschainWithdrawalProofVerifier public immutable CROSSCHAIN_VERIFIER;
     IShinobiInputSettler public immutable INPUT_SETTLER;
     address public expectedSmartAccount;
@@ -117,14 +117,14 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
 
     constructor(
         IEntryPoint _entryPoint,
-        IPoolDiamond _poolDiamond,
+        IShinobiPool _pool,
         ICrosschainWithdrawalProofVerifier _crosschainVerifier,
         IShinobiInputSettler _inputSettler
     ) BasePaymaster(_entryPoint) {
-        if (address(_poolDiamond) == address(0)) revert InvalidAddress();
+        if (address(_pool) == address(0)) revert InvalidAddress();
         if (address(_crosschainVerifier) == address(0)) revert InvalidAddress();
         if (address(_inputSettler) == address(0)) revert InvalidAddress();
-        POOL_DIAMOND = _poolDiamond;
+        POOL = _pool;
         CROSSCHAIN_VERIFIER = _crosschainVerifier;
         INPUT_SETTLER = _inputSettler;
     }
@@ -161,24 +161,24 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
         if (msg.sender != address(this)) revert UnauthorizedCaller();
         if (data.feeRecipient != address(this)) revert WrongFeeRecipient();
 
-        if (POOL_DIAMOND.withdrawalInputSettler() == address(0)) revert WithdrawalInputSettlerNotSet();
+        if (POOL.withdrawalInputSettler() == address(0)) revert WithdrawalInputSettlerNotSet();
 
-        uint256 scope = POOL_DIAMOND.SCOPE();
+        uint256 scope = POOL.SCOPE();
 
         uint32 chainId = uint32(uint256(data.encodedDestination) >> 224);
-        (bool isConfigured,,,,,) = POOL_DIAMOND.withdrawalChainConfig(chainId);
+        (bool isConfigured,,,,,) = POOL.withdrawalChainConfig(chainId);
         if (!isConfigured) revert DestinationChainNotConfigured();
 
         uint256 relayFeeBPS = proof.relayFeeBPS();
-        (, , uint256 maxRelayFeeBPS) = POOL_DIAMOND.assetConfig();
+        (, , uint256 maxRelayFeeBPS) = POOL.assetConfig();
         if (relayFeeBPS > maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
 
-        uint256 maxSolver = POOL_DIAMOND.maxSolverFeeBPS();
+        uint256 maxSolver = POOL.maxSolverFeeBPS();
         if (maxSolver == 0) revert MaxSolverFeeBPSNotSet();
         if (data.solverFeeBPS > maxSolver) revert SolverFeeGreaterThanMax();
         if (relayFeeBPS + data.solverFeeBPS >= 10_000) revert CombinedFeesTooHigh();
 
-        uint256 maxRefund = POOL_DIAMOND.maxRefundFeeBPS();
+        uint256 maxRefund = POOL.maxRefundFeeBPS();
         if (maxRefund == 0) revert MaxRefundFeeBPSNotSet();
         uint256 refundFeeBPS = proof.refundFeeBPS();
         if (refundFeeBPS == 0) revert RefundFeeBPSZero();
@@ -217,7 +217,7 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
             (address, bytes)
         );
 
-        if (refundTarget != address(POOL_DIAMOND)) revert InvalidRefundTarget();
+        if (refundTarget != address(POOL)) revert InvalidRefundTarget();
 
         address feeRecipient;
         uint256 refundFeeBPS;
@@ -230,7 +230,7 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
         }
 
         if (feeRecipient != address(this)) revert WrongFeeRecipient();
-        if (scope != POOL_DIAMOND.SCOPE()) revert InvalidScope();
+        if (scope != POOL.SCOPE()) revert InvalidScope();
         if (refundFeeBPS == 0) revert ZeroFeeNotAllowed();
 
         uint256 escrowAmount = intent.inputs[0][1];
@@ -302,7 +302,7 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
 
         (address target, uint256 value, bytes memory data) = _extractExecuteCall(userOp.callData);
 
-        if (target == address(POOL_DIAMOND)) {
+        if (target == address(POOL)) {
             return _handleWithdrawalValidation(userOp, userOpHash, maxCost, value, data);
         } else if (target == address(INPUT_SETTLER)) {
             return _handleRefundValidation(userOp, userOpHash, maxCost, value, data);
@@ -413,12 +413,12 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
 
         if (proof.context() != expectedContext) return false;
 
-        uint32 maxDepth = POOL_DIAMOND.MAX_TREE_DEPTH();
+        uint32 maxDepth = POOL.MAX_TREE_DEPTH();
         if (proof.stateTreeDepth() > maxDepth || proof.ASPTreeDepth() > maxDepth) return false;
 
         if (!_isKnownRoot(proof.stateRoot())) return false;
-        if (proof.ASPRoot() != POOL_DIAMOND.latestRoot()) return false;
-        if (POOL_DIAMOND.nullifierHashes(proof.existingNullifierHash())) return false;
+        if (proof.ASPRoot() != POOL.latestRoot()) return false;
+        if (POOL.nullifierHashes(proof.existingNullifierHash())) return false;
         if (proof.refundCommitment() == 0) return false;
 
         if (!CROSSCHAIN_VERIFIER.verifyProof(
@@ -435,11 +435,11 @@ contract CrosschainWithdrawalPaymaster is BasePaymaster {
     function _isKnownRoot(uint256 _root) internal view returns (bool) {
         if (_root == 0) return false;
 
-        uint32 _index = POOL_DIAMOND.currentRootIndex();
-        uint32 historySize = POOL_DIAMOND.ROOT_HISTORY_SIZE();
+        uint32 _index = POOL.currentRootIndex();
+        uint32 historySize = POOL.ROOT_HISTORY_SIZE();
 
         for (uint32 _i = 0; _i < historySize; _i++) {
-            if (_root == POOL_DIAMOND.roots(_index)) return true;
+            if (_root == POOL.roots(_index)) return true;
             _index = (_index + historySize - 1) % historySize;
         }
 

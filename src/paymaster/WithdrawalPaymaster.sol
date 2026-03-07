@@ -8,7 +8,7 @@ import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.s
 import {IPaymaster} from "@account-abstraction/contracts/interfaces/IPaymaster.sol";
 import {UserOperationLib} from "@account-abstraction/contracts/core/UserOperationLib.sol";
 
-import {IPoolDiamond} from "../pool/interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../pool/interfaces/IShinobiPool.sol";
 import {WithdrawData} from "../pool/libraries/Types.sol";
 import {IWithdrawalVerifier} from "../verifiers/interfaces/IWithdrawalVerifier.sol";
 import {WithdrawProofLib} from "../proofLibs/WithdrawProofLib.sol";
@@ -17,7 +17,7 @@ import {Constants} from "../pool/libraries/Constants.sol";
 /**
  * @title WithdrawalPaymaster
  * @author Karandeep Singh
- * @notice ERC-4337 Paymaster for same-chain privacy pool withdrawals via PoolDiamond
+ * @notice ERC-4337 Paymaster for same-chain privacy pool withdrawals via ShinobiPool
  * @dev Validates 8-signal ZK proofs and economics before sponsoring UserOperations
  */
 contract WithdrawalPaymaster is BasePaymaster {
@@ -32,7 +32,7 @@ contract WithdrawalPaymaster is BasePaymaster {
     uint256 public constant MIN_CALL_GAS_LIMIT = 550_000;
     uint256 public constant MIN_PAYMASTER_VERIFICATION_GAS = 400_000;
 
-    IPoolDiamond public immutable POOL_DIAMOND;
+    IShinobiPool public immutable POOL;
     IWithdrawalVerifier public immutable WITHDRAWAL_VERIFIER;
     address public expectedSmartAccount;
 
@@ -82,12 +82,12 @@ contract WithdrawalPaymaster is BasePaymaster {
 
     constructor(
         IEntryPoint _entryPoint,
-        IPoolDiamond _poolDiamond,
+        IShinobiPool _pool,
         IWithdrawalVerifier _withdrawalVerifier
     ) BasePaymaster(_entryPoint) {
-        if (address(_poolDiamond) == address(0)) revert InvalidAddress();
+        if (address(_pool) == address(0)) revert InvalidAddress();
         if (address(_withdrawalVerifier) == address(0)) revert InvalidAddress();
-        POOL_DIAMOND = _poolDiamond;
+        POOL = _pool;
         WITHDRAWAL_VERIFIER = _withdrawalVerifier;
     }
 
@@ -123,10 +123,10 @@ contract WithdrawalPaymaster is BasePaymaster {
         if (msg.sender != address(this)) revert UnauthorizedCaller();
         if (data.feeRecipient != address(this)) revert WrongFeeRecipient();
 
-        uint256 scope = POOL_DIAMOND.SCOPE();
+        uint256 scope = POOL.SCOPE();
 
         // Early relay fee validation
-        (, , uint256 maxRelayFeeBPS) = POOL_DIAMOND.assetConfig();
+        (, , uint256 maxRelayFeeBPS) = POOL.assetConfig();
         if (data.relayFeeBPS > maxRelayFeeBPS) revert RelayFeeGreaterThanMax();
 
         if (!_validateWithdrawProof(abi.encode(data), proof, scope)) revert WithdrawalValidationFailed();
@@ -243,7 +243,7 @@ contract WithdrawalPaymaster is BasePaymaster {
         uint256 value,
         bytes memory data
     ) internal returns (bool) {
-        if (target != address(POOL_DIAMOND)) return false;
+        if (target != address(POOL)) return false;
         if (value != 0) return false;
 
         (bool success, ) = address(this).call(data);
@@ -265,12 +265,12 @@ contract WithdrawalPaymaster is BasePaymaster {
 
         if (proof.context() != expectedContext) return false;
 
-        uint32 maxDepth = POOL_DIAMOND.MAX_TREE_DEPTH();
+        uint32 maxDepth = POOL.MAX_TREE_DEPTH();
         if (proof.stateTreeDepth() > maxDepth || proof.ASPTreeDepth() > maxDepth) return false;
 
         if (!_isKnownRoot(proof.stateRoot())) return false;
-        if (proof.ASPRoot() != POOL_DIAMOND.latestRoot()) return false;
-        if (POOL_DIAMOND.nullifierHashes(proof.existingNullifierHash())) return false;
+        if (proof.ASPRoot() != POOL.latestRoot()) return false;
+        if (POOL.nullifierHashes(proof.existingNullifierHash())) return false;
 
         if (!WITHDRAWAL_VERIFIER.verifyProof(
             proof.pA, proof.pB, proof.pC, proof.pubSignals
@@ -282,11 +282,11 @@ contract WithdrawalPaymaster is BasePaymaster {
     function _isKnownRoot(uint256 _root) internal view returns (bool) {
         if (_root == 0) return false;
 
-        uint32 _index = POOL_DIAMOND.currentRootIndex();
-        uint32 historySize = POOL_DIAMOND.ROOT_HISTORY_SIZE();
+        uint32 _index = POOL.currentRootIndex();
+        uint32 historySize = POOL.ROOT_HISTORY_SIZE();
 
         for (uint32 _i = 0; _i < historySize; _i++) {
-            if (_root == POOL_DIAMOND.roots(_index)) return true;
+            if (_root == POOL.roots(_index)) return true;
             _index = (_index + historySize - 1) % historySize;
         }
 

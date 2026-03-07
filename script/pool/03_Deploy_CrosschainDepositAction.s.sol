@@ -6,19 +6,19 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {CrosschainDepositFacet} from "../../src/pool/facets/CrosschainDepositFacet.sol";
+import {CrosschainDepositAction} from "../../src/pool/facets/CrosschainDepositAction.sol";
 
 /**
- * @title Deploy_CrosschainDepositFacet
- * @notice Deploy CrosschainDepositFacet (no verifier dependency)
+ * @title Deploy_CrosschainDepositAction
+ * @notice Deploy CrosschainDepositAction (no verifier dependency)
  *
  * Input:  config/pools/{POOL_KEY}.json
- * Output: deployments/{POOL_KEY}.json (diamondCrosschainDepositFacet)
+ * Output: deployments/{POOL_KEY}.json (crosschainDeposit)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/03_Deploy_CrosschainDepositFacet.s.sol:Deploy_CrosschainDepositFacet --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/03_Deploy_CrosschainDepositAction.s.sol:Deploy_CrosschainDepositAction --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract Deploy_CrosschainDepositFacet is Script {
+contract Deploy_CrosschainDepositAction is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -29,7 +29,7 @@ contract Deploy_CrosschainDepositFacet is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  Step 3: CrosschainDepositFacet");
+        console.log("  Step 3: CrosschainDepositAction");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -37,9 +37,9 @@ contract Deploy_CrosschainDepositFacet is Script {
         console.log("Deployer:", deployer);
         console.log("");
 
-        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondCrosschainDepositFacet");
+        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "crosschainDeposit");
         if (existing != address(0) && existing.code.length > 0) {
-            console.log("CrosschainDepositFacet already deployed:", existing);
+            console.log("CrosschainDepositAction already deployed:", existing);
             return;
         }
 
@@ -49,12 +49,12 @@ contract Deploy_CrosschainDepositFacet is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         uint256 blockBefore = block.number;
-        address addr = address(new CrosschainDepositFacet());
-        DeploymentWriter.writeContract(poolKey, "diamondCrosschainDepositFacet", addr, blockBefore);
+        address addr = address(new CrosschainDepositAction());
+        DeploymentWriter.writeContract(poolKey, "crosschainDeposit", addr, blockBefore);
         vm.stopBroadcast();
 
-        console.log("CrosschainDepositFacet deployed:", addr);
+        console.log("CrosschainDepositAction deployed:", addr);
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script 04_Deploy_WithdrawFacet.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 04_Deploy_WithdrawAction.s.sol ...", poolKey);
     }
 }

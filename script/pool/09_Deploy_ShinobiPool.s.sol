@@ -7,19 +7,19 @@ import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 import {Constants} from "../../src/pool/libraries/Constants.sol";
 
-import {PoolDiamond} from "../../src/pool/PoolDiamond.sol";
+import {ShinobiPool} from "../../src/pool/ShinobiPool.sol";
 
 /**
- * @title Deploy_PoolDiamond
- * @notice Deploy the PoolDiamond proxy with all facets
+ * @title Deploy_ShinobiPool
+ * @notice Deploy the ShinobiPool proxy with all actions
  *
- * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (facets)
- * Output: deployments/{POOL_KEY}.json (poolDiamond)
+ * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (actions)
+ * Output: deployments/{POOL_KEY}.json (shinobiPool)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/09_Deploy_PoolDiamond.s.sol:Deploy_PoolDiamond --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/09_Deploy_ShinobiPool.s.sol:Deploy_ShinobiPool --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract Deploy_PoolDiamond is Script {
+contract Deploy_ShinobiPool is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -30,7 +30,7 @@ contract Deploy_PoolDiamond is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  Step 9: PoolDiamond");
+        console.log("  Step 9: ShinobiPool");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -39,9 +39,9 @@ contract Deploy_PoolDiamond is Script {
         console.log("");
 
         // Check if already deployed
-        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "poolDiamond");
+        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "shinobiPool");
         if (existing != address(0) && existing.code.length > 0) {
-            console.log("PoolDiamond already deployed:", existing);
+            console.log("ShinobiPool already deployed:", existing);
             console.log("Skipping.");
             return;
         }
@@ -59,18 +59,18 @@ contract Deploy_PoolDiamond is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         uint256 blockBefore = block.number;
-        PoolDiamond diamond = new PoolDiamond(
-            PoolDiamond.InitParams({
+        ShinobiPool diamond = new ShinobiPool(
+            ShinobiPool.InitParams({
                 asset: Constants.NATIVE_ASSET,
                 admin: admin,
                 aspPostman: aspPostman,
                 facets: facets
             })
         );
-        DeploymentWriter.writeContract(poolKey, "poolDiamond", address(diamond), blockBefore);
+        DeploymentWriter.writeContract(poolKey, "shinobiPool", address(diamond), blockBefore);
         vm.stopBroadcast();
 
-        console.log("PoolDiamond deployed:", address(diamond));
+        console.log("ShinobiPool deployed:", address(diamond));
         console.log("Block:", blockBefore);
 
         console.log("");
@@ -79,20 +79,20 @@ contract Deploy_PoolDiamond is Script {
 
     function _loadFacets(string memory poolKey) internal view returns (address[] memory facets) {
         facets = new address[](7);
-        facets[0] = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondDepositFacet");
-        facets[1] = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondCrosschainDepositFacet");
-        facets[2] = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondWithdrawFacet");
-        facets[3] = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondCrosschainWithdrawFacet");
-        facets[4] = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondWithdraw2Facet");
-        facets[5] = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondCrosschainWithdraw2Facet");
-        facets[6] = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondRagequitFacet");
+        facets[0] = DeploymentWriter.readContractAddress(poolKey, "contracts", "deposit");
+        facets[1] = DeploymentWriter.readContractAddress(poolKey, "contracts", "crosschainDeposit");
+        facets[2] = DeploymentWriter.readContractAddress(poolKey, "contracts", "withdraw");
+        facets[3] = DeploymentWriter.readContractAddress(poolKey, "contracts", "crosschainWithdraw");
+        facets[4] = DeploymentWriter.readContractAddress(poolKey, "contracts", "withdraw2");
+        facets[5] = DeploymentWriter.readContractAddress(poolKey, "contracts", "crosschainWithdraw2");
+        facets[6] = DeploymentWriter.readContractAddress(poolKey, "contracts", "ragequit");
 
-        require(facets[0] != address(0), "DepositFacet not deployed");
-        require(facets[1] != address(0), "CrosschainDepositFacet not deployed");
-        require(facets[2] != address(0), "WithdrawFacet not deployed");
-        require(facets[3] != address(0), "CrosschainWithdrawFacet not deployed");
-        require(facets[4] != address(0), "Withdraw2Facet not deployed");
-        require(facets[5] != address(0), "CrosschainWithdraw2Facet not deployed");
-        require(facets[6] != address(0), "RagequitFacet not deployed");
+        require(facets[0] != address(0), "DepositAction not deployed");
+        require(facets[1] != address(0), "CrosschainDepositAction not deployed");
+        require(facets[2] != address(0), "WithdrawAction not deployed");
+        require(facets[3] != address(0), "CrosschainWithdrawAction not deployed");
+        require(facets[4] != address(0), "Withdraw2Action not deployed");
+        require(facets[5] != address(0), "CrosschainWithdraw2Action not deployed");
+        require(facets[6] != address(0), "RagequitAction not deployed");
     }
 }

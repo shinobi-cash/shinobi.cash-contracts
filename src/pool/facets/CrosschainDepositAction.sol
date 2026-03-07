@@ -4,12 +4,12 @@ pragma solidity 0.8.28;
 import {PoseidonT4} from "poseidon/PoseidonT4.sol";
 import {Constants} from "../libraries/Constants.sol";
 import {IFacet} from "../interfaces/IFacet.sol";
-import {FacetBase} from "./FacetBase.sol";
+import {FacetBase} from "../FacetBase.sol";
 import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
 import {PoolOps} from "../libraries/PoolOps.sol";
 
-/// @title CrosschainDepositFacet - Cross-chain deposit operations
-contract CrosschainDepositFacet is FacetBase, IFacet {
+/// @title CrosschainDepositAction - Cross-chain deposit operations
+contract CrosschainDepositAction is FacetBase, IFacet {
     event CrosschainDeposited(
         address indexed depositor, uint256 commitment, uint256 label, uint256 value, uint256 precommitmentHash
     );

@@ -6,20 +6,20 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {RagequitFacet} from "../../src/pool/facets/RagequitFacet.sol";
+import {RagequitAction} from "../../src/pool/facets/RagequitAction.sol";
 import {IRagequitVerifier} from "../../src/verifiers/interfaces/IRagequitVerifier.sol";
 
 /**
- * @title Deploy_RagequitFacet
- * @notice Deploy RagequitFacet (requires CommitmentVerifier)
+ * @title Deploy_RagequitAction
+ * @notice Deploy RagequitAction (requires CommitmentVerifier)
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (verifiers)
- * Output: deployments/{POOL_KEY}.json (diamondRagequitFacet)
+ * Output: deployments/{POOL_KEY}.json (ragequit)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/08_Deploy_RagequitFacet.s.sol:Deploy_RagequitFacet --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/08_Deploy_RagequitAction.s.sol:Deploy_RagequitAction --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract Deploy_RagequitFacet is Script {
+contract Deploy_RagequitAction is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -30,7 +30,7 @@ contract Deploy_RagequitFacet is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  Step 8: RagequitFacet");
+        console.log("  Step 8: RagequitAction");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -38,9 +38,9 @@ contract Deploy_RagequitFacet is Script {
         console.log("Deployer:", deployer);
         console.log("");
 
-        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondRagequitFacet");
+        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "ragequit");
         if (existing != address(0) && existing.code.length > 0) {
-            console.log("RagequitFacet already deployed:", existing);
+            console.log("RagequitAction already deployed:", existing);
             return;
         }
 
@@ -53,12 +53,12 @@ contract Deploy_RagequitFacet is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         uint256 blockBefore = block.number;
-        address addr = address(new RagequitFacet(IRagequitVerifier(commitmentVerifier)));
-        DeploymentWriter.writeContract(poolKey, "diamondRagequitFacet", addr, blockBefore);
+        address addr = address(new RagequitAction(IRagequitVerifier(commitmentVerifier)));
+        DeploymentWriter.writeContract(poolKey, "ragequit", addr, blockBefore);
         vm.stopBroadcast();
 
-        console.log("RagequitFacet deployed:", addr);
+        console.log("RagequitAction deployed:", addr);
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script 09_Deploy_PoolDiamond.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 09_Deploy_ShinobiPool.s.sol ...", poolKey);
     }
 }

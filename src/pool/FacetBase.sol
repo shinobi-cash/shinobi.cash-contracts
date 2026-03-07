@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {PoolStorageData, PoolStorageLib} from "../storage/PoolStorage.sol";
-import {AccessControlOps} from "../libraries/AccessControlOps.sol";
-import {PoolOps} from "../libraries/PoolOps.sol";
+import {PoolStorageData, PoolStorageLib} from "./storage/PoolStorage.sol";
+import {AccessControlOps} from "./libraries/AccessControlOps.sol";
+import {PoolOps} from "./libraries/PoolOps.sol";
 
-/// @title FacetBase - Shared modifiers for diamond facets
+/// @title FacetBase - Shared modifiers for pool facets
 abstract contract FacetBase {
     /// @dev Transient storage slot for reentrancy guard (EIP-1153)
     bytes32 private constant _REENTRANCY_SLOT = keccak256("shinobi.reentrancy.guard");

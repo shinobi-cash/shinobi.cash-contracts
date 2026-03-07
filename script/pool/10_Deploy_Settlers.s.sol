@@ -15,7 +15,7 @@ import {HyperlaneOracle} from "../../src/oif/hyperlane/HyperlaneOracle.sol";
  * @title Deploy_Settlers
  * @notice Deploy InputSettler, HyperlaneOracle, and DepositOutputSettler
  *
- * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (poolDiamond)
+ * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (shinobiPool)
  * Output: deployments/{POOL_KEY}.json
  *
  * Usage:
@@ -58,11 +58,11 @@ contract Deploy_Settlers is Script {
             return;
         }
 
-        // Read PoolDiamond from previous deployment
-        address poolDiamond = DeploymentWriter.readContractAddress(poolKey, "contracts", "poolDiamond");
-        require(poolDiamond != address(0), "PoolDiamond not deployed. Run Step 9 first.");
+        // Read ShinobiPool from previous deployment
+        address shinobiPool = DeploymentWriter.readContractAddress(poolKey, "contracts", "shinobiPool");
+        require(shinobiPool != address(0), "ShinobiPool not deployed. Run Step 9 first.");
 
-        console.log("PoolDiamond:", poolDiamond);
+        console.log("ShinobiPool:", shinobiPool);
         console.log("Hyperlane Mailbox:", poolConfig.hyperlaneMailbox);
         console.log("");
 
@@ -87,7 +87,7 @@ contract Deploy_Settlers is Script {
         } else {
             console.log("2. Deploying ShinobiInputSettler...");
             uint256 blockBefore = block.number;
-            address addr = address(new ShinobiInputSettler(poolDiamond, deployer));
+            address addr = address(new ShinobiInputSettler(shinobiPool, deployer));
             DeploymentWriter.writeContract(poolKey, "inputSettler", addr, blockBefore);
             console.log("   Address:", addr);
         }
@@ -110,6 +110,6 @@ contract Deploy_Settlers is Script {
         console.log("  SETTLERS & ORACLE COMPLETE");
         console.log("==========================================================");
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script 11_Setup_PoolDiamond.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 11_Setup_ShinobiPool.s.sol ...", poolKey);
     }
 }

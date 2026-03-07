@@ -6,20 +6,20 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-import {WithdrawFacet} from "../../src/pool/facets/WithdrawFacet.sol";
+import {WithdrawAction} from "../../src/pool/facets/WithdrawAction.sol";
 import {IWithdrawalVerifier} from "../../src/verifiers/interfaces/IWithdrawalVerifier.sol";
 
 /**
- * @title Deploy_WithdrawFacet
- * @notice Deploy WithdrawFacet (requires WithdrawalVerifier)
+ * @title Deploy_WithdrawAction
+ * @notice Deploy WithdrawAction (requires WithdrawalVerifier)
  *
  * Input:  config/pools/{POOL_KEY}.json, deployments/{POOL_KEY}.json (verifiers)
- * Output: deployments/{POOL_KEY}.json (diamondWithdrawFacet)
+ * Output: deployments/{POOL_KEY}.json (withdraw)
  *
  * Usage:
- *   POOL_KEY=arbitrum-sepolia forge script script/pool/04_Deploy_WithdrawFacet.s.sol:Deploy_WithdrawFacet --rpc-url arbitrum-sepolia --broadcast --verify
+ *   POOL_KEY=arbitrum-sepolia forge script script/pool/04_Deploy_WithdrawAction.s.sol:Deploy_WithdrawAction --rpc-url arbitrum-sepolia --broadcast --verify
  */
-contract Deploy_WithdrawFacet is Script {
+contract Deploy_WithdrawAction is Script {
     function run() external {
         string memory poolKey = vm.envString("POOL_KEY");
         ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
@@ -30,7 +30,7 @@ contract Deploy_WithdrawFacet is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("==========================================================");
-        console.log("  Step 4: WithdrawFacet");
+        console.log("  Step 4: WithdrawAction");
         console.log("==========================================================");
         console.log("");
         console.log("Pool Key:", poolKey);
@@ -38,9 +38,9 @@ contract Deploy_WithdrawFacet is Script {
         console.log("Deployer:", deployer);
         console.log("");
 
-        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "diamondWithdrawFacet");
+        address existing = DeploymentWriter.readContractAddress(poolKey, "contracts", "withdraw");
         if (existing != address(0) && existing.code.length > 0) {
-            console.log("WithdrawFacet already deployed:", existing);
+            console.log("WithdrawAction already deployed:", existing);
             return;
         }
 
@@ -53,12 +53,12 @@ contract Deploy_WithdrawFacet is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         uint256 blockBefore = block.number;
-        address addr = address(new WithdrawFacet(IWithdrawalVerifier(withdrawalVerifier)));
-        DeploymentWriter.writeContract(poolKey, "diamondWithdrawFacet", addr, blockBefore);
+        address addr = address(new WithdrawAction(IWithdrawalVerifier(withdrawalVerifier)));
+        DeploymentWriter.writeContract(poolKey, "withdraw", addr, blockBefore);
         vm.stopBroadcast();
 
-        console.log("WithdrawFacet deployed:", addr);
+        console.log("WithdrawAction deployed:", addr);
         console.log("");
-        console.log("Next: POOL_KEY=%s forge script 05_Deploy_CrosschainWithdrawFacet.s.sol ...", poolKey);
+        console.log("Next: POOL_KEY=%s forge script 05_Deploy_CrosschainWithdrawAction.s.sol ...", poolKey);
     }
 }

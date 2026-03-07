@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {DiamondTestBase} from "./DiamondTestBase.sol";
-import {CrosschainWithdraw2Facet} from "../../../src/pool/facets/CrosschainWithdraw2Facet.sol";
-import {PoolOps} from "../../../src/pool/libraries/PoolOps.sol";
-import {IntentOps} from "../../../src/pool/libraries/IntentOps.sol";
-import {CrosschainWithdrawData} from "../../../src/pool/libraries/Types.sol";
-import {CrosschainWithdraw2ProofLib} from "../../../src/proofLibs/CrosschainWithdraw2ProofLib.sol";
-import {Constants} from "../../../src/pool/libraries/Constants.sol";
+import {PoolTestBase} from "./PoolTestBase.sol";
+import {CrosschainWithdraw2Action} from "../../src/pool/facets/CrosschainWithdraw2Action.sol";
+import {PoolOps} from "../../src/pool/libraries/PoolOps.sol";
+import {IntentOps} from "../../src/pool/libraries/IntentOps.sol";
+import {CrosschainWithdrawData} from "../../src/pool/libraries/Types.sol";
+import {CrosschainWithdraw2ProofLib} from "../../src/proofLibs/CrosschainWithdraw2ProofLib.sol";
+import {Constants} from "../../src/pool/libraries/Constants.sol";
 
-contract CrosschainWithdraw2FacetTest is DiamondTestBase {
+contract CrosschainWithdraw2ActionTest is PoolTestBase {
     uint256 constant WITHDRAW_VALUE = 1.5 ether;
     uint256 constant RELAY_FEE_BPS = 100;
     uint256 constant SOLVER_FEE_BPS = 200;
@@ -21,7 +21,7 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
         _deposit(user, DEPOSIT_AMOUNT, 12345);
         _deposit(user, DEPOSIT_AMOUNT, 12346);
         _setupCrosschainConfig();
-        vm.deal(address(diamond), 10 ether);
+        vm.deal(address(pool), 10 ether);
     }
 
     function _buildWithdrawalAndProof()
@@ -48,11 +48,11 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
         uint256 settlerCallsBefore = mockSettler.openCallCount();
 
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
 
         // Both nullifiers spent
-        assertTrue(pool.nullifierHashes(111));
-        assertTrue(pool.nullifierHashes(222));
+        assertTrue(poolInterface.nullifierHashes(111));
+        assertTrue(poolInterface.nullifierHashes(222));
 
         // Relay fee paid
         uint256 relayFee = WITHDRAW_VALUE * RELAY_FEE_BPS / 10_000;
@@ -71,7 +71,7 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.InvalidWithdrawalAmount.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_revertsForDuplicateNullifiers() public {
@@ -84,7 +84,7 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
 
         vm.expectRevert(PoolOps.NullifierAlreadySpent.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_revertsForChainNotConfigured() public {
@@ -97,9 +97,9 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
             _makeCrosschainWithdraw2Proof(111, 222, WITHDRAW_VALUE, 333, 444, RELAY_FEE_BPS, REFUND_FEE_BPS);
         proof.pubSignals[11] = _computeContext(abi.encode(data));
 
-        vm.expectRevert(CrosschainWithdraw2Facet.DestinationChainNotConfigured.selector);
+        vm.expectRevert(CrosschainWithdraw2Action.DestinationChainNotConfigured.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_revertsForExcessiveRelayFee() public {
@@ -110,13 +110,13 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
             _makeCrosschainWithdraw2Proof(111, 222, WITHDRAW_VALUE, 333, 444, MAX_RELAY_FEE_BPS + 1, REFUND_FEE_BPS);
         proof.pubSignals[11] = _computeContext(abi.encode(data));
 
-        vm.expectRevert(CrosschainWithdraw2Facet.RelayFeeGreaterThanMax.selector);
+        vm.expectRevert(CrosschainWithdraw2Action.RelayFeeGreaterThanMax.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_revertsForExcessiveSolverFee() public {
-        uint256 maxSolver = pool.maxSolverFeeBPS();
+        uint256 maxSolver = poolInterface.maxSolverFeeBPS();
 
         CrosschainWithdrawData memory data =
             _makeCrosschainWithdrawData(maxSolver + 1, DEST_CHAIN_ID, recipient);
@@ -125,9 +125,9 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
             _makeCrosschainWithdraw2Proof(111, 222, WITHDRAW_VALUE, 333, 444, RELAY_FEE_BPS, REFUND_FEE_BPS);
         proof.pubSignals[11] = _computeContext(abi.encode(data));
 
-        vm.expectRevert(CrosschainWithdraw2Facet.SolverFeeGreaterThanMax.selector);
+        vm.expectRevert(CrosschainWithdraw2Action.SolverFeeGreaterThanMax.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_revertsForZeroRefundCommitment() public {
@@ -138,15 +138,15 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
             _makeCrosschainWithdraw2Proof(111, 222, WITHDRAW_VALUE, 333, 0, RELAY_FEE_BPS, REFUND_FEE_BPS);
         proof.pubSignals[11] = _computeContext(abi.encode(data));
 
-        vm.expectRevert(CrosschainWithdraw2Facet.InvalidProof.selector);
+        vm.expectRevert(CrosschainWithdraw2Action.InvalidProof.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_revertsForCombinedFeesTooHigh() public {
         vm.startPrank(admin);
-        pool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, 9000);
-        pool.setMaxSolverFeeBPS(9000);
+        poolInterface.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, 9000);
+        poolInterface.setMaxSolverFeeBPS(9000);
         vm.stopPrank();
 
         CrosschainWithdrawData memory data =
@@ -158,15 +158,15 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
 
         vm.expectRevert(IntentOps.CombinedFeesTooHigh.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_combinedFeeCheckBeforeProofVerification() public {
         crosschainWithdraw2Verifier.setShouldPass(false);
 
         vm.startPrank(admin);
-        pool.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, 9000);
-        pool.setMaxSolverFeeBPS(9000);
+        poolInterface.setAssetConfig(MIN_DEPOSIT, VETTING_FEE_BPS, 9000);
+        poolInterface.setMaxSolverFeeBPS(9000);
         vm.stopPrank();
 
         CrosschainWithdrawData memory data =
@@ -179,7 +179,7 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
         // Should revert with CombinedFeesTooHigh, NOT InvalidProof
         vm.expectRevert(IntentOps.CombinedFeesTooHigh.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_revertsForInvalidProof() public {
@@ -190,13 +190,13 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
             CrosschainWithdraw2ProofLib.CrosschainWithdraw2Proof memory proof
         ) = _buildWithdrawalAndProof();
 
-        vm.expectRevert(CrosschainWithdraw2Facet.InvalidProof.selector);
+        vm.expectRevert(CrosschainWithdraw2Action.InvalidProof.selector);
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
     }
 
     function test_crosschainWithdraw2_insertsNewCommitment() public {
-        uint256 treeSizeBefore = pool.currentTreeSize();
+        uint256 treeSizeBefore = poolInterface.currentTreeSize();
 
         (
             CrosschainWithdrawData memory data,
@@ -204,8 +204,8 @@ contract CrosschainWithdraw2FacetTest is DiamondTestBase {
         ) = _buildWithdrawalAndProof();
 
         vm.prank(relayer);
-        pool.crosschainWithdraw2(data, proof);
+        poolInterface.crosschainWithdraw2(data, proof);
 
-        assertEq(pool.currentTreeSize(), treeSizeBefore + 1);
+        assertEq(poolInterface.currentTreeSize(), treeSizeBefore + 1);
     }
 }

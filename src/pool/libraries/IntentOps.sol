@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {CrosschainWithdrawData} from "./Types.sol";
-import {IPoolDiamond} from "../interfaces/IPoolDiamond.sol";
+import {IShinobiPool} from "../interfaces/IShinobiPool.sol";
 import {ShinobiIntent} from "../../oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../../oif/libraries/ShinobiIntentLib.sol";
 import {IShinobiInputSettler} from "../../oif/interfaces/IShinobiInputSettler.sol";
