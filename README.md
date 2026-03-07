@@ -1,121 +1,75 @@
 # Shinobi.cash Contracts
 
-**Borderless Privacy for a Multi-Chain World**
+Cross-chain privacy protocol combining zero-knowledge proofs with intent-based settlement. Deposit on one chain, withdraw privately on another.
 
-Cross-chain privacy protocol enabling users to deposit on one blockchain and withdraw privately on another, combining zero-knowledge proofs with decentralized intent-based settlement.
+> **WARNING**: Under active development. Not audited. Testnet only.
 
-> ⚠️ **WARNING: Under Active Development**
->
-> This project is currently in development and has **not been audited**. Do not use in production or with real funds. Testnet only.
+## Architecture
 
----
+**ShinobiPool** — ERC-8153 diamond proxy that serves as the single-address privacy pool. All operations (deposit, withdraw, ragequit) are implemented as actions routed via `delegatecall`.
 
-## What is Shinobi.cash?
+### Core Components
 
-Shinobi.cash solves cross-chain privacy by unifying privacy pools across multiple chains. Users can:
-- Deposit ETH on Base
-- Withdraw privately on Arbitrum (or any supported chain)
-- Maintain cryptographic unlinkability between deposits and withdrawals
+| Component | Purpose |
+|-----------|---------|
+| **ShinobiPool** | ERC-8153 proxy — deposits, withdrawals, governance, config |
+| **Actions** (7 facets) | DepositAction, WithdrawAction, Withdraw2Action, CrosschainWithdrawAction, CrosschainWithdraw2Action, CrosschainDepositAction, RagequitAction |
+| **OIF Settlers** | Cross-chain intent escrow and settlement |
+| **Paymasters** (4) | ERC-4337 gasless withdrawals with ZK proof validation |
+| **Verifiers** (5) | Groth16 SNARK proof verification |
 
-**Privacy comes from:** ZK-SNARKs, Merkle tree commitments, and nullifiers
-**Cross-chain settlement via:** Open Intent Framework (OIF) with decentralized solvers
+### How It Works
 
----
+1. **Deposit** — User sends ETH to ShinobiPool, a Poseidon commitment is added to the Merkle tree
+2. **Withdraw** — User generates a ZK proof ("I know a secret in this tree") and withdraws to a fresh address
+3. **Cross-chain** — Withdrawal creates an OIF intent, solvers fill on the destination chain, Hyperlane relays proof back
+4. **Privacy** — ZK proofs make deposits and withdrawals cryptographically unlinkable
 
-## Architecture Overview
+### Modular Action Architecture
 
-### Privacy Layer
+ShinobiPool uses ERC-8153 to split operations into independent **action contracts** (facets). Each action is a standalone contract deployed once and registered with ShinobiPool — the proxy routes calls via selector → action lookup and executes them with `delegatecall`.
 
-**Core Components:**
-- **ShinobiCashPool**: Privacy pool with cross-chain withdrawal support and refund commitment handling
-- **ShinobiCashEntrypoint**: Manages cross-chain withdrawals, creates OIF intents, handles refunds
-- **Merkle Tree**: Unified commitment tree across all supported chains
-- **ZK Proofs**: Groth16 SNARKs prove commitment ownership without revealing which one
+```
+User tx → ShinobiPool (fallback)
+            ├─ selector lookup in RoutingStorage
+            └─ delegatecall → Action contract
+                               ├─ reads/writes shared PoolStorage
+                               └─ returns result to caller
+```
 
-**How Privacy Works:**
-1. User deposits → generates secret commitment → added to Merkle tree
-2. Days/weeks later, user proves via ZK proof: "I know a secret in this tree"
-3. Withdrawal occurs on different chain with fresh address
-4. ZK proof makes deposit and withdrawal cryptographically unlinkable
+**What's upgradeable (actions):**
 
-### Cross-Chain Settlement Layer
+| Action | Operation | Proof Signals |
+|--------|-----------|---------------|
+| DepositAction | Same-chain deposit | — |
+| CrosschainDepositAction | Cross-chain deposit (called by settler) | — |
+| WithdrawAction | Same-chain 1:1 withdrawal | 8 |
+| Withdraw2Action | Same-chain 2:1 merge | 9 |
+| CrosschainWithdrawAction | Cross-chain 1:1 withdrawal | 11 |
+| CrosschainWithdraw2Action | Cross-chain 2:1 merge | 12 |
+| RagequitAction | Emergency exit by depositor | 4 |
 
-**OIF Integration:**
-- **ShinobiInputSettler**: Manages intent creation and escrow on origin chain
-- **ShinobiDepositOutputSettler**: Validates deposit intents via oracle (prevents spoofing)
-- **ShinobiWithdrawalOutputSettler**: Handles withdrawal fills (ZK proof already validated)
+**What's built-in (currently):** Governance, pool config, ASP root updates, loupe, views. These live in ShinobiPool directly but may be modularized in the future — e.g., swappable compliance mechanisms (ASP, Proof of Innocence, or none).
 
-**Dual Oracle System:**
-- **Intent Oracle**: Validates deposit intents were created by legitimate users
-- **Fill Oracle**: Validates solvers delivered funds before releasing escrow
+**Shared state:** All actions read/write a single `PoolStorage` (EIP-7201 namespaced) containing the Merkle tree, nullifiers, fee config, and chain config. Actions are stateless — they can be replaced without migrating data.
 
-**Decentralized Solver Network:**
-- Permissionless solvers compete to fill cross-chain intents
-- No trusted bridge operator
-- Atomic settlement guarantees via oracle validation
+### Key Technologies
 
-### Account Abstraction Layer
+- **ZK-SNARKs** (Groth16) for privacy proofs
+- **Open Intent Framework** for cross-chain settlement with decentralized solvers
+- **ERC-4337** paymasters for gasless withdrawals
+- **Hyperlane** for cross-chain intent proof relay
+- **EIP-1153** transient storage for reentrancy guards
 
-**ERC-4337 Paymasters:**
-- **CrossChainWithdrawalPaymaster**: Sponsors gas for cross-chain withdrawals after ZK proof validation
-- **SimpleShinobiCashPoolPaymaster**: Sponsors gas for standard privacy pool operations
+## Commands
 
-Enables gasless withdrawals — users don't need destination chain gas tokens.
-
----
-
-## Flow Diagrams
-
-### Cross-Chain Withdrawal Flow
-![Cross-Chain Withdrawal Flow](./assets/images/ShinobiCrosschainWithdrawalFlow.png)
-
-*User withdraws from privacy pool on Chain Arbitrum, receives funds privately on any L2 Chain via solver network.*
-
-### Cross-Chain Deposit Flow
-![Cross-Chain Deposit Flow](./assets/images/ShinobiCrosschainDepositFlow.png)
-
-*User deposits on supported L2 Chain, funds appear in privacy pool on Arbitrum Chain with unlinkability.*
-
----
-
-## Key Contracts
-
-### Privacy & Entrypoint
-| Contract | Purpose |
-|----------|---------|
-| `ShinobiCashPool` | Privacy pool with cross-chain support |
-| `ShinobiCashPoolSimple` | Simple implementation for ETH privacy pool |
-| `ShinobiCashEntrypoint` | Cross-chain withdrawal processing & intent creation |
-| `ShinobiCrosschainDepositEntrypoint` | Lightweight deposit entrypoint for origin chains |
-
-### OIF Settlers
-| Contract | Purpose |
-|----------|---------|
-| `ShinobiInputSettler` | Intent creation & escrow (origin chain) |
-| `ShinobiDepositOutputSettler` | Deposit intent validation (destination/pool chain) |
-| `ShinobiWithdrawalOutputSettler` | Withdrawal fill handling (destination/user chain) |
-
-### Verification
-| Contract | Purpose |
-|----------|---------|
-| `CrossChainWithdrawalVerifier` | Verifies cross-chain withdrawal ZK proofs |
-| `CommitmentVerifier` | Verifies deposit commitment proofs |
-| `CrossChainWithdrawalProofVerifier` | Validates cross-chain withdrawal proof structure |
-
-### Account Abstraction
-| Contract | Purpose |
-|----------|---------|
-| `CrossChainWithdrawalPaymaster` | Sponsors gas for cross-chain withdrawals |
-| `SimpleShinobiCashPoolPaymaster` | Sponsors gas for standard operations |
-
----
+```bash
+forge build            # Compile
+forge test             # Run tests
+forge test -vvv        # Verbose output
+forge test --gas-report
+```
 
 ## License
 
-Apache-2.0 - see [LICENSE](LICENSE) for details
-
----
-
-*Built with ❤️ for Ethereum privacy*
-
-**Because privacy shouldn't stop at chain boundaries.** 🥷✨
+GPL-3.0 — see [LICENSE](LICENSE)
