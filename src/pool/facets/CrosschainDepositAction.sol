@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.28;
 
 import {PoseidonT4} from "poseidon/PoseidonT4.sol";

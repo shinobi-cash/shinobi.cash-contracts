@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.28;
 
 /// @notice Interface for verifying ragequit Groth16 proofs (4 public signals)

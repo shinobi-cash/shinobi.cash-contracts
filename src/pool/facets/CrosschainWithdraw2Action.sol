@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.28;
 
 import {ICrosschainWithdraw2Verifier} from "../../verifiers/interfaces/ICrosschainWithdraw2Verifier.sol";
