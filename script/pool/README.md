@@ -9,107 +9,54 @@ script/config/
 ├── pools/
 │   ├── pool.template.json      # Template for new pools
 │   └── arbitrum-sepolia.json   # Arbitrum Sepolia config
+├── origins/
+│   └── base-sepolia.json       # Origin chain config
 └── ChainConfig.sol             # Config reader library
 
 deployments/
 └── arbitrum-sepolia.json       # Deployment output with addresses + block numbers
 ```
 
-## Input Config
-
-Create `config/pools/{pool-key}.json`:
-
-```json
-{
-  "name": "Arbitrum Sepolia",
-  "chainId": 421614,
-  "hyperlaneDomainId": 421614,
-  "hyperlaneMailbox": "0x598facE78a4302f11E3de0bee1894Da0b2Cb71F8",
-  "erc4337Entrypoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-  "config": {
-    "minimumDeposit": "1000000000000000",
-    "vettingFeeBPS": 100,
-    "maxRelayFeeBPS": 1500
-  }
-}
-```
-
-## Output Deployment
-
-Scripts write to `deployments/{pool-key}.json`:
-
-```json
-{
-  "chainName": "arbitrum-sepolia",
-  "chainId": 421614,
-  "deployer": "0x...",
-  "deployedAt": 1704067200,
-  "verifiers": {
-    "withdrawal": { "address": "0x...", "blockNumber": 12345 }
-  },
-  "contracts": {
-    "entrypoint": { "address": "0x...", "blockNumber": 12346 }
-  },
-  "paymasters": {
-    "simple": { "address": "0x...", "blockNumber": 12347 }
-  }
-}
-```
-
-Block numbers are recorded for indexer start points.
-
 ## Deployment Steps
 
-All scripts use `POOL_KEY` environment variable.
+All scripts use `POOL_KEY` environment variable. Run in order:
 
-### Step 1: Deploy ZK Verifiers
+| Step | Script | Description |
+|------|--------|-------------|
+| 1 | `01_Deploy_Verifiers.s.sol` | 5 ZK verifiers |
+| 2 | `02_Deploy_DepositFacet.s.sol` | DepositFacet |
+| 3 | `03_Deploy_CrosschainDepositFacet.s.sol` | CrosschainDepositFacet |
+| 4 | `04_Deploy_WithdrawFacet.s.sol` | WithdrawFacet |
+| 5 | `05_Deploy_CrosschainWithdrawFacet.s.sol` | CrosschainWithdrawFacet |
+| 6 | `06_Deploy_Withdraw2Facet.s.sol` | Withdraw2Facet |
+| 7 | `07_Deploy_CrosschainWithdraw2Facet.s.sol` | CrosschainWithdraw2Facet |
+| 8 | `08_Deploy_RagequitFacet.s.sol` | RagequitFacet |
+| 9 | `09_Deploy_PoolDiamond.s.sol` | PoolDiamond proxy |
+| 10 | `10_Deploy_Settlers.s.sol` | Oracle + settlers |
+| 11 | `11_Setup_PoolDiamond.s.sol` | Diamond config |
+| 12 | `12_Deploy_Paymasters.s.sol` | 4 ERC-4337 paymasters |
+| 13 | `13_Setup_WithdrawalChains.s.sol` | Cross-chain config |
+
+### Example
 
 ```bash
-POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_01_Verifiers.s.sol:DeployPool_01_Verifiers \
+# Steps 1-12: Pool chain
+POOL_KEY=arbitrum-sepolia forge script script/pool/01_Deploy_Verifiers.s.sol:Deploy_Verifiers \
   --rpc-url $RPC_URL --broadcast --verify
-```
 
-### Step 2: Deploy Entrypoint
+# ... repeat for steps 2-12 ...
 
-```bash
-POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_02_Entrypoint.s.sol:DeployPool_02_Entrypoint \
-  --rpc-url $RPC_URL --broadcast --verify
-```
-
-### Step 3: Deploy Privacy Pool
-
-```bash
-POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_03_PrivacyPool.s.sol:DeployPool_03_PrivacyPool \
-  --rpc-url $RPC_URL --broadcast --verify
-```
-
-### Step 4: Deploy Settlers & Oracle
-
-```bash
-POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_04_Settlers.s.sol:DeployPool_04_Settlers \
-  --rpc-url $RPC_URL --broadcast --verify
-```
-
-### Step 5: Setup Entrypoint
-
-```bash
-POOL_KEY=arbitrum-sepolia forge script script/pool/DeployPool_05_Setup.s.sol:DeployPool_05_Setup \
+# Step 13: Requires both pool and origin keys
+POOL_KEY=arbitrum-sepolia ORIGIN_KEY=base-sepolia forge script \
+  script/pool/13_Setup_WithdrawalChains.s.sol:Setup_WithdrawalChains \
   --rpc-url $RPC_URL --broadcast
 ```
 
-### Step 6: Deploy Paymasters (Optional)
-
-```bash
-POOL_KEY=arbitrum-sepolia EXPECTED_SMART_ACCOUNT=0x... forge script \
-  script/pool/DeployPool_06_Paymasters.s.sol:DeployPool_06_Paymasters \
-  --rpc-url $RPC_URL --broadcast --verify
-```
-
-## Deploying a New Pool Chain
+## Deploying a New Pool
 
 1. Copy template: `cp config/pools/pool.template.json config/pools/my-chain.json`
 2. Fill in chain-specific values (chainId, hyperlaneMailbox, etc.)
-3. Run scripts 1-6 with `POOL_KEY=my-chain`
+3. Run scripts 1-13 with `POOL_KEY=my-chain`
 4. Deployment output saved to `deployments/my-chain.json`
 
 ## Next Steps

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0
 // Copyright 2025 Karandeep Singh (https://github.com/KannuSingh)
 
 pragma solidity 0.8.28;
@@ -78,6 +78,12 @@ interface IShinobiInputSettler {
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice The entrypoint (pool or deposit entrypoint) this settler is bound to
+     * @return The entrypoint address
+     */
+    function entrypoint() external view returns (address);
 
     /**
      * @notice Get the status of an order

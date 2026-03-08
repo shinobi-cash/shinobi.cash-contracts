@@ -8,7 +8,7 @@ import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
 // Contracts to deploy
 import {HyperlaneOracle} from "../../src/oif/hyperlane/HyperlaneOracle.sol";
-import {ShinobiCrosschainDepositEntrypoint} from "../../src/core/ShinobiCrosschainDepositEntrypoint.sol";
+import {ShinobiCrosschainDepositEntrypoint} from "../../src/crosschain/ShinobiCrosschainDepositEntrypoint.sol";
 import {ShinobiInputSettler} from "../../src/oif/ShinobiInputSettler.sol";
 import {ShinobiWithdrawalOutputSettler} from "../../src/oif/ShinobiWithdrawalOutputSettler.sol";
 
@@ -135,7 +135,7 @@ contract AddChain_01_DeployOriginContracts is Script {
         } else {
             console.log("3. Deploying ShinobiInputSettler...");
             uint256 blockBefore = block.number;
-            ShinobiInputSettler inputSettler = new ShinobiInputSettler(depositEntrypointAddr);
+            ShinobiInputSettler inputSettler = new ShinobiInputSettler(depositEntrypointAddr, deployer);
             DeploymentWriter.writeContract(chainName, "inputSettler", address(inputSettler), blockBefore);
             console.log("   Address:", address(inputSettler));
             console.log("   Block:", blockBefore);

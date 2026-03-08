@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0
 // Copyright 2025 Karandeep Singh (https://github.com/KannuSingh)
 
 pragma solidity 0.8.28;
@@ -10,6 +10,7 @@ import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
 import {ReentrancyGuard} from "@oz/utils/ReentrancyGuard.sol";
 import {Ownable2Step, Ownable} from "@oz/access/Ownable2Step.sol";
+import {Pausable} from "@oz/utils/Pausable.sol";
 
 /**
  * @title BaseShinobiOutputSettler
@@ -17,7 +18,7 @@ import {Ownable2Step, Ownable} from "@oz/access/Ownable2Step.sol";
  * @notice Abstract base contract for Shinobi output settlers
  * @dev Common functionality for deposit and withdrawal output settlers with IPayloadCreator support
  */
-abstract contract BaseShinobiOutputSettler is IShinobiOutputSettler, IPayloadCreator, ReentrancyGuard, Ownable2Step {
+abstract contract BaseShinobiOutputSettler is IShinobiOutputSettler, IPayloadCreator, ReentrancyGuard, Ownable2Step, Pausable {
     using MandateOutputEncodingLib for MandateOutput;
 
     /*//////////////////////////////////////////////////////////////
@@ -118,6 +119,27 @@ abstract contract BaseShinobiOutputSettler is IShinobiOutputSettler, IPayloadCre
             timestamp,
             output
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          EMERGENCY PAUSE
+    //////////////////////////////////////////////////////////////*/
+
+    function pause() external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }
+
+    /*//////////////////////////////////////////////////////////////
+                          ADMIN ETH RECOVERY
+    //////////////////////////////////////////////////////////////*/
+
+    error WithdrawFailed();
+
+    event ETHWithdrawn(address indexed recipient, uint256 amount);
+
+    function withdrawETH(address payable recipient, uint256 amount) external onlyOwner {
+        (bool success,) = recipient.call{value: amount}("");
+        if (!success) revert WithdrawFailed();
+        emit ETHWithdrawn(recipient, amount);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity 0.8.28;
+
+struct RoleData {
+    mapping(address => bool) hasRole;
+}
+
+/// @title AccessControlStorage - Admin + role-based access control state
+struct AccessControlStorageData {
+    address admin;
+    address pendingAdmin;
+    mapping(bytes32 => RoleData) roles;
+}
+
+library AccessControlStorageLib {
+    /// @dev keccak256("shinobi.accesscontrol.storage")
+    bytes32 internal constant SLOT = 0xf8e936e752235399ec6bbd1ebde00142f41297201da54f82d3eb7014eb03c805;
+
+    bytes32 internal constant ASP_POSTMAN_ROLE = keccak256("ASP_POSTMAN_ROLE");
+
+    function layout() internal pure returns (AccessControlStorageData storage s) {
+        bytes32 slot = SLOT;
+        assembly {
+            s.slot := slot
+        }
+    }
+}

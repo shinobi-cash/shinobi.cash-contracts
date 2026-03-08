@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0
 // Copyright 2025 Karandeep Singh (https://github.com/KannuSingh)
 
 pragma solidity 0.8.28;
@@ -31,6 +31,7 @@ contract ShinobiWithdrawalOutputSettler is BaseShinobiOutputSettler {
 
     error InvalidFillOracle();
     error FillOracleMismatch();
+    error InsufficientFillValue();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -49,7 +50,7 @@ contract ShinobiWithdrawalOutputSettler is BaseShinobiOutputSettler {
      * @notice Fill a withdrawal intent on user's chain (destination)
      * @dev Optimistic settlement - no intent proof validation (ZK proof validated on origin)
      */
-    function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
+    function fill(ShinobiIntent calldata intent) external payable override nonReentrant whenNotPaused {
         if (intent.outputs.length != 1) revert InvalidOutput();
         if (intent.outputs[0].chainId != block.chainid) revert InvalidChain();
         if (block.timestamp > intent.fillDeadline) revert FillDeadlinePassed();
@@ -65,6 +66,7 @@ contract ShinobiWithdrawalOutputSettler is BaseShinobiOutputSettler {
 
     function _fillOutput(bytes32 orderId, MandateOutput calldata output, address solver) internal {
         _validateOutput(output);
+        if (msg.value < output.amount) revert InsufficientFillValue();
         _createAndStoreFillRecord(orderId, output, solver);
 
         address recipient = address(uint160(uint256(output.recipient)));

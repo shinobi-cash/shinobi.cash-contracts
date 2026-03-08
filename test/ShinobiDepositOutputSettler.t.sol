@@ -8,6 +8,8 @@ import {ShinobiIntent} from "../src/oif/libraries/ShinobiIntentType.sol";
 import {ShinobiIntentLib} from "../src/oif/libraries/ShinobiIntentLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
+import {Pausable} from "@oz/utils/Pausable.sol";
 
 contract ShinobiDepositOutputSettlerTest is Test {
     using ShinobiIntentLib for ShinobiIntent;
@@ -176,7 +178,6 @@ contract ShinobiDepositOutputSettlerTest is Test {
 
     function test_fill_success() public {
         ShinobiIntent memory intent = _createValidIntent();
-        bytes32 orderId = intent.orderIdentifier();
 
         // Set up oracle to return proven
         intentOracle.setProven(true);
@@ -322,6 +323,17 @@ contract ShinobiDepositOutputSettlerTest is Test {
         settler.fill{value: AMOUNT}(intent);
     }
 
+    function test_fill_revertsWhenZeroValueWithAccumulatedBalance() public {
+        vm.deal(address(settler), 10 ether);
+
+        ShinobiIntent memory intent = _createValidIntent();
+        intentOracle.setProven(true);
+
+        vm.expectRevert(ShinobiDepositOutputSettler.InsufficientFillValue.selector);
+        vm.prank(solver);
+        settler.fill{value: 0}(intent);
+    }
+
     function test_fill_revertsWhenAlreadyFilled() public {
         ShinobiIntent memory intent = _createValidIntent();
         intentOracle.setProven(true);
@@ -345,6 +357,66 @@ contract ShinobiDepositOutputSettlerTest is Test {
         vm.expectRevert(BaseShinobiOutputSettler.InvalidAsset.selector);
         vm.prank(solver);
         settler.fill{value: AMOUNT}(intent);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         EMERGENCY PAUSE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_pause_onlyOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.pause();
+    }
+
+    function test_unpause_onlyOwner() public {
+        vm.prank(owner);
+        settler.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.unpause();
+    }
+
+    function test_pause_success() public {
+        vm.prank(owner);
+        settler.pause();
+        assertTrue(settler.paused());
+    }
+
+    function test_unpause_success() public {
+        vm.prank(owner);
+        settler.pause();
+        vm.prank(owner);
+        settler.unpause();
+        assertFalse(settler.paused());
+    }
+
+    function test_fill_revertsWhenPaused() public {
+        vm.prank(owner);
+        settler.pause();
+
+        ShinobiIntent memory intent = _createValidIntent();
+        intentOracle.setProven(true);
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(solver);
+        settler.fill{value: AMOUNT}(intent);
+    }
+
+    function test_fill_worksAfterUnpause() public {
+        vm.prank(owner);
+        settler.pause();
+        vm.prank(owner);
+        settler.unpause();
+
+        ShinobiIntent memory intent = _createValidIntent();
+        intentOracle.setProven(true);
+
+        vm.prank(solver);
+        settler.fill{value: AMOUNT}(intent);
+
+        assertTrue(depositRecipient.depositCalled());
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -483,7 +555,7 @@ contract MockDepositRecipient {
 
     function crosschainDeposit(
         address depositor,
-        uint256 amount,
+        uint256,
         uint256 precommitment
     ) external payable {
         depositCalled = true;

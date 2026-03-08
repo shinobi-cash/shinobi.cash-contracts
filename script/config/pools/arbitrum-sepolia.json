@@ -8,6 +8,8 @@
     "minimumDeposit": "1000000000000000",
     "vettingFeeBPS": 100,
     "maxRelayFeeBPS": 1500,
-    "maxSolverFeeBPS": 1000
+    "maxSolverFeeBPS": 1000,
+    "maxRefundFeeBPS": 1500,
+    "vettingFeeRecipient": "0x0000000000000000000000000000000000000000"
   }
 }

@@ -8,6 +8,8 @@ import {ShinobiIntent} from "../src/oif/libraries/ShinobiIntentType.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
 import {IShinobiOutputSettler} from "../src/oif/interfaces/IShinobiOutputSettler.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
+import {Pausable} from "@oz/utils/Pausable.sol";
 
 contract ShinobiWithdrawalOutputSettlerTest is Test {
     using MandateOutputEncodingLib for MandateOutput;
@@ -214,9 +216,21 @@ contract ShinobiWithdrawalOutputSettlerTest is Test {
     function test_fill_revertsWhenInsufficientETH() public {
         ShinobiIntent memory intent = _createValidIntent();
 
-        vm.expectRevert(BaseShinobiOutputSettler.ETHTransferFailed.selector);
+        vm.expectRevert(ShinobiWithdrawalOutputSettler.InsufficientFillValue.selector);
         vm.prank(solver);
         settler.fill{value: AMOUNT - 1}(intent); // Insufficient ETH
+    }
+
+    function test_fill_revertsWhenZeroValueWithAccumulatedBalance() public {
+        // Simulate ETH accumulating in the settler
+        vm.deal(address(settler), 10 ether);
+
+        ShinobiIntent memory intent = _createValidIntent();
+
+        // Attacker tries to fill with msg.value=0, stealing settler's balance
+        vm.expectRevert(ShinobiWithdrawalOutputSettler.InsufficientFillValue.selector);
+        vm.prank(solver);
+        settler.fill{value: 0}(intent);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -291,6 +305,65 @@ contract ShinobiWithdrawalOutputSettlerTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                         EMERGENCY PAUSE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_pause_onlyOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.pause();
+    }
+
+    function test_unpause_onlyOwner() public {
+        vm.prank(owner);
+        settler.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        settler.unpause();
+    }
+
+    function test_pause_success() public {
+        vm.prank(owner);
+        settler.pause();
+        assertTrue(settler.paused());
+    }
+
+    function test_unpause_success() public {
+        vm.prank(owner);
+        settler.pause();
+        vm.prank(owner);
+        settler.unpause();
+        assertFalse(settler.paused());
+    }
+
+    function test_fill_revertsWhenPaused() public {
+        vm.prank(owner);
+        settler.pause();
+
+        ShinobiIntent memory intent = _createValidIntent();
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(solver);
+        settler.fill{value: AMOUNT}(intent);
+    }
+
+    function test_fill_worksAfterUnpause() public {
+        vm.prank(owner);
+        settler.pause();
+        vm.prank(owner);
+        settler.unpause();
+
+        ShinobiIntent memory intent = _createValidIntent();
+        vm.prank(solver);
+        settler.fill{value: AMOUNT}(intent);
+
+        bytes32 orderId = _getOrderId(intent);
+        bytes32 outputHash = _getOutputHash(intent.outputs[0]);
+        assertTrue(settler.getFillRecord(orderId, outputHash) != bytes32(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         VIEW FUNCTION TESTS
     //////////////////////////////////////////////////////////////*/
 
@@ -311,7 +384,7 @@ contract ShinobiWithdrawalOutputSettlerTest is Test {
         assertEq(fillRecord, expectedRecord);
     }
 
-    function test_getFillRecord_returnsZeroForUnfilled() public {
+    function test_getFillRecord_returnsZeroForUnfilled() public view {
         bytes32 orderId = keccak256("nonexistent");
         bytes32 outputHash = keccak256("nonexistent");
 
@@ -343,14 +416,14 @@ contract ShinobiWithdrawalOutputSettlerTest is Test {
         assertTrue(settler.arePayloadsValid(payloads));
     }
 
-    function test_arePayloadsValid_returnsFalseForInvalidPayloads() public {
+    function test_arePayloadsValid_returnsFalseForInvalidPayloads() public view {
         bytes[] memory payloads = new bytes[](1);
         payloads[0] = abi.encode("invalid payload");
 
         assertFalse(settler.arePayloadsValid(payloads));
     }
 
-    function test_arePayloadsValid_returnsTrueForEmptyArray() public {
+    function test_arePayloadsValid_returnsTrueForEmptyArray() public view {
         bytes[] memory payloads = new bytes[](0);
         assertTrue(settler.arePayloadsValid(payloads));
     }

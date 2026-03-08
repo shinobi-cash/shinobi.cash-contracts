@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0
 // Copyright 2025 Karandeep Singh (https://github.com/KannuSingh)
 
 pragma solidity 0.8.28;
@@ -9,6 +9,8 @@ import {ShinobiIntentLib} from "./libraries/ShinobiIntentLib.sol";
 import {IInputOracle} from "oif-contracts/interfaces/IInputOracle.sol";
 import {MandateOutputEncodingLib} from "oif-contracts/libs/MandateOutputEncodingLib.sol";
 import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
+import {Ownable2Step, Ownable} from "@oz/access/Ownable2Step.sol";
+import {Pausable} from "@oz/utils/Pausable.sol";
 
 /**
  * @title ShinobiInputSettler
@@ -16,7 +18,7 @@ import {MandateOutput} from "oif-contracts/input/types/MandateOutputType.sol";
  * @notice Input settler for Shinobi Cash cross-chain intents following OIF standard
  * @dev Handles origin-side intent escrow, fill validation, and refunds
  */
-contract ShinobiInputSettler is IShinobiInputSettler {
+contract ShinobiInputSettler is IShinobiInputSettler, Ownable2Step, Pausable {
     using ShinobiIntentLib for ShinobiIntent;
 
     /*//////////////////////////////////////////////////////////////
@@ -55,7 +57,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(address _entrypoint) {
+    constructor(address _entrypoint, address _owner) Ownable(_owner) {
         if (_entrypoint == address(0)) revert InvalidEntrypoint();
         entrypoint = _entrypoint;
     }
@@ -90,7 +92,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
         ShinobiIntent calldata intent,
         IShinobiInputSettler.SolveParams[] calldata solveParams,
         bytes32 destination
-    ) external {
+    ) external whenNotPaused {
         bytes32 orderId = orderIdentifier(intent);
         if (orderStatus[orderId] != OrderStatus.Deposited) revert InvalidOrderStatus();
         if (block.timestamp > intent.fillDeadline) revert DeadlinePassed();
@@ -134,7 +136,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
             (address target, bytes memory functionCalldata) =
                 abi.decode(intent.refundCalldata, (address, bytes));
 
-            if (target == address(0)) revert InvalidRefundTarget();
+            if (target != entrypoint) revert InvalidRefundTarget();
 
             (bool success,) = target.call{value: totalAmount}(functionCalldata);
             if (!success) revert ETHTransferFailed();
@@ -142,6 +144,13 @@ contract ShinobiInputSettler is IShinobiInputSettler {
 
         emit Refunded(orderId);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          EMERGENCY PAUSE
+    //////////////////////////////////////////////////////////////*/
+
+    function pause() external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }
 
     /*//////////////////////////////////////////////////////////////
                         INTERNAL VALIDATION
@@ -165,7 +174,7 @@ contract ShinobiInputSettler is IShinobiInputSettler {
             expectedEthValue += inputs[i][1];
         }
 
-        if (msg.value < expectedEthValue) revert InvalidAmount();
+        if (msg.value != expectedEthValue) revert InvalidAmount();
     }
 
     function _validateFills(

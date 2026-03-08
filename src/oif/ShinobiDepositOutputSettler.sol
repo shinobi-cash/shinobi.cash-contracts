@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0
 // Copyright 2025 Karandeep Singh (https://github.com/KannuSingh)
 
 pragma solidity 0.8.28;
@@ -57,6 +57,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
     error OriginChainNotConfigured(uint256 chainId);
     error InvalidAddress();
     error InvalidChainId();
+    error InsufficientFillValue();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -102,7 +103,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
      * @notice Fill a deposit intent on pool chain (destination)
      * @dev Validates intent proof via configured intentOracle before filling
      */
-    function fill(ShinobiIntent calldata intent) external payable override nonReentrant {
+    function fill(ShinobiIntent calldata intent) external payable override nonReentrant whenNotPaused {
         if (intent.outputs.length != 1) revert InvalidOutput();
         if (intent.outputs[0].chainId != block.chainid) revert InvalidChain();
         if (block.timestamp > intent.fillDeadline) revert FillDeadlinePassed();
@@ -133,6 +134,7 @@ contract ShinobiDepositOutputSettler is BaseShinobiOutputSettler {
 
     function _fillOutput(bytes32 orderId, MandateOutput calldata output, address solver) internal {
         _validateOutput(output);
+        if (msg.value < output.amount) revert InsufficientFillValue();
         _createAndStoreFillRecord(orderId, output, solver);
 
         address recipient = address(uint160(uint256(output.recipient)));

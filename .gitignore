@@ -108,3 +108,12 @@ site/
 
 privacy-pool-secrets.json
 mock-aa-environment
+docs/
+
+# =====================================================
+# Claude Code
+# =====================================================
+.claude/settings.local.json
+.claude/projects/
+.claude/memory/
+.audit/

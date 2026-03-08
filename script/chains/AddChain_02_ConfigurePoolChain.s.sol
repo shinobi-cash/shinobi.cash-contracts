@@ -6,67 +6,75 @@ import {console} from "forge-std/console.sol";
 import {ChainConfig} from "../config/ChainConfig.sol";
 import {DeploymentWriter} from "../config/DeploymentWriter.sol";
 
-// Contracts to configure
-import {ShinobiCashEntrypoint} from "../../src/core/ShinobiCashEntrypoint.sol";
 import {ShinobiDepositOutputSettler} from "../../src/oif/ShinobiDepositOutputSettler.sol";
 
 /**
  * @title AddChain_02_ConfigurePoolChain
- * @notice Configure pool chain to support a new origin/destination chain
- * @dev Run this script on the POOL CHAIN
+ * @notice Configure pool-chain contracts to accept deposits from a new origin chain
+ * @dev Run this script on the POOL chain (e.g., Arbitrum Sepolia)
  *
- * Input:  config/origins/{ORIGIN_KEY}.json
- * Reads:  deployments/{pool-key}.json, deployments/{origin-name}.json
+ * Configures:
+ *   - DepositOutputSettler.setOriginChainConfig() with origin chain's HyperlaneOracle + DepositEntrypoint
+ *
+ * Prerequisites:
+ *   - Origin chain contracts deployed (AddChain_01)
+ *   - Pool chain settlers deployed (Step 10)
  *
  * Usage:
- *   ORIGIN_KEY=base-sepolia forge script script/chains/AddChain_02_ConfigurePoolChain.s.sol --rpc-url arbitrum-sepolia --broadcast
+ *   POOL_KEY=arbitrum-sepolia ORIGIN_KEY=base-sepolia \
+ *     forge script script/chains/AddChain_02_ConfigurePoolChain.s.sol:AddChain_02_ConfigurePoolChain \
+ *     --rpc-url arbitrum-sepolia --broadcast
  */
 contract AddChain_02_ConfigurePoolChain is Script {
-    struct PoolAddresses {
-        address entrypoint;
-        address depositOutputSettler;
-        address hyperlaneOracle;
-    }
-
-    struct OriginAddresses {
-        address hyperlaneOracle;
-        address depositEntrypoint;
-        address withdrawalOutputSettler;
-    }
-
     function run() external {
+        string memory poolKey = vm.envString("POOL_KEY");
         string memory originKey = vm.envString("ORIGIN_KEY");
 
-        // Load configurations
+        ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(poolKey);
         ChainConfig.OriginConfig memory originConfig = ChainConfig.getOriginConfig(originKey);
-        ChainConfig.PoolConfig memory poolConfig = ChainConfig.getPoolConfig(originConfig.poolKey);
 
         require(block.chainid == poolConfig.chainId, "Must run on pool chain!");
 
-        string memory poolChainName = _sanitizeChainName(poolConfig.name);
-        string memory originChainName = _sanitizeChainName(originConfig.name);
-
-        PoolAddresses memory pool = _readPoolAddresses(poolChainName);
-        OriginAddresses memory origin = _readOriginAddresses(originChainName);
-
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+
+        // Read pool chain DepositOutputSettler
+        address depositOutputSettler = DeploymentWriter.readContractAddress(poolKey, "contracts", "depositOutputSettler");
+        require(depositOutputSettler != address(0), "DepositOutputSettler not deployed");
+
+        // Read origin chain deployed addresses
+        string memory originChainName = _sanitizeChainName(originConfig.name);
+        address originHyperlaneOracle = DeploymentWriter.readContractAddress(originChainName, "contracts", "hyperlaneOracle");
+        address originDepositEntrypoint = DeploymentWriter.readContractAddress(originChainName, "contracts", "depositEntrypoint");
+
+        require(originHyperlaneOracle != address(0), "Origin HyperlaneOracle not deployed");
+        require(originDepositEntrypoint != address(0), "Origin DepositEntrypoint not deployed");
 
         console.log("==========================================================");
         console.log("  ADD NEW CHAIN - Step 2: Configure Pool Chain");
         console.log("==========================================================");
         console.log("");
+        console.log("Pool Key:", poolKey);
         console.log("Origin Key:", originKey);
-        console.log("Pool Chain:", poolConfig.name);
-        console.log("New Origin Chain:", originConfig.name);
-        console.log("Origin Chain ID:", originConfig.chainId);
         console.log("Deployer:", deployer);
         console.log("");
+        console.log("DepositOutputSettler:", depositOutputSettler);
+        console.log("Origin Chain ID:", originConfig.chainId);
+        console.log("Origin HyperlaneOracle:", originHyperlaneOracle);
+        console.log("Origin DepositEntrypoint:", originDepositEntrypoint);
+        console.log("");
+
+        ShinobiDepositOutputSettler settler = ShinobiDepositOutputSettler(payable(depositOutputSettler));
 
         vm.startBroadcast(deployerPrivateKey);
 
-        _configureDepositOutputSettler(pool.depositOutputSettler, originConfig.chainId, origin);
-        _configureEntrypoint(pool.entrypoint, pool.hyperlaneOracle, originConfig, origin);
+        console.log("1. Configuring origin chain on DepositOutputSettler...");
+        settler.setOriginChainConfig(
+            originConfig.chainId,
+            originHyperlaneOracle,
+            originDepositEntrypoint
+        );
+        console.log("   Done.");
 
         vm.stopBroadcast();
 
@@ -76,96 +84,6 @@ contract AddChain_02_ConfigurePoolChain is Script {
         console.log("==========================================================");
         console.log("");
         console.log("Next: ORIGIN_KEY=%s forge script AddChain_03_ConfigureOriginChain.s.sol --rpc-url <origin-chain>", originKey);
-    }
-
-    function _readPoolAddresses(string memory chainName) internal view returns (PoolAddresses memory) {
-        PoolAddresses memory pool;
-        pool.entrypoint = DeploymentWriter.readContractAddress(chainName, "contracts", "entrypoint");
-        pool.depositOutputSettler = DeploymentWriter.readContractAddress(chainName, "contracts", "depositOutputSettler");
-        pool.hyperlaneOracle = DeploymentWriter.readContractAddress(chainName, "contracts", "hyperlaneOracle");
-
-        require(pool.entrypoint != address(0), "Pool Entrypoint not deployed");
-        require(pool.depositOutputSettler != address(0), "Pool DepositOutputSettler not deployed");
-        require(pool.hyperlaneOracle != address(0), "Pool HyperlaneOracle not deployed");
-
-        return pool;
-    }
-
-    function _readOriginAddresses(string memory chainName) internal view returns (OriginAddresses memory) {
-        OriginAddresses memory origin;
-        origin.hyperlaneOracle = DeploymentWriter.readContractAddress(chainName, "contracts", "hyperlaneOracle");
-        origin.depositEntrypoint = DeploymentWriter.readContractAddress(chainName, "contracts", "depositEntrypoint");
-        origin.withdrawalOutputSettler = DeploymentWriter.readContractAddress(chainName, "contracts", "withdrawalOutputSettler");
-
-        require(origin.hyperlaneOracle != address(0), "Origin HyperlaneOracle not deployed");
-        require(origin.depositEntrypoint != address(0), "Origin DepositEntrypoint not deployed");
-        require(origin.withdrawalOutputSettler != address(0), "Origin WithdrawalOutputSettler not deployed");
-
-        return origin;
-    }
-
-    function _configureDepositOutputSettler(
-        address settler,
-        uint256 originChainId,
-        OriginAddresses memory origin
-    ) internal {
-        console.log("1. Configuring DepositOutputSettler...");
-
-        ShinobiDepositOutputSettler settlerContract = ShinobiDepositOutputSettler(payable(settler));
-
-        // Check if already configured using try-catch (handles version mismatches)
-        try settlerContract.originChainConfigs(originChainId) returns (address, address, bool isConfigured) {
-            if (isConfigured) {
-                console.log("   Already configured, skipping.");
-                return;
-            }
-        } catch {
-            // If read fails, continue with configuration
-        }
-
-        // Try to configure, skip if already configured
-        try settlerContract.setOriginChainConfig(
-            originChainId,
-            origin.hyperlaneOracle,
-            origin.depositEntrypoint
-        ) {
-            console.log("   Origin Chain ID:", originChainId);
-            console.log("   Origin Oracle:", origin.hyperlaneOracle);
-            console.log("   Origin DepositEntrypoint:", origin.depositEntrypoint);
-        } catch {
-            console.log("   Already configured or failed, skipping.");
-        }
-    }
-
-    function _configureEntrypoint(
-        address entrypoint,
-        address poolHyperlaneOracle,
-        ChainConfig.OriginConfig memory originConfig,
-        OriginAddresses memory origin
-    ) internal {
-        console.log("2. Configuring Entrypoint for withdrawals...");
-
-        ShinobiCashEntrypoint entrypointContract = ShinobiCashEntrypoint(payable(entrypoint));
-
-        // Check if already configured
-        (bool isConfigured,,,,,) = entrypointContract.withdrawalChainConfig(originConfig.chainId);
-        if (isConfigured) {
-            console.log("   Already configured, skipping.");
-            return;
-        }
-
-        entrypointContract.setWithdrawalChainConfig(
-            originConfig.chainId,
-            origin.withdrawalOutputSettler,
-            origin.hyperlaneOracle,
-            poolHyperlaneOracle,
-            originConfig.fillDeadline,
-            originConfig.expiry
-        );
-        console.log("   Destination Chain ID:", originConfig.chainId);
-        console.log("   WithdrawalOutputSettler:", origin.withdrawalOutputSettler);
-        console.log("   Fill Deadline:", originConfig.fillDeadline, "seconds");
-        console.log("   Expiry:", originConfig.expiry, "seconds");
     }
 
     function _sanitizeChainName(string memory name) internal pure returns (string memory) {

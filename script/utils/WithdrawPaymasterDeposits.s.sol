@@ -34,10 +34,10 @@ contract WithdrawPaymasterDeposits is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         // Read paymaster addresses from deployment file
-        address simple = DeploymentWriter.readContractAddress(poolKey, "paymasters", "simple");
-        address crossChain = DeploymentWriter.readContractAddress(poolKey, "paymasters", "crossChain");
+        address simple = DeploymentWriter.readContractAddress(poolKey, "paymasters", "withdrawal");
+        address crossChain = DeploymentWriter.readContractAddress(poolKey, "paymasters", "crosschainWithdrawal");
         address withdraw2 = DeploymentWriter.readContractAddress(poolKey, "paymasters", "withdraw2");
-        address crossChainWithdraw2 = DeploymentWriter.readContractAddress(poolKey, "paymasters", "crossChainWithdraw2");
+        address crossChainWithdraw2 = DeploymentWriter.readContractAddress(poolKey, "paymasters", "crosschainWithdraw2");
 
         console.log("==========================================================");
         console.log("  WITHDRAW PAYMASTER DEPOSITS");

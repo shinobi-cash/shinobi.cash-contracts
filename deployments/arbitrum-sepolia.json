@@ -28,44 +28,68 @@
   },
   "contracts": {
     "_initialized": "true",
-    "entrypoint": {
-      "address": "0xa6f7fdF6d62f3a56B4469046C7927f4cb0c67595",
-      "blockNumber": 243658592
+    "crosschainDeposit": {
+      "address": "0x984fF52f3F273c0DbdeBA8E2d501e41A1fF68273",
+      "blockNumber": 247921895
     },
-    "ethPool": {
-      "address": "0xF400070885d773ef29C1e7c04eDffd637C22584B",
-      "blockNumber": 243659038
+    "crosschainWithdraw": {
+      "address": "0x8D251a19535D955e1E7677952A042DCB1c0F9ce7",
+      "blockNumber": 247922303
     },
-    "hyperlaneOracle": {
-      "address": "0x246e0E2e416a9B06Cd806292f6a4eCb269cfA7CA",
-      "blockNumber": 243659310
+    "crosschainWithdraw2": {
+      "address": "0x7BEDd95c991F2A950e1075845F0F92b68e2bD90c",
+      "blockNumber": 247922735
     },
-    "inputSettler": {
-      "address": "0x4385eebaC4Eab0bc93E6D43270908da07e4b3178",
-      "blockNumber": 243659319
+    "deposit": {
+      "address": "0x3EED9e73FDE50291b992Ac5b89A0477aa72c1780",
+      "blockNumber": 247921635
     },
     "depositOutputSettler": {
-      "address": "0x843B07421385282EEE4FE1135DD1A63c1184aD71",
-      "blockNumber": 243659325
+      "address": "0x4A3f2b16556960D32eB91c591e04DaE9255552be",
+      "blockNumber": 248118768
+    },
+    "hyperlaneOracle": {
+      "address": "0xAEa38d9a9B1177913486d8546092E6191093F54c",
+      "blockNumber": 247923559
+    },
+    "inputSettler": {
+      "address": "0xB1096efF1Bd32715a75Efc2715259cC74A5d5682",
+      "blockNumber": 247923570
+    },
+    "ragequit": {
+      "address": "0x9C312C4D4e8ADbC077a2D729eDe1CeFF973aC591",
+      "blockNumber": 247922903
+    },
+    "shinobiPool": {
+      "address": "0x6B7A723D29D2Ed583086754D63baB67dCD1D2309",
+      "blockNumber": 247923130
+    },
+    "withdraw": {
+      "address": "0x6627Ba260068046e60EC4439198B21525628A1CF",
+      "blockNumber": 247922105
+    },
+    "withdraw2": {
+      "address": "0xCaB468FFE8d4942A8d9C88b83cE93AC839434D73",
+      "blockNumber": 10404636
     }
   },
   "paymasters": {
     "_initialized": "true",
-    "simple": {
-      "address": "0x52Ac5611230658aAf42e183D28Fab191C0bdff98",
-      "blockNumber": 243659684
+    "crosschainWithdraw2": {
+      "address": "0xc2Fe0250e674d283926548b1b6dd7cC1F48B928a",
+      "blockNumber": 247924078
     },
-    "crossChain": {
-      "address": "0x522d4Bb38F89D793D2996096592c01CB053eD3a5",
-      "blockNumber": 243659706
+    "crosschainWithdrawal": {
+      "address": "0x900079862bd8c9d883EE15F552957205403c9f9F",
+      "blockNumber": 247924032
     },
     "withdraw2": {
-      "address": "0x4E4a1E964baDCBB6Be5f14b324238C24E69dD56D",
-      "blockNumber": 243659727
+      "address": "0x28Cf44Cd148b267a4D74FAC4C561ABc542586be4",
+      "blockNumber": 247924056
     },
-    "crossChainWithdraw2": {
-      "address": "0x82eaeF17B861Bc7E3cBeC50Ce1fF39B58453ef27",
-      "blockNumber": 243659748
+    "withdrawal": {
+      "address": "0x0Af22402C1e3A411Ec24A2608703ec3fe7E8B062",
+      "blockNumber": 247924012
     }
   }
 }
