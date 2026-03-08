@@ -6,20 +6,20 @@
   "contracts": {
     "_initialized": "true",
     "depositEntrypoint": {
-      "address": "0x69CD260F71d820843DA4FaCa4E4Ce7729BC8B225",
-      "blockNumber": 38491212
+      "address": "0xd5b7daA1f43124a06974E5B78F9378E75DEc0682",
+      "blockNumber": 38574783
     },
     "hyperlaneOracle": {
-      "address": "0xa468c044f91efadA16Ce401ce0B3CF0264e92F59",
-      "blockNumber": 38491212
+      "address": "0xc8a17a972DaD85caBFBAca7f5b058970DA3aBA5F",
+      "blockNumber": 38574783
     },
     "inputSettler": {
-      "address": "0xdF71A744EA654DB5E3c9A935BdbB1811CDEF6f93",
-      "blockNumber": 38491212
+      "address": "0xc7eF3492E7F06AEfBAf8208fDed1b85dc29CFd04",
+      "blockNumber": 38574783
     },
     "withdrawalOutputSettler": {
-      "address": "0x783D93BAD8A8aA4376676A3ed25581332A307fbA",
-      "blockNumber": 38491212
+      "address": "0xFE2672B4F5988365Cc0cd8D6BFa3acD781feb741",
+      "blockNumber": 38574783
     }
   }
 }
