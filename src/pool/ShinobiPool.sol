@@ -26,6 +26,11 @@ contract ShinobiPool is FacetBase {
         address newFacet;
     }
 
+    struct Facet {
+        address facetAddress;
+        bytes4[] functionSelectors;
+    }
+
     // ── Events ──
 
     event RootUpdated(uint256 root, string ipfsCID, uint256 timestamp);
@@ -406,6 +411,16 @@ contract ShinobiPool is FacetBase {
     }
 
     // ── ERC-8153 Loupe ──
+
+    function facets() external view returns (Facet[] memory result) {
+        RoutingStorageData storage ds = RoutingStorageLib.layout();
+        uint256 count = ds.facets.length;
+        result = new Facet[](count);
+        for (uint256 i; i < count; ++i) {
+            address facet = ds.facets[i];
+            result[i] = Facet({facetAddress: facet, functionSelectors: ds.facetSelectors[facet]});
+        }
+    }
 
     function facetAddress(bytes4 selector) external view returns (address) {
         return RoutingStorageLib.layout().selectorToFacet[selector];
